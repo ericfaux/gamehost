@@ -5,25 +5,34 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
  * This client bypasses Row Level Security and should only be used in server-side code.
  */
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
-}
-if (!supabaseServiceRoleKey) {
-  throw new Error('Missing env.SUPABASE_SERVICE_ROLE_KEY');
+function getEnvVar(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing environment variable: ${name}`);
+  }
+  return value;
 }
 
 /**
- * Server-side Supabase client with admin privileges.
+ * Creates a new Supabase client for server-side use.
+ * Uses SERVICE_ROLE_KEY - bypasses RLS, never use in client code.
+ */
+export function createSupabaseServerClient(): SupabaseClient {
+  const supabaseUrl = getEnvVar('NEXT_PUBLIC_SUPABASE_URL');
+  const supabaseServiceRoleKey = getEnvVar('SUPABASE_SERVICE_ROLE_KEY');
+
+  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+/**
+ * Server-side Supabase client with admin privileges (singleton).
  * Uses SERVICE_ROLE_KEY - DO NOT use in client-side code.
  */
-export const supabaseAdmin: SupabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+export const supabaseAdmin: SupabaseClient = createSupabaseServerClient();
 
 export default supabaseAdmin;
