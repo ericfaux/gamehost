@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Badge component for displaying game complexity level.
  */

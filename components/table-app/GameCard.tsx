@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Card component for displaying a game recommendation.
  * Used in the wizard results to show recommended games.

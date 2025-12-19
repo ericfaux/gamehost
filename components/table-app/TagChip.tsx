@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Small chip component for displaying tags like vibes or complexity.
  */
