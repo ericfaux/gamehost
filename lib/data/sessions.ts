@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Session } from '@/lib/db/types';
 import { getVenueBySlug } from './venues';
 
@@ -26,7 +26,7 @@ export async function createSession(params: CreateSessionParams): Promise<Sessio
   }
 
   // Verify table exists and belongs to this venue
-  const { data: tableData, error: tableError } = await supabaseAdmin
+  const { data: tableData, error: tableError } = await getSupabaseAdmin()
     .from('venue_tables')
     .select('id')
     .eq('id', tableId)
@@ -38,7 +38,7 @@ export async function createSession(params: CreateSessionParams): Promise<Sessio
   }
 
   // Verify game exists
-  const { data: gameData, error: gameError } = await supabaseAdmin
+  const { data: gameData, error: gameError } = await getSupabaseAdmin()
     .from('games')
     .select('id')
     .eq('id', gameId)
@@ -49,7 +49,7 @@ export async function createSession(params: CreateSessionParams): Promise<Sessio
   }
 
   // Insert the session
-  const { data: session, error: insertError } = await supabaseAdmin
+  const { data: session, error: insertError } = await getSupabaseAdmin()
     .from('sessions')
     .insert({
       venue_id: venue.id,

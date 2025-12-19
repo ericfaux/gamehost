@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Game, RecommendationParams, GameComplexity, TimeBucket } from '@/lib/db/types';
 
 /**
@@ -7,7 +7,7 @@ import type { Game, RecommendationParams, GameComplexity, TimeBucket } from '@/l
  * @returns The game or null if not found
  */
 export async function getGameById(gameId: string): Promise<Game | null> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('games')
     .select('*')
     .eq('id', gameId)
@@ -29,7 +29,7 @@ export async function getGameById(gameId: string): Promise<Game | null> {
  * @returns Array of games (may be empty)
  */
 export async function getGamesForVenue(venueId: string): Promise<Game[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('games')
     .select('*')
     .eq('venue_id', venueId)
@@ -158,7 +158,7 @@ async function queryGames(options: QueryGamesOptions): Promise<Game[]> {
     includeVibesFilter,
   } = options;
 
-  let query = supabaseAdmin
+  let query = getSupabaseAdmin()
     .from('games')
     .select('*')
     .eq('venue_id', venueId)
