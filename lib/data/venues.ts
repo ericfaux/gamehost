@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Venue, VenueTable } from '@/lib/db/types';
 
 /**
@@ -7,7 +7,7 @@ import type { Venue, VenueTable } from '@/lib/db/types';
  * @returns The venue or null if not found
  */
 export async function getVenueBySlug(slug: string): Promise<Venue | null> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from('venues')
     .select('*')
     .eq('slug', slug)
@@ -43,7 +43,7 @@ export async function getVenueAndTableBySlugAndTableId(
   }
 
   // Then, get the table and verify it belongs to this venue
-  const { data: tableData, error: tableError } = await supabaseAdmin
+  const { data: tableData, error: tableError } = await getSupabaseAdmin()
     .from('venue_tables')
     .select('*')
     .eq('id', tableId)

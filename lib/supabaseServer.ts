@@ -29,10 +29,17 @@ export function createSupabaseServerClient(): SupabaseClient {
   });
 }
 
-/**
- * Server-side Supabase client with admin privileges (singleton).
- * Uses SERVICE_ROLE_KEY - DO NOT use in client-side code.
- */
-export const supabaseAdmin: SupabaseClient = createSupabaseServerClient();
+// Lazy singleton getter
+let _supabaseAdmin: SupabaseClient | null = null;
 
-export default supabaseAdmin;
+/**
+ * Returns a server-side Supabase client with admin privileges (singleton).
+ * Uses SERVICE_ROLE_KEY - DO NOT use in client-side code.
+ * Client is lazily initialized on first call to avoid build-time errors.
+ */
+export function getSupabaseAdmin(): SupabaseClient {
+  if (!_supabaseAdmin) {
+    _supabaseAdmin = createSupabaseServerClient();
+  }
+  return _supabaseAdmin;
+}
