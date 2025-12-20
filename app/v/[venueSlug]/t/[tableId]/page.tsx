@@ -19,8 +19,21 @@ interface PageProps {
 export default async function TableLandingPage({ params }: PageProps) {
   const { venueSlug, tableId } = await params;
 
+  console.log('TableLanding - params', { venueSlug, tableId });
+
   // Fetch venue and table using the data layer
-  const result = await getVenueAndTableBySlugAndTableId(venueSlug, tableId);
+  let result;
+  try {
+    result = await getVenueAndTableBySlugAndTableId(venueSlug, tableId);
+    console.log('TableLanding - lookup result', {
+      found: !!result,
+      venueId: result?.venue?.id ?? null,
+      tableId: result?.table?.id ?? null,
+    });
+  } catch (error) {
+    console.error('TableLanding - error', error);
+    throw error;
+  }
 
   // If venue or table not found, or table is inactive, show error state
   if (!result || !result.table.is_active) {
