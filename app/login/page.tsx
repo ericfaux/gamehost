@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { login } from './actions';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +92,18 @@ export default function LoginPage() {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Don&apos;t have an account?{' '}
+              <Link
+                href="/signup"
+                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              >
+                Sign Up
+              </Link>
+            </p>
+          </div>
         </div>
 
         <p className="text-center text-gray-500 text-sm mt-6">
