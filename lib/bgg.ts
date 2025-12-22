@@ -152,12 +152,14 @@ export async function searchBGG(query: string): Promise<BGGSearchResult[]> {
   }
 
   const encodedQuery = encodeURIComponent(query.trim());
-  const url = `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodedQuery}`;
+  const url = `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodedQuery}&_t=${Date.now()}`;
+
+  console.log('Fetching BGG:', url);
 
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'User-Agent': 'GameHost-Manager/1.0 (admin@gamehost.com)',
+      'User-Agent': 'GameHost-App/1.0 (Contact: admin@gamehost.com) - Educational Project',
       'Accept': 'application/xml',
     },
     cache: 'no-store' // CRITICAL: Forces a fresh network request every time
@@ -221,12 +223,14 @@ export async function getBGGDetails(id: string): Promise<BGGGameDetails> {
     throw new Error('Game ID is required');
   }
 
-  const url = `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(id)}&stats=1`;
+  const url = `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(id)}&stats=1&_t=${Date.now()}`;
+
+  console.log('Fetching BGG:', url);
 
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'User-Agent': 'GameHost-Manager/1.0 (admin@gamehost.com)',
+      'User-Agent': 'GameHost-App/1.0 (Contact: admin@gamehost.com) - Educational Project',
       'Accept': 'application/xml',
     },
     cache: 'no-store' // CRITICAL: Forces a fresh network request every time
