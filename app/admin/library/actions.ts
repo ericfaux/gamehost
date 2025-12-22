@@ -37,6 +37,8 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
   const maxTimeStr = formData.get('maxTime') as string | null;
   const complexity = formData.get('complexity') as string | null;
   const shelfLocation = formData.get('shelfLocation') as string | null;
+  const bggRankStr = formData.get('bggRank') as string | null;
+  const bggRatingStr = formData.get('bggRating') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -82,6 +84,24 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
     return { success: false, error: 'Invalid complexity value' };
   }
 
+  // Parse optional BGG fields
+  let bggRank: number | null = null;
+  let bggRating: number | null = null;
+
+  if (bggRankStr && bggRankStr.trim() !== '') {
+    bggRank = parseInt(bggRankStr, 10);
+    if (isNaN(bggRank) || bggRank < 1) {
+      return { success: false, error: 'BGG Rank must be a positive number' };
+    }
+  }
+
+  if (bggRatingStr && bggRatingStr.trim() !== '') {
+    bggRating = parseFloat(bggRatingStr);
+    if (isNaN(bggRating) || bggRating < 0 || bggRating > 10) {
+      return { success: false, error: 'BGG Rating must be between 0 and 10' };
+    }
+  }
+
   // Insert the new game
   const { error: insertError } = await getSupabaseAdmin()
     .from('games')
@@ -95,6 +115,8 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
       max_time_minutes: maxTime,
       complexity: complexity as GameComplexity,
       shelf_location: shelfLocation?.trim() || null,
+      bgg_rank: bggRank,
+      bgg_rating: bggRating,
       status: 'in_rotation',
       condition: 'good',
       vibes: [],
