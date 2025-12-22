@@ -63,6 +63,8 @@ export interface Game {
   setup_steps: string | null;
   rules_bullets: string | null;
   cover_image_url: string | null;
+  bgg_rank: number | null;
+  bgg_rating: number | null;
   created_at: string;
 }
 
