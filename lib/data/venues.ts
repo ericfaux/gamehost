@@ -2,6 +2,28 @@ import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Venue, VenueTable } from '@/lib/db/types';
 
 /**
+ * Fetches a venue by its owner's user ID.
+ * @param ownerId - The owner's UUID (from auth.users)
+ * @returns The venue or null if not found
+ */
+export async function getVenueByOwnerId(ownerId: string): Promise<Venue | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('venues')
+    .select('*')
+    .eq('owner_id', ownerId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    throw new Error(`Failed to fetch venue by owner: ${error.message}`);
+  }
+
+  return data as Venue;
+}
+
+/**
  * Fetches a venue by its unique slug.
  * @param slug - The venue's slug (e.g., "the-board-room")
  * @returns The venue or null if not found
