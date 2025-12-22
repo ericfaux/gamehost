@@ -155,10 +155,12 @@ export async function searchBGG(query: string): Promise<BGGSearchResult[]> {
   const url = `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodedQuery}`;
 
   const response = await fetch(url, {
+    method: 'GET',
     headers: {
-      'User-Agent': 'GameHost-BoardGameCafe-Manager/1.0 (admin@gamehost.com)',
+      'User-Agent': 'GameHost-Manager/1.0 (admin@gamehost.com)',
       'Accept': 'application/xml',
     },
+    cache: 'no-store' // CRITICAL: Forces a fresh network request every time
   });
 
   if (!response.ok) {
@@ -222,10 +224,12 @@ export async function getBGGDetails(id: string): Promise<BGGGameDetails> {
   const url = `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(id)}&stats=1`;
 
   const response = await fetch(url, {
+    method: 'GET',
     headers: {
-      'User-Agent': 'GameHost-BoardGameCafe-Manager/1.0 (admin@gamehost.com)',
+      'User-Agent': 'GameHost-Manager/1.0 (admin@gamehost.com)',
       'Accept': 'application/xml',
     },
+    cache: 'no-store' // CRITICAL: Forces a fresh network request every time
   });
 
   if (!response.ok) {
