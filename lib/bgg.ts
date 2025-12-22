@@ -156,6 +156,7 @@ export async function searchBGG(query: string): Promise<BGGSearchResult[]> {
 
   const response = await fetch(url, {
     headers: {
+      'User-Agent': 'GameHost-BoardGameCafe-Manager/1.0 (admin@gamehost.com)',
       'Accept': 'application/xml',
     },
   });
@@ -222,6 +223,7 @@ export async function getBGGDetails(id: string): Promise<BGGGameDetails> {
 
   const response = await fetch(url, {
     headers: {
+      'User-Agent': 'GameHost-BoardGameCafe-Manager/1.0 (admin@gamehost.com)',
       'Accept': 'application/xml',
     },
   });
