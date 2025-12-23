@@ -6,6 +6,27 @@ import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { GameComplexity } from '@/lib/db/types';
 
+interface CSVGameImport {
+  Title?: string | number;
+  title?: string | number;
+  Complexity?: string;
+  complexity?: string;
+  MinPlayers?: string | number;
+  minPlayers?: string | number;
+  min_players?: string | number;
+  MaxPlayers?: string | number;
+  maxPlayers?: string | number;
+  max_players?: string | number;
+  MinTime?: string | number;
+  minTime?: string | number;
+  min_time_minutes?: string | number;
+  MaxTime?: string | number;
+  maxTime?: string | number;
+  max_time_minutes?: string | number;
+  // Allow other columns to exist but ignore them
+  [key: string]: unknown;
+}
+
 interface AddGameResult {
   success: boolean;
   error?: string;
@@ -13,7 +34,7 @@ interface AddGameResult {
 
 const VALID_COMPLEXITIES: GameComplexity[] = ['simple', 'medium', 'complex'];
 
-export async function importGames(games: any[]) {
+export async function importGames(games: CSVGameImport[]) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -27,8 +48,8 @@ export async function importGames(games: any[]) {
     throw new Error('No venue found for your account');
   }
 
-  function parseNumber(value: any) {
-    const parsed = parseInt(value, 10);
+  function parseNumber(value: string | number | null | undefined) {
+    const parsed = parseInt(String(value || ''), 10);
     return Number.isNaN(parsed) ? null : parsed;
   }
 
