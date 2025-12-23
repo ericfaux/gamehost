@@ -21,7 +21,7 @@ export function ImportGamesButton() {
       skipEmptyLines: true,
       complete: (results) => {
         startTransition(async () => {
-          await importGames(results.data as any[]);
+          await importGames(results.data as unknown as Record<string, unknown>[]);
           alert('Games imported successfully');
           window.location.reload();
         });
