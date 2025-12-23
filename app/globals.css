@@ -13,6 +13,26 @@ body {
   font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
 }
 
+@layer base {
+  body {
+    @apply bg-paper text-ink-primary antialiased;
+  }
+
+  .bg-noise {
+    background-image: theme("backgroundImage.noise");
+  }
+}
+
+@layer components {
+  .ledger-table th {
+    @apply uppercase text-[11px] tracking-ledger font-mono text-ink-secondary border-b border-stroke bg-card/70;
+  }
+
+  .ledger-table td {
+    @apply border-b border-stroke/80 text-sm text-ink-primary;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
