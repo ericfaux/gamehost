@@ -2,12 +2,14 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { addGame } from '@/app/admin/library/actions';
+import { addGame, updateGame } from '@/app/admin/library/actions';
 import { searchGamesAction, getGameDetailsAction } from '@/app/admin/library/bgg-actions';
+import type { Game } from '@/lib/db/types';
 
-interface AddGameModalProps {
+interface GameFormModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialData?: Game | null;
 }
 
 interface BGGSearchResult {
@@ -44,7 +46,23 @@ const initialFormState: FormState = {
   imageUrl: '',
 };
 
-export function AddGameModal({ isOpen, onClose }: AddGameModalProps) {
+function mapGameToFormState(game: Game): FormState {
+  return {
+    title: game.title,
+    description: game.pitch || '',
+    minPlayers: String(game.min_players),
+    maxPlayers: String(game.max_players),
+    minTime: String(game.min_time_minutes),
+    maxTime: String(game.max_time_minutes),
+    complexity: game.complexity,
+    shelfLocation: game.shelf_location || '',
+    bggRank: game.bgg_rank ? String(game.bgg_rank) : '',
+    bggRating: game.bgg_rating ? String(game.bgg_rating) : '',
+    imageUrl: game.cover_image_url || '',
+  };
+}
+
+export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -59,7 +77,9 @@ export function AddGameModal({ isOpen, onClose }: AddGameModalProps) {
   const [showResults, setShowResults] = useState(false);
 
   // Form state (controlled inputs for autofill)
-  const [formState, setFormState] = useState<FormState>(initialFormState);
+  const [formState, setFormState] = useState<FormState>(
+    initialData ? mapGameToFormState(initialData) : initialFormState,
+  );
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -81,8 +101,11 @@ export function AddGameModal({ isOpen, onClose }: AddGameModalProps) {
       setShowResults(false);
       setFormState(initialFormState);
       setError(null);
+    } else {
+      setFormState(initialData ? mapGameToFormState(initialData) : initialFormState);
+      setError(null);
     }
-  }, [isOpen]);
+  }, [isOpen, initialData]);
 
   // Handle click outside to close modal
   function handleBackdropClick(e: React.MouseEvent) {
@@ -171,7 +194,11 @@ export function AddGameModal({ isOpen, onClose }: AddGameModalProps) {
   function handleSubmit(formData: FormData) {
     setError(null);
     startTransition(async () => {
-      const result = await addGame(formData);
+      if (initialData) {
+        formData.append('id', initialData.id);
+      }
+
+      const result = initialData ? await updateGame(formData) : await addGame(formData);
       if (result.success) {
         formRef.current?.reset();
         setFormState(initialFormState);
@@ -199,7 +226,7 @@ export function AddGameModal({ isOpen, onClose }: AddGameModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
           <h2 id="modal-title" className="text-lg font-semibold text-slate-900">
-            Add New Game
+            {initialData ? 'Edit Game' : 'Add New Game'}
           </h2>
           <button
             type="button"
@@ -536,8 +563,10 @@ export function AddGameModal({ isOpen, onClose }: AddGameModalProps) {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Adding...
+                    {initialData ? 'Saving...' : 'Adding...'}
                   </>
+                ) : initialData ? (
+                  'Save Changes'
                 ) : (
                   'Add Game'
                 )}
