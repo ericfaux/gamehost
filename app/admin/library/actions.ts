@@ -13,6 +13,52 @@ interface AddGameResult {
 
 const VALID_COMPLEXITIES: GameComplexity[] = ['simple', 'medium', 'complex'];
 
+export async function importGames(games: any[]) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('You must be logged in to import games');
+  }
+
+  const venue = await getVenueByOwnerId(user.id);
+
+  if (!venue) {
+    throw new Error('No venue found for your account');
+  }
+
+  function parseNumber(value: any) {
+    const parsed = parseInt(value, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  const mappedGames = games.map((game) => {
+    const complexity = (game.Complexity || game.complexity || '').toString().toLowerCase();
+    const normalizedComplexity: GameComplexity = VALID_COMPLEXITIES.includes(complexity as GameComplexity)
+      ? (complexity as GameComplexity)
+      : 'medium';
+
+    return {
+      venue_id: venue.id,
+      title: (game.Title || game.title || 'Untitled Game').toString().trim(),
+      min_players: parseNumber(game.MinPlayers || game.minPlayers || game.min_players),
+      max_players: parseNumber(game.MaxPlayers || game.maxPlayers || game.max_players),
+      min_time_minutes: parseNumber(game.MinTime || game.minTime || game.min_time_minutes),
+      max_time_minutes: parseNumber(game.MaxTime || game.maxTime || game.max_time_minutes),
+      complexity: normalizedComplexity,
+      status: 'in_rotation',
+      condition: 'good',
+      vibes: [],
+    };
+  });
+
+  await getSupabaseAdmin()
+    .from('games')
+    .insert(mappedGames);
+
+  revalidatePath('/admin/library');
+}
+
 export async function addGame(formData: FormData): Promise<AddGameResult> {
   // Get current user
   const supabase = await createClient();
