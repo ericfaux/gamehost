@@ -1,152 +1,385 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+
+const simulatorSteps = [
+  {
+    title: "Scan Table QR",
+    description: "Guests tap the coaster. The table assigns itself and your staff get the ping.",
+  },
+  {
+    title: "Wizard Card",
+    description: "Host asks a few cues. System narrows the library with smart filters.",
+  },
+  {
+    title: "Session Active",
+    description: "Game locked to the table, timers running, wear logged automatically.",
+  },
+];
 
 export default function LandingPage() {
+  const [turnStage, setTurnStage] = useState(0);
+  const currentStep = simulatorSteps[turnStage];
+
+  const advanceTurn = () => {
+    setTurnStage((prev) => (prev + 1) % simulatorSteps.length);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
-      {/* Navigation Bar */}
-      <nav className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link href="/" className="text-2xl font-bold text-slate-900 dark:text-white">
-                GameHost
-              </Link>
+    <main className="flex-1">
+      <section className="relative max-w-6xl mx-auto px-6 pt-12 pb-16 md:pt-16 md:pb-24">
+        <div className="flex items-center justify-between border-b border-stroke pb-6 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-ink-primary text-card flex items-center justify-center font-serif text-xl shadow-token">
+              GH
             </div>
-            <div className="flex items-center gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-ink-secondary">Edition 2025</p>
+              <p className="text-lg font-semibold text-ink-primary">GameHost Rulebook</p>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-6 text-sm font-medium text-ink-secondary">
+            <Link className="hover:text-ink-primary transition-colors" href="#product">
+              Product
+            </Link>
+            <Link className="hover:text-ink-primary transition-colors" href="#stats">
+              Results
+            </Link>
+            <Link className="hover:text-ink-primary transition-colors" href="#comparison">
+              Stat Sheet
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-12 items-start">
+          <div className="space-y-6">
+            <p className="text-sm uppercase tracking-[0.3em] text-ink-secondary">The Turn Sequence</p>
+            <h1 className="text-4xl md:text-5xl leading-[1.05] font-serif text-ink-primary">
+              The Operating System for Board Game Cafés.
+            </h1>
+            <p className="text-lg md:text-xl text-ink-secondary max-w-2xl leading-relaxed">
+              Turn your library from a black box into actionable insights. GameHost runs your
+              tables like a well-loved rulebook: clear, tactile, and quietly keeping score.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 pt-2">
               <Link
-                href="/login"
-                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white transition-colors"
+                href="/demo"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-ink-primary text-card font-semibold shadow-floating transition-transform duration-300 hover:-translate-y-0.5 border border-ink-primary"
               >
-                Login
+                Book a 15-minute demo
               </Link>
               <Link
-                href="/signup"
-                className="px-4 py-2 text-sm font-medium text-white bg-slate-900 dark:bg-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+                href="/pilot"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-full border-2 border-ink-primary text-ink-primary font-semibold bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:bg-paper"
               >
-                Sign Up
+                Get pilot checklist
               </Link>
             </div>
           </div>
-        </div>
-      </nav>
 
-      {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 sm:pt-32 sm:pb-32">
-        <div className="text-center">
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 dark:text-white tracking-tight mb-6">
-            The Operating System for
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-violet-600 dark:from-blue-400 dark:to-violet-400">
-              Board Game Cafés
-            </span>
-          </h1>
-          <p className="mt-6 text-xl sm:text-2xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto leading-relaxed">
-            Digital menus, frictionless staff teaching, and automated inventory management.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link
-              href="/signup"
-              className="w-full sm:w-auto px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-blue-600 to-violet-600 rounded-lg hover:from-blue-700 hover:to-violet-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-              Get Started
-            </Link>
-            <Link
-              href="/login"
-              className="w-full sm:w-auto px-8 py-4 text-lg font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-lg hover:border-slate-400 dark:hover:border-slate-600 transition-all"
-            >
-              Admin Login
-            </Link>
+          <div className="relative">
+            <div className="absolute inset-0 -left-6 -right-6 -top-6 -bottom-6 border border-stroke rounded-3xl"></div>
+            <div className="relative bg-card rounded-3xl shadow-floating p-6 border border-stroke overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Turn Simulator</div>
+                <button
+                  type="button"
+                  onClick={advanceTurn}
+                  className="px-3 py-2 rounded-full bg-accent-primary text-card text-sm font-semibold shadow-token border border-ink-primary/10 transition-all duration-300 hover:-translate-y-0.5"
+                >
+                  Next Turn
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-4 rounded-2xl border border-stroke bg-paper shadow-card transition-all duration-500">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-mono text-ink-secondary">Step {turnStage + 1} / 3</span>
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent-secondary/10 text-accent-secondary border border-accent-secondary/30">
+                      {currentStep.title}
+                    </span>
+                  </div>
+                  <p className="text-ink-primary font-medium leading-relaxed">{currentStep.description}</p>
+                </div>
+
+                {turnStage === 0 && (
+                  <div className="p-5 rounded-2xl border-2 border-dashed border-ink-secondary/30 bg-card shadow-card transition-all duration-500">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.2em] text-ink-secondary">Table token</p>
+                        <p className="text-xl font-serif text-ink-primary">Table 4 · QR Ready</p>
+                      </div>
+                      <button
+                        className="px-4 py-3 rounded-xl bg-ink-primary text-card font-semibold shadow-token transition-transform duration-300 hover:-translate-y-0.5"
+                        onClick={advanceTurn}
+                        type="button"
+                      >
+                        Scan Table QR
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {turnStage === 1 && (
+                  <div className="p-5 rounded-2xl border border-stroke bg-paper shadow-card transition-all duration-500">
+                    <div className="flex justify-between items-center mb-4">
+                      <p className="text-sm font-semibold text-ink-primary">Wizard Card</p>
+                      <span className="text-xs font-mono text-ink-secondary">Prompt sheet</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm font-medium text-ink-primary">
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs uppercase tracking-[0.2em] text-ink-secondary">Players</span>
+                        <div className="rounded-xl border border-stroke px-3 py-2 bg-card shadow-inner shadow-stroke/20">2-4</div>
+                      </label>
+                      <label className="flex flex-col gap-1">
+                        <span className="text-xs uppercase tracking-[0.2em] text-ink-secondary">Time</span>
+                        <div className="rounded-xl border border-stroke px-3 py-2 bg-card shadow-inner shadow-stroke/20">45-60m</div>
+                      </label>
+                      <label className="flex flex-col gap-1 col-span-2">
+                        <span className="text-xs uppercase tracking-[0.2em] text-ink-secondary">Mood</span>
+                        <div className="rounded-xl border border-stroke px-3 py-2 bg-card shadow-inner shadow-stroke/20">Cozy · Competitive · Beginner friendly</div>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {turnStage === 2 && (
+                  <div className="p-5 rounded-2xl border-2 border-accent-secondary/50 bg-card shadow-floating transition-all duration-500">
+                    <div className="flex items-center gap-3">
+                      <div className="h-14 w-14 rounded-2xl bg-accent-secondary text-card flex items-center justify-center font-serif text-2xl shadow-token">
+                        ●
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs uppercase tracking-[0.2em] text-ink-secondary">Session Active</p>
+                        <p className="text-xl font-serif text-ink-primary">Azul (Copy #2) → Table 4</p>
+                        <p className="text-sm font-mono text-ink-secondary">Timer 00:42 · Condition logging · Staff notified</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Feature 1 */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-5">
-              <svg
-                className="w-6 h-6 text-blue-600 dark:text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
-              Digital Game Library
-            </h3>
-            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-              Guests browse your collection at the table. Search, filter, and discover games with rich details and recommendations.
+      <section className="max-w-5xl mx-auto px-6 pb-20 md:pb-24">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-stroke"></div>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chapter II</span>
+          <div className="h-px flex-1 bg-stroke"></div>
+        </div>
+        <div className="grid md:grid-cols-[1.1fr_0.9fr] gap-10 items-start">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-serif text-ink-primary">Friday Night Chaos</h2>
+            <p className="text-lg text-ink-secondary leading-relaxed">
+              When the room fills up, the cracks show: staff running back and forth, guests unsure what to play,
+              boxes returned with bent corners. GameHost choreographs the night so your team can focus on hospitality.
             </p>
+            <ul className="space-y-3 text-ink-primary font-medium">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
+                Staff interruptions every time a table needs a recommendation.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
+                Choice overload leaves games untouched while crowd favorites wear out.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
+                Damaged inventory silently drifts into circulation.
+              </li>
+            </ul>
           </div>
-
-          {/* Feature 2 */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-violet-100 dark:bg-violet-900/30 rounded-lg flex items-center justify-center mb-5">
-              <svg
-                className="w-6 h-6 text-violet-600 dark:text-violet-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
+          <div className="relative h-full">
+            <div className="absolute inset-0 blur-3xl bg-accent-primary/10 -z-10"></div>
+            <div className="relative flex flex-col gap-4">
+              {["Missing Pieces?", "What do we play?", "Box Torn"].map((title, idx) => (
+                <div
+                  key={title}
+                  className="relative p-5 bg-card border border-stroke rounded-2xl shadow-card rotate-[-1deg]"
+                  style={{ transform: `rotate(${idx === 1 ? 2 : -1 * idx}deg)` }}
+                >
+                  <div className="absolute inset-0 rounded-2xl border border-ink-primary/5 pointer-events-none"></div>
+                  <p className="text-sm uppercase tracking-[0.25em] text-ink-secondary">Chaos Card</p>
+                  <p className="mt-2 text-xl font-serif text-ink-primary">{title}</p>
+                  <p className="text-sm text-ink-secondary mt-1">Before GameHost</p>
+                </div>
+              ))}
             </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
-              Usage Analytics
-            </h3>
-            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-              Track which games get played. Understand customer preferences and make data-driven collection decisions.
-            </p>
-          </div>
-
-          {/* Feature 3 */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow">
-            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center mb-5">
-              <svg
-                className="w-6 h-6 text-emerald-600 dark:text-emerald-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
-              Inventory Control
-            </h3>
-            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
-              Manage condition and wear. Keep track of missing pieces, damaged boxes, and schedule maintenance.
-            </p>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <p className="text-center text-slate-600 dark:text-slate-400 text-sm">
-            © 2025 GameHost. All rights reserved.
-          </p>
+      <section id="product" className="max-w-6xl mx-auto px-6 pb-20 md:pb-24">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-stroke"></div>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chapter III</span>
+          <div className="h-px flex-1 bg-stroke"></div>
         </div>
-      </footer>
-    </div>
+        <div className="grid md:grid-cols-[0.95fr_1.05fr] gap-12 items-start">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-serif text-ink-primary">Host Dashboard</h2>
+            <p className="text-lg text-ink-secondary leading-relaxed">
+              Built like a spec sheet, the dashboard gives your hosts crisp context at a glance. Every token, table, and copy
+              updates live.
+            </p>
+            <p className="text-sm font-mono text-ink-secondary">Mode: Floor Ops · Last Sync: 00:11</p>
+          </div>
+          <div className="relative bg-card rounded-3xl border border-stroke shadow-floating p-6">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Live Tables</p>
+              <span className="px-3 py-1 rounded-full bg-accent-secondary/15 text-accent-secondary text-xs font-semibold border border-accent-secondary/30">
+                IN PLAY
+              </span>
+            </div>
+            <div className="rounded-2xl border border-ink-primary/10 bg-paper overflow-hidden shadow-card">
+              <div className="grid grid-cols-[1.1fr_0.6fr_0.6fr_0.6fr] text-xs uppercase tracking-[0.12em] text-ink-secondary border-b border-stroke bg-card/80 px-4 py-3 font-mono">
+                <div>Title</div>
+                <div>Copy</div>
+                <div>Status</div>
+                <div>Table</div>
+              </div>
+              <div className="grid grid-cols-[1.1fr_0.6fr_0.6fr_0.6fr] items-center px-4 py-4 text-ink-primary font-mono text-sm">
+                <div className="font-semibold">Azul</div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-accent-primary shadow-token"></span>
+                  Copy #2
+                </div>
+                <div>
+                  <span className="px-2 py-1 rounded-lg bg-accent-secondary/10 text-accent-secondary border border-accent-secondary/30 text-[11px] font-semibold">
+                    IN PLAY
+                  </span>
+                </div>
+                <div className="font-semibold">Table 4</div>
+              </div>
+              <div className="border-t border-stroke px-4 py-3 text-xs text-ink-secondary font-mono bg-card/70">
+                Condition: Clean · Logged: 00:42 · Staff: Jamie
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="stats" className="max-w-6xl mx-auto px-6 pb-20 md:pb-24">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-stroke"></div>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chapter IV</span>
+          <div className="h-px flex-1 bg-stroke"></div>
+        </div>
+        <div className="grid md:grid-cols-[0.9fr_1.1fr] gap-12 items-start">
+          <div className="grid grid-cols-2 gap-4">
+            {[{ label: "F&B Sales Increase", value: "15%" }, { label: "Minutes Saved per Table", value: "12m" }].map(
+              (stat) => (
+                <div key={stat.label} className="p-5 rounded-2xl bg-card border border-stroke shadow-card">
+                  <p className="text-xs uppercase tracking-[0.2em] text-ink-secondary">{stat.label}</p>
+                  <p className="mt-3 text-3xl font-serif text-ink-primary">{stat.value}</p>
+                </div>
+              ),
+            )}
+          </div>
+          <div className="space-y-4">
+            {["GameHost finally gave us visibility into what wears out.", "Guests discover new titles without waiting for us."].map(
+              (quote, idx) => (
+                <article
+                  key={quote}
+                  className="border border-stroke rounded-2xl bg-card shadow-card overflow-hidden"
+                  style={{ borderLeftWidth: "6px", borderLeftColor: "#C64D2F" }}
+                >
+                  <div className="p-5">
+                    <p className="text-lg font-serif text-ink-primary">“{quote}”</p>
+                    <p className="mt-3 text-sm text-ink-secondary font-mono">Owner, Partner Café #{idx + 1}</p>
+                  </div>
+                </article>
+              ),
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="comparison"
+        className="max-w-6xl mx-auto px-6 pb-20 md:pb-24"
+        aria-labelledby="comparison-heading"
+      >
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-stroke"></div>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Appendix A</span>
+          <div className="h-px flex-1 bg-stroke"></div>
+        </div>
+        <h2 id="comparison-heading" className="text-3xl font-serif text-ink-primary mb-6">
+          The Stat Sheet
+        </h2>
+        <div className="rounded-3xl border border-ink-primary/10 bg-card shadow-floating overflow-hidden">
+          <div className="grid grid-cols-3 text-xs uppercase tracking-[0.18em] text-ink-secondary bg-paper border-b border-stroke font-mono">
+            <div className="px-4 py-3 border-r border-stroke">Feature</div>
+            <div className="px-4 py-3 border-r border-stroke">GameHost</div>
+            <div className="px-4 py-3">Spreadsheets</div>
+          </div>
+          {[{
+            feature: "Live Availability",
+            gamehost: "Real-time tables",
+            spreadsheets: "Manual refresh",
+          },
+          {
+            feature: "Maintenance Tracking",
+            gamehost: "Condition logs per copy",
+            spreadsheets: "Lost between tabs",
+          },
+          {
+            feature: "Guest Login Required",
+            gamehost: "No",
+            spreadsheets: "Often yes",
+          }].map((row, idx) => (
+            <div
+              key={row.feature}
+              className={`grid grid-cols-3 text-sm font-medium text-ink-primary bg-card ${idx !== 2 ? "border-b border-stroke" : ""}`}
+            >
+              <div className="px-4 py-4 border-r border-stroke font-serif">{row.feature}</div>
+              <div className="px-4 py-4 border-r border-stroke font-mono text-accent-secondary">{row.gamehost}</div>
+              <div className="px-4 py-4 font-mono text-ink-secondary">{row.spreadsheets}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="max-w-4xl mx-auto px-6 pb-16 md:pb-24 text-center">
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <div className="h-px flex-1 bg-stroke"></div>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Final Scoring</span>
+          <div className="h-px flex-1 bg-stroke"></div>
+        </div>
+        <h3 className="text-3xl font-serif text-ink-primary mb-4">End Game Scoring</h3>
+        <p className="text-lg text-ink-secondary mb-8">
+          Ready to run a pilot? We’ll bring the playmat, the tokens, and a checklist to make your first weekend effortless.
+        </p>
+        <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <Link
+            href="/pilot"
+            className="px-6 py-3 rounded-full bg-accent-primary text-card font-semibold shadow-floating border border-ink-primary/5 transition-transform duration-300 hover:-translate-y-0.5"
+          >
+            Request a pilot
+          </Link>
+          <Link
+            href="/contact"
+            className="px-6 py-3 rounded-full border-2 border-ink-primary text-ink-primary font-semibold bg-card shadow-card transition-transform duration-300 hover:-translate-y-0.5"
+          >
+            Talk to a host
+          </Link>
+        </div>
+        <div className="mt-10 flex justify-center gap-6 text-sm text-ink-secondary">
+          <Link className="hover:text-ink-primary transition-colors" href="/docs">
+            Docs
+          </Link>
+          <Link className="hover:text-ink-primary transition-colors" href="/pricing">
+            Pricing
+          </Link>
+          <Link className="hover:text-ink-primary transition-colors" href="/about">
+            About
+          </Link>
+        </div>
+      </section>
+    </main>
   );
 }
