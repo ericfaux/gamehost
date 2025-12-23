@@ -132,3 +132,124 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
 
   return { success: true };
 }
+
+export async function updateGame(formData: FormData): Promise<AddGameResult> {
+  // Get current user
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'You must be logged in to update a game' };
+  }
+
+  // Get user's venue
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    return { success: false, error: 'No venue found for your account' };
+  }
+
+  const id = formData.get('id') as string | null;
+  if (!id) {
+    return { success: false, error: 'Game ID is required' };
+  }
+
+  // Extract and validate form data
+  const title = formData.get('title') as string | null;
+  const description = formData.get('description') as string | null;
+  const minPlayersStr = formData.get('minPlayers') as string | null;
+  const maxPlayersStr = formData.get('maxPlayers') as string | null;
+  const minTimeStr = formData.get('minTime') as string | null;
+  const maxTimeStr = formData.get('maxTime') as string | null;
+  const complexity = formData.get('complexity') as string | null;
+  const shelfLocation = formData.get('shelfLocation') as string | null;
+  const bggRankStr = formData.get('bggRank') as string | null;
+  const bggRatingStr = formData.get('bggRating') as string | null;
+
+  // Validate required fields
+  if (!title || title.trim() === '') {
+    return { success: false, error: 'Title is required' };
+  }
+
+  if (!minPlayersStr || !maxPlayersStr) {
+    return { success: false, error: 'Player count range is required' };
+  }
+
+  if (!minTimeStr || !maxTimeStr) {
+    return { success: false, error: 'Playtime range is required' };
+  }
+
+  if (!complexity) {
+    return { success: false, error: 'Complexity is required' };
+  }
+
+  // Parse and validate numeric fields
+  const minPlayers = parseInt(minPlayersStr, 10);
+  const maxPlayers = parseInt(maxPlayersStr, 10);
+  const minTime = parseInt(minTimeStr, 10);
+  const maxTime = parseInt(maxTimeStr, 10);
+
+  if (isNaN(minPlayers) || isNaN(maxPlayers) || minPlayers < 1) {
+    return { success: false, error: 'Invalid player count values' };
+  }
+
+  if (minPlayers > maxPlayers) {
+    return { success: false, error: 'Minimum players cannot exceed maximum players' };
+  }
+
+  if (isNaN(minTime) || isNaN(maxTime) || minTime < 1) {
+    return { success: false, error: 'Invalid playtime values' };
+  }
+
+  if (minTime > maxTime) {
+    return { success: false, error: 'Minimum time cannot exceed maximum time' };
+  }
+
+  // Validate complexity
+  if (!VALID_COMPLEXITIES.includes(complexity as GameComplexity)) {
+    return { success: false, error: 'Invalid complexity value' };
+  }
+
+  // Parse optional BGG fields
+  let bggRank: number | null = null;
+  let bggRating: number | null = null;
+
+  if (bggRankStr && bggRankStr.trim() !== '') {
+    bggRank = parseInt(bggRankStr, 10);
+    if (isNaN(bggRank) || bggRank < 1) {
+      return { success: false, error: 'BGG Rank must be a positive number' };
+    }
+  }
+
+  if (bggRatingStr && bggRatingStr.trim() !== '') {
+    bggRating = parseFloat(bggRatingStr);
+    if (isNaN(bggRating) || bggRating < 0 || bggRating > 10) {
+      return { success: false, error: 'BGG Rating must be between 0 and 10' };
+    }
+  }
+
+  const { error: updateError } = await getSupabaseAdmin()
+    .from('games')
+    .update({
+      venue_id: venue.id,
+      title: title.trim(),
+      pitch: description?.trim() || null,
+      min_players: minPlayers,
+      max_players: maxPlayers,
+      min_time_minutes: minTime,
+      max_time_minutes: maxTime,
+      complexity: complexity as GameComplexity,
+      shelf_location: shelfLocation?.trim() || null,
+      bgg_rank: bggRank,
+      bgg_rating: bggRating,
+    })
+    .eq('id', id);
+
+  if (updateError) {
+    console.error('Failed to update game:', updateError);
+    return { success: false, error: 'Failed to update game. Please try again.' };
+  }
+
+  revalidatePath('/admin/library');
+
+  return { success: true };
+}
