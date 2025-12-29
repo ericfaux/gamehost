@@ -176,6 +176,27 @@ export async function getActiveSession(tableId: string): Promise<Session | null>
 }
 
 /**
+ * Gets a session by its ID.
+ *
+ * @param sessionId - The session ID to fetch
+ * @returns The session if found, null otherwise
+ */
+export async function getSessionById(sessionId: string): Promise<Session | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching session by ID:', error);
+    return null;
+  }
+
+  return data as Session | null;
+}
+
+/**
  * Ends a session by setting feedback_submitted_at.
  * Used when admin ends a session or when feedback is submitted.
  *

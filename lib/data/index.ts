@@ -28,6 +28,7 @@ export {
   updateSessionGame,
   getActiveSessionId,
   getActiveSession,
+  getSessionById,
   endSession,
   type CreateSessionParams,
 } from './sessions';
