@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Game } from "@/lib/db/types";
 import { mockGames, mockIssues, MaintenanceIssue } from "@/lib/mockData";
 
-export default function MaintenancePage() {
+function MaintenanceContent() {
   const { push } = useToast();
   const [issues, setIssues] = useState<MaintenanceIssue[]>(mockIssues);
   const [severity, setSeverity] = useState("all");
@@ -39,7 +39,7 @@ export default function MaintenancePage() {
   }, [issues, severity, status]);
 
   return (
-    <AppShell>
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Maintenance</p>
@@ -151,6 +151,14 @@ export default function MaintenancePage() {
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+}
+
+export default function MaintenancePage() {
+  return (
+    <AppShell>
+      <MaintenanceContent />
     </AppShell>
   );
 }

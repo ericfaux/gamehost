@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { mockVenues } from "@/lib/mockData";
 
-export default function SettingsPage() {
+function SettingsContent() {
   const venue = mockVenues[0];
 
   return (
-    <AppShell>
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Settings</p>
@@ -66,6 +66,14 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <AppShell>
+      <SettingsContent />
     </AppShell>
   );
 }

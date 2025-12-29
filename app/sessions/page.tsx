@@ -16,7 +16,7 @@ function formatDuration(started: string) {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-export default function SessionsPage() {
+function SessionsContent() {
   const { push } = useToast();
   const [sessions, setSessions] = useState<Session[]>(mockSessions);
   const [tableId, setTableId] = useState(mockTables[0]?.id ?? "");
@@ -53,7 +53,7 @@ export default function SessionsPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Sessions</p>
@@ -135,6 +135,14 @@ export default function SessionsPage() {
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+}
+
+export default function SessionsPage() {
+  return (
+    <AppShell>
+      <SessionsContent />
     </AppShell>
   );
 }

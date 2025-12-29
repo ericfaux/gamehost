@@ -18,9 +18,9 @@ const popular = Object.entries(topPlayed)
 
 const deadShelf = mockGames.filter((game) => !topPlayed[game.id]).slice(0, 4);
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
   return (
-    <AppShell>
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Analytics</p>
@@ -86,6 +86,14 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+    </>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <AppShell>
+      <AnalyticsContent />
     </AppShell>
   );
 }
