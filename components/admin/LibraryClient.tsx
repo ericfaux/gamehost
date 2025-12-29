@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { GameFormModal } from '@/components/admin/AddGameModal';
+import { ImportGamesButton } from '@/components/admin/ImportGamesButton';
 import { Game, GameStatus } from '@/lib/db/types';
 
 const vibeFilters = ['calming', 'pattern', 'nature', 'drafting', 'asymmetric', 'conflict', 'engine', 'serene', 'racing'];
@@ -87,6 +88,7 @@ export function LibraryClient({ initialGames }: LibraryClientProps) {
           <h1 className="text-3xl">Game ledger</h1>
         </div>
         <div className="flex items-center gap-2">
+          <ImportGamesButton />
           <Button variant="secondary" className="gap-2" onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" /> Add game
           </Button>

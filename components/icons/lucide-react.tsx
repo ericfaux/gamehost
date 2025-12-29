@@ -244,3 +244,32 @@ export function ChevronsRight(props: IconProps) {
     </IconBase>
   );
 }
+
+export function FileUp(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+      <path d="M12 12v6" />
+      <path d="m15 15-3-3-3 3" />
+    </IconBase>
+  );
+}
+
+export function Download(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" x2="12" y1="15" y2="3" />
+    </IconBase>
+  );
+}
+
+export function Loader2(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </IconBase>
+  );
+}
