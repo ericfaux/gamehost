@@ -14,6 +14,7 @@ export function AddGameModal({ open, onClose }: { open: boolean; onClose: () => 
   const [players, setPlayers] = useState("2-4");
   const [time, setTime] = useState("45-60m");
   const [location, setLocation] = useState("New Shelf");
+  const labelClassName = "text-xs font-bold text-ink-secondary uppercase tracking-wider mb-1 block";
 
   if (!open) return null;
 
@@ -48,38 +49,26 @@ export function AddGameModal({ open, onClose }: { open: boolean; onClose: () => 
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Catan"
-              required
-            />
-            <Input
-              label="BGG Link"
-              value={bgg}
-              onChange={(e) => setBgg(e.target.value)}
-              placeholder="https://"
-            />
-            <Input
-              label="Players"
-              value={players}
-              onChange={(e) => setPlayers(e.target.value)}
-              placeholder="2-4"
-            />
-            <Input
-              label="Time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              placeholder="45-60m"
-            />
-            <Input
-              label="Location"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Aisle A · Shelf 3"
-              className="col-span-2"
-            />
+            <div>
+              <label className={labelClassName}>Title</label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Catan" required />
+            </div>
+            <div>
+              <label className={labelClassName}>BGG Link</label>
+              <Input value={bgg} onChange={(e) => setBgg(e.target.value)} placeholder="https://" />
+            </div>
+            <div>
+              <label className={labelClassName}>Players</label>
+              <Input value={players} onChange={(e) => setPlayers(e.target.value)} placeholder="2-4" />
+            </div>
+            <div>
+              <label className={labelClassName}>Time</label>
+              <Input value={time} onChange={(e) => setTime(e.target.value)} placeholder="45-60m" />
+            </div>
+            <div className="col-span-2">
+              <label className={labelClassName}>Location</label>
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Aisle A · Shelf 3" />
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>
