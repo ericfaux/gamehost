@@ -4,6 +4,8 @@ import { getVenueByOwnerId } from "@/lib/data/venues";
 import { getVenueTables } from "@/lib/data/tables";
 import { SessionsClient, type SessionWithDetails } from "@/components/admin/SessionsClient";
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminSessionsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

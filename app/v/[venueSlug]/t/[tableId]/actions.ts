@@ -7,7 +7,9 @@
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { createSession, getActiveSessionId, endSession as endSessionById } from '@/lib/data';
+import { createSession, getActiveSession, endSession as endSessionById } from '@/lib/data';
+
+const STALE_SESSION_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 export interface StartCheckInResult {
   success: boolean;
@@ -30,22 +32,33 @@ export async function startCheckIn(
 ): Promise<StartCheckInResult> {
   try {
     // Check if there's already an active session for this table
-    const existingSessionId = await getActiveSessionId(tableId);
-    if (existingSessionId) {
-      // Session already exists - set the cookie and return success
-      const cookieStore = await cookies();
-      cookieStore.set('gamehost_session_id', existingSessionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24, // 24 hours
-        path: '/',
-      });
+    const existingSession = await getActiveSession(tableId);
 
-      return {
-        success: true,
-        sessionId: existingSessionId,
-      };
+    if (existingSession) {
+      // Check if the session is stale (older than 12 hours)
+      const sessionAge = Date.now() - new Date(existingSession.created_at).getTime();
+
+      if (sessionAge > STALE_SESSION_THRESHOLD_MS) {
+        // Session is stale - close it and create a new one
+        console.log(`Closed stale session: ${existingSession.id} (age: ${Math.round(sessionAge / 3600000)}h)`);
+        await endSessionById(existingSession.id);
+        // Fall through to create a new session
+      } else {
+        // Session is recent - join it
+        const cookieStore = await cookies();
+        cookieStore.set('gamehost_session_id', existingSession.id, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24, // 24 hours
+          path: '/',
+        });
+
+        return {
+          success: true,
+          sessionId: existingSession.id,
+        };
+      }
     }
 
     console.log(`Starting check-in for Table: ${tableId}`);
