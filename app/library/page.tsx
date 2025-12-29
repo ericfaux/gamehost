@@ -67,6 +67,14 @@ function AddGameModal({ open, onClose, onSave }: { open: boolean; onClose: () =>
 }
 
 export default function LibraryPage() {
+  return (
+    <AppShell>
+      <LibraryContent />
+    </AppShell>
+  );
+}
+
+function LibraryContent() {
   const { push } = useToast();
   const [selectedVibe, setSelectedVibe] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<GameStatus | "">("");
@@ -130,7 +138,7 @@ export default function LibraryPage() {
   }, [players, rows, selectedStatus, selectedVibe, time]);
 
   return (
-    <AppShell>
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Library</p>
@@ -229,6 +237,6 @@ export default function LibraryPage() {
           push({ title: "Game added", description: `${newGame.title} logged to library`, tone: "success" });
         }}
       />
-    </AppShell>
+    </>
   );
 }
