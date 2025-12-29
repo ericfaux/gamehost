@@ -2,12 +2,15 @@
  * QR Landing Route - /v/[venueSlug]/t/[tableId]
  *
  * This is the entry point for guests who scan a QR code at a table.
- * It displays the venue name and table label, with a CTA to start the
- * game recommendation wizard.
+ *
+ * Two-stage session flow:
+ * 1. If no active session: Show "Start Session" button to check-in
+ * 2. If session exists: Show "Session Active" with options to find/browse games
  */
 
 import Link from 'next/link';
-import { getVenueAndTableBySlugAndTableId } from '@/lib/data';
+import { getVenueAndTableBySlugAndTableId, getActiveSession } from '@/lib/data';
+import { StartSessionButton } from './StartSessionButton';
 
 interface PageProps {
   params: Promise<{
@@ -75,6 +78,11 @@ export default async function TableLandingPage({ params }: PageProps) {
 
   const { venue, table } = result;
 
+  // Check if there's an active session for this table
+  const activeSession = await getActiveSession(tableId);
+  const hasActiveSession = !!activeSession;
+  const isPlaying = hasActiveSession && activeSession.game_id !== null;
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gray-50 dark:bg-gray-950">
       <div className="w-full max-w-md text-center space-y-8">
@@ -105,32 +113,69 @@ export default async function TableLandingPage({ params }: PageProps) {
           </p>
         </div>
 
-        {/* Description */}
-        <p className="text-gray-600 dark:text-gray-400">
-          Ready to find the perfect game for your group? Let us help you discover
-          something fun to play!
-        </p>
+        {hasActiveSession ? (
+          // Session exists - show active session UI
+          <>
+            {/* Session active badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-medium">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Session Active
+            </div>
 
-        {/* CTA Button */}
-        <Link
-          href={`/v/${venueSlug}/t/${tableId}/wizard`}
-          className="inline-flex items-center justify-center w-full px-6 py-4 text-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-lg shadow-blue-600/25 transition-colors"
-        >
-          Find a game
-          <svg
-            className="w-5 h-5 ml-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 7l5 5m0 0l-5 5m5-5H6"
-            />
-          </svg>
-        </Link>
+            {isPlaying ? (
+              // Currently playing a game
+              <p className="text-gray-600 dark:text-gray-400">
+                You&apos;re currently playing! Need to switch games or find something new?
+              </p>
+            ) : (
+              // Checked in but no game selected
+              <p className="text-gray-600 dark:text-gray-400">
+                Ready to find the perfect game for your group? Let us help you discover
+                something fun to play!
+              </p>
+            )}
+
+            {/* Game selection buttons */}
+            <div className="space-y-3">
+              <Link
+                href={`/v/${venueSlug}/t/${tableId}/wizard`}
+                className="inline-flex items-center justify-center w-full px-6 py-4 text-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-lg shadow-blue-600/25 transition-colors"
+              >
+                {isPlaying ? 'Find a different game' : 'Find a game'}
+                <svg
+                  className="w-5 h-5 ml-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7l5 5m0 0l-5 5m5-5H6"
+                  />
+                </svg>
+              </Link>
+
+              <Link
+                href={`/v/${venueSlug}/t/${tableId}/library`}
+                className="inline-flex items-center justify-center w-full px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:text-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Browse full library
+              </Link>
+            </div>
+          </>
+        ) : (
+          // No session - show start session UI
+          <>
+            <p className="text-gray-600 dark:text-gray-400">
+              Ready to start playing? Check in to begin your gaming session!
+            </p>
+
+            {/* Start Session button */}
+            <StartSessionButton venueSlug={venueSlug} tableId={tableId} />
+          </>
+        )}
 
         {/* Subtle footer */}
         <p className="text-xs text-gray-400 dark:text-gray-600">

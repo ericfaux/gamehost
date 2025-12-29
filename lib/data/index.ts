@@ -23,7 +23,14 @@ export { getVenueTables, getVenueTableById } from './tables';
 export { getGameById, getGamesForVenue, getRecommendedGames } from './games';
 
 // Session operations
-export { createSession, type CreateSessionParams } from './sessions';
+export {
+  createSession,
+  updateSessionGame,
+  getActiveSessionId,
+  getActiveSession,
+  endSession,
+  type CreateSessionParams,
+} from './sessions';
 
 // Re-export types for convenience
 export type {

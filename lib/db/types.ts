@@ -77,7 +77,7 @@ export interface Session {
   id: string;
   venue_id: string;
   table_id: string;
-  game_id: string;
+  game_id: string | null; // Null when session is in "browsing" state (check-in without game)
   started_at: string;
   wizard_params: unknown;
   created_at: string;
