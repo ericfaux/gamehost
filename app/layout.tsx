@@ -1,23 +1,22 @@
 import type { Metadata } from "next";
-import { Fraunces, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
-import MockDataProvider from "../context/MockDataContext";
 
-const jakarta = Plus_Jakarta_Sans({
+const fraunces = Fraunces({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const instrumentSans = Instrument_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const fraunces = Fraunces({
-  variable: "--font-serif",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
-
-const jetBrains = JetBrains_Mono({
+const plexMono = IBM_Plex_Mono({
   variable: "--font-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -26,7 +25,7 @@ const jetBrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "GameHost",
-  description: "GameHost – The Operating System for Board Game Cafés.",
+  description: "GameHost – The operating system for board game cafés.",
 };
 
 export default function RootLayout({
@@ -35,13 +34,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="bg-noise">
       <body
-        className={`${jakarta.variable} ${fraunces.variable} ${jetBrains.variable} bg-paper bg-noise text-ink-primary antialiased min-h-screen font-sans`}
+        className={`${instrumentSans.variable} ${fraunces.variable} ${plexMono.variable} bg-[color:var(--color-surface)] text-[color:var(--color-ink-primary)] antialiased min-h-screen`}
       >
-        <MockDataProvider>
-          <div className="min-h-screen flex flex-col">{children}</div>
-        </MockDataProvider>
+        {children}
       </body>
     </html>
   );

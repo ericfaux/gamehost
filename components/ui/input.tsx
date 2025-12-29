@@ -1,29 +1,22 @@
-"use client";
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
-import { InputHTMLAttributes, forwardRef } from "react";
-import { cn } from "../../lib/utils";
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
-type InputProps = InputHTMLAttributes<HTMLInputElement> & {
-  label?: string;
-  hint?: string;
-};
-
-const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, hint, ...props }, ref) => (
-    <label className="flex flex-col gap-2 text-sm text-ink-primary">
-      {label && <span className="text-xs uppercase tracking-ledger text-ink-secondary">{label}</span>}
-      <input
-        ref={ref}
-        className={cn(
-          "w-full rounded-token border border-stroke bg-card/80 px-3 py-2 text-sm font-medium shadow-inner shadow-stroke/30 focus:border-ink-primary focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-ink-primary/10",
-          className
-        )}
-        {...props}
-      />
-      {hint && <span className="text-xs text-ink-secondary">{hint}</span>}
-    </label>
-  )
-);
+const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type = "text", ...props }, ref) => {
+  return (
+    <input
+      type={type}
+      className={cn(
+        "w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm shadow-card focus-ring",
+        "placeholder:text-[color:var(--color-ink-secondary)]",
+        className,
+      )}
+      ref={ref}
+      {...props}
+    />
+  );
+});
 
 Input.displayName = "Input";
 
