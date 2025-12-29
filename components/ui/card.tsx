@@ -4,7 +4,7 @@ import { cn } from "../../lib/utils";
 type CardProps = {
   children: React.ReactNode;
   className?: string;
-  as?: keyof JSX.IntrinsicElements;
+  as?: keyof React.JSX.IntrinsicElements;
 };
 
 export function Card({ children, className, as: Component = "div" }: CardProps) {
