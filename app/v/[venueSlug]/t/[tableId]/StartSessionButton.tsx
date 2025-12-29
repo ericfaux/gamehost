@@ -1,60 +1,117 @@
 'use client';
 
 /**
- * Client component for the "Start Session" check-in button.
- * Handles the check-in flow and refreshes the page on success.
+ * StartSessionButton - Client component for starting a game session.
+ *
+ * Displays the "Got it – we're playing this" button and handles
+ * the session creation flow with loading and success/error states.
  */
 
-import { useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { startCheckIn } from './actions';
+// FIX: Imported SelectGameInput instead of StartSessionInput
+import { startSession, type SelectGameInput } from './actions';
 
 interface StartSessionButtonProps {
   venueSlug: string;
   tableId: string;
+  gameId: string;
+  gameTitle: string;
+  tableLabel: string;
+  /** Wizard params from query string, stored with session for analytics */
+  wizardParams?: unknown;
 }
 
 type ButtonState = 'idle' | 'loading' | 'success' | 'error';
 
-export function StartSessionButton({ venueSlug, tableId }: StartSessionButtonProps) {
-  const router = useRouter();
+export function StartSessionButton({
+  venueSlug,
+  tableId,
+  gameId,
+  gameTitle,
+  tableLabel,
+  wizardParams,
+}: StartSessionButtonProps) {
   const [state, setState] = useState<ButtonState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
-  const handleClick = async () => {
-    if (state === 'loading') return;
+  useEffect(() => {
+    if (state !== 'success') return;
+
+    const timeout = setTimeout(() => {
+      router.push(`/v/${venueSlug}/t/${tableId}`);
+    }, 2000);
+
+    return () => clearTimeout(timeout);
+  }, [router, state, tableId, venueSlug]);
+
+  const handleClick = () => {
+    if (state === 'loading' || state === 'success') {
+      return;
+    }
 
     setState('loading');
     setErrorMessage(null);
 
-    try {
-      const result = await startCheckIn(venueSlug, tableId);
+    // FIX: Updated type definition to SelectGameInput
+    const input: SelectGameInput = {
+      venueSlug,
+      tableId,
+      gameId,
+      wizardParams,
+    };
+
+    startTransition(async () => {
+      const result = await startSession(input);
 
       if (result.success) {
         setState('success');
-        // Refresh the page to show the active session UI
-        router.refresh();
       } else {
         setState('error');
-        setErrorMessage(result.error ?? 'Something went wrong');
+        setErrorMessage(result.error || 'Something went wrong. Please try again.');
       }
-    } catch (error) {
-      console.error('Check-in error:', error);
-      setState('error');
-      setErrorMessage('Something went wrong. Please try again.');
-    }
+    });
   };
 
-  const getButtonContent = () => {
-    switch (state) {
-      case 'loading':
-        return (
-          <>
-            <svg
-              className="w-5 h-5 mr-2 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
+  // Success state
+  if (state === 'success') {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-center gap-2 py-4 px-6 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-xl">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          <span className="font-medium">Session started!</span>
+        </div>
+        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+          Enjoy <span className="font-medium">{gameTitle}</span> at{' '}
+          <span className="font-medium">{tableLabel}</span>. Have fun!
+          <br />
+          Redirecting you to your table...
+        </p>
+      </div>
+    );
+  }
+
+  // Error or idle state
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isPending || state === 'loading'}
+        className="w-full py-4 text-lg font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-400 disabled:cursor-not-allowed rounded-xl shadow-lg shadow-green-600/25 transition-colors"
+      >
+        {isPending || state === 'loading' ? (
+          <span className="inline-flex items-center gap-2">
+            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
@@ -62,6 +119,7 @@ export function StartSessionButton({ venueSlug, tableId }: StartSessionButtonPro
                 r="10"
                 stroke="currentColor"
                 strokeWidth="4"
+                fill="none"
               />
               <path
                 className="opacity-75"
@@ -69,94 +127,18 @@ export function StartSessionButton({ venueSlug, tableId }: StartSessionButtonPro
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            Starting...
-          </>
-        );
-      case 'success':
-        return (
-          <>
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            Session Started!
-          </>
-        );
-      case 'error':
-        return (
-          <>
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-            Try Again
-          </>
-        );
-      default:
-        return (
-          <>
-            Start Session
-            <svg
-              className="w-5 h-5 ml-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 7l5 5m0 0l-5 5m5-5H6"
-              />
-            </svg>
-          </>
-        );
-    }
-  };
-
-  const getButtonClasses = () => {
-    const baseClasses =
-      'inline-flex items-center justify-center w-full px-6 py-4 text-lg font-semibold rounded-xl shadow-lg transition-colors';
-
-    switch (state) {
-      case 'success':
-        return `${baseClasses} text-white bg-green-600 shadow-green-600/25`;
-      case 'error':
-        return `${baseClasses} text-white bg-red-600 hover:bg-red-700 shadow-red-600/25`;
-      default:
-        return `${baseClasses} text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 shadow-blue-600/25`;
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <button
-        onClick={handleClick}
-        disabled={state === 'loading' || state === 'success'}
-        className={getButtonClasses()}
-      >
-        {getButtonContent()}
+            Starting session...
+          </span>
+        ) : (
+          "Got it – we're playing this"
+        )}
       </button>
-      {errorMessage && (
-        <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
+
+      {/* Error message */}
+      {state === 'error' && errorMessage && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-600 dark:text-red-400 text-center">{errorMessage}</p>
+        </div>
       )}
     </div>
   );
