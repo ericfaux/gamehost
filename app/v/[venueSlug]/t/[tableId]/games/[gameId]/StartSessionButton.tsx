@@ -7,7 +7,8 @@
  * the session creation flow with loading and success/error states.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { startSession, type StartSessionInput } from './actions';
 
 interface StartSessionButtonProps {
@@ -33,6 +34,17 @@ export function StartSessionButton({
   const [state, setState] = useState<ButtonState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state !== 'success') return;
+
+    const timeout = setTimeout(() => {
+      router.push(`/v/${venueSlug}/t/${tableId}`);
+    }, 2000);
+
+    return () => clearTimeout(timeout);
+  }, [router, state, tableId, venueSlug]);
 
   const handleClick = () => {
     if (state === 'loading' || state === 'success') {
@@ -79,6 +91,8 @@ export function StartSessionButton({
         <p className="text-center text-sm text-gray-600 dark:text-gray-400">
           Enjoy <span className="font-medium">{gameTitle}</span> at{' '}
           <span className="font-medium">{tableLabel}</span>. Have fun!
+          <br />
+          Redirecting you to your table...
         </p>
       </div>
     );

@@ -66,9 +66,9 @@ function getAllowedComplexities(tolerance: string): GameComplexity[] {
     case 'super_simple':
       return ['simple'];
     case 'medium':
-      return ['simple', 'medium'];
+      return ['medium', 'simple'];
     case 'dont_mind_complex':
-      return ['simple', 'medium', 'complex'];
+      return ['complex', 'medium'];
     default:
       return ['simple', 'medium', 'complex'];
   }
@@ -86,6 +86,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
 
   const timeRange = getTimeRange(timeBucket);
   const allowedComplexities = getAllowedComplexities(complexityTolerance);
+  const targetComplexity = allowedComplexities[0];
 
   // Effective player count: for 5+ groups, treat as 5 but still check max_players
   const effectivePlayerCount = Math.min(playerCount, 5);
@@ -97,6 +98,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     actualPlayerCount: playerCount,
     timeRange,
     allowedComplexities,
+    targetComplexity,
     vibes,
     includeVibesFilter: true,
   });
@@ -112,6 +114,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     actualPlayerCount: playerCount,
     timeRange,
     allowedComplexities,
+    targetComplexity,
     vibes: [],
     includeVibesFilter: false,
   });
@@ -127,6 +130,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     actualPlayerCount: playerCount,
     timeRange: { min: 0, max: 999 },
     allowedComplexities,
+    targetComplexity,
     vibes: [],
     includeVibesFilter: false,
   });
@@ -142,6 +146,7 @@ interface QueryGamesOptions {
   allowedComplexities: GameComplexity[];
   vibes: string[];
   includeVibesFilter: boolean;
+  targetComplexity?: GameComplexity;
 }
 
 /**
@@ -156,6 +161,7 @@ async function queryGames(options: QueryGamesOptions): Promise<Game[]> {
     allowedComplexities,
     vibes,
     includeVibesFilter,
+    targetComplexity,
   } = options;
 
   let query = getSupabaseAdmin()
@@ -185,5 +191,20 @@ async function queryGames(options: QueryGamesOptions): Promise<Game[]> {
     throw new Error(`Failed to fetch recommended games: ${error.message}`);
   }
 
-  return (data ?? []) as Game[];
+  const games = (data ?? []) as Game[];
+
+  if (targetComplexity) {
+    return [...games].sort((a, b) => {
+      const aMatch = a.complexity === targetComplexity ? 1 : 0;
+      const bMatch = b.complexity === targetComplexity ? 1 : 0;
+
+      if (aMatch !== bMatch) {
+        return bMatch - aMatch;
+      }
+
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }
+
+  return games;
 }

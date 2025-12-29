@@ -6,6 +6,8 @@ import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Session, VenueTable } from "@/lib/db/types";
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from "next/navigation";
 
 // Type for session with joined game and table data
 export interface SessionWithDetails extends Session {
@@ -28,6 +30,7 @@ interface SessionsClientProps {
 export function SessionsClient({ initialSessions, availableTables }: SessionsClientProps) {
   const { push } = useToast();
   const [sessions, setSessions] = useState<SessionWithDetails[]>(initialSessions);
+  const router = useRouter();
 
   const tablesInUse = useMemo(() => new Set(sessions.map((s) => s.table_id)), [sessions]);
   const availableForSession = useMemo(
@@ -35,6 +38,25 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
     [availableTables, tablesInUse],
   );
   const [selectedTableId, setSelectedTableId] = useState<string>(availableForSession[0]?.id ?? "");
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel("admin-sessions")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sessions" },
+        () => {
+          router.refresh();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [router]);
 
   useEffect(() => {
     if (availableForSession.length === 0) {

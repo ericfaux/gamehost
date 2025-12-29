@@ -28,6 +28,8 @@ export async function startSession(input: StartSessionInput): Promise<StartSessi
   try {
     const { venueSlug, tableId, gameId, wizardParams } = input;
 
+    console.log(`Starting session for Table: ${tableId}, Game: ${gameId}`);
+
     const session = await createSession({
       venueSlug,
       tableId,
