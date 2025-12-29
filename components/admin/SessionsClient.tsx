@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, StopCircle, Search } from "lucide-react";
+import { Clock3, StopCircle, Search, RefreshCw } from "lucide-react";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,15 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
   const { push } = useToast();
   const [sessions, setSessions] = useState<SessionWithDetails[]>(initialSessions);
   const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const router = useRouter();
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    router.refresh();
+    // Reset after a short delay to show the animation
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   const tablesInUse = useMemo(() => new Set(sessions.map((s) => s.table_id)), [sessions]);
   const availableForSession = useMemo(
@@ -125,6 +133,16 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
           <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Sessions</p>
           <h1 className="text-3xl">Live tables</h1>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          title="Refresh sessions"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          <span className="ml-1">Refresh</span>
+        </Button>
       </div>
 
       <div className="grid gap-4">
