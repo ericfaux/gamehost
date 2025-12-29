@@ -1,325 +1,195 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { GameComplexity } from '@/lib/db/types';
 
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-export interface BGGSearchResult {
+export interface BggSearchResult {
   id: string;
-  name: string;
-  year: number | null;
+  title: string;
+  year: string;
 }
 
-export interface BGGGameDetails {
-  name: string;
-  description: string | null;
-  minPlayers: number;
-  maxPlayers: number;
-  minPlaytime: number;
-  maxPlaytime: number;
+export interface BggGameDetails {
+  title: string;
+  min_players: number;
+  max_players: number;
+  min_time_minutes: number;
+  max_time_minutes: number;
+  cover_image_url: string;
+  bgg_rank: number | null;
+  bgg_rating: number | null;
+  pitch: string;
+  vibes: string[];
   complexity: GameComplexity;
-  bggRank: number | null;
-  bggRating: number | null;
-  thumbnail: string | null;
 }
-
-// -----------------------------------------------------------------------------
-// XML Parser Configuration
-// -----------------------------------------------------------------------------
 
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
-  parseAttributeValue: true,
 });
 
-// -----------------------------------------------------------------------------
-// Helper Functions
-// -----------------------------------------------------------------------------
-
-/**
- * Maps BGG's averageweight (1-5 scale) to our GameComplexity enum.
- * - < 2: Simple
- * - < 3.5: Medium
- * - >= 3.5: Complex
- */
-function mapWeightToComplexity(weight: number): GameComplexity {
-  if (weight < 2) return 'simple';
-  if (weight < 3.5) return 'medium';
-  return 'complex';
+function normalizeArray<T>(value: T | T[] | undefined | null): T[] {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
-/**
- * Decodes HTML entities in a string.
- * BGG descriptions come with HTML-encoded characters.
- */
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#10;/g, '\n')
-    .replace(/&ndash;/g, '–')
-    .replace(/&mdash;/g, '—')
-    .replace(/&rsquo;/g, "'")
-    .replace(/&lsquo;/g, "'")
-    .replace(/&rdquo;/g, '"')
-    .replace(/&ldquo;/g, '"')
-    .replace(/&hellip;/g, '…')
-    .replace(/&nbsp;/g, ' ');
-}
-
-/**
- * Strips HTML tags from a string.
- */
-function stripHtmlTags(text: string): string {
-  return text.replace(/<[^>]*>/g, '');
-}
-
-/**
- * Cleans up BGG description text.
- */
-function cleanDescription(description: string | undefined | null): string | null {
-  if (!description) return null;
-  
-  let cleaned = decodeHtmlEntities(description);
-  cleaned = stripHtmlTags(cleaned);
-  cleaned = cleaned.trim();
-  
-  // Limit to a reasonable length
-  if (cleaned.length > 1000) {
-    cleaned = cleaned.substring(0, 1000) + '...';
+function numericFromAttribute(value: unknown): number | null {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
   }
-  
-  return cleaned || null;
-}
-
-/**
- * Safely extracts a numeric value from BGG's XML attribute format.
- */
-function extractNumericValue(obj: unknown): number | null {
-  if (typeof obj === 'number') return obj;
-  if (typeof obj === 'object' && obj !== null) {
-    const value = (obj as Record<string, unknown>)['@_value'];
-    if (typeof value === 'number') return value;
-    if (typeof value === 'string') {
-      const parsed = parseFloat(value);
-      return isNaN(parsed) ? null : parsed;
+  if (typeof value === 'object' && value !== null) {
+    const attributeValue = (value as Record<string, unknown>)['@_value'];
+    if (typeof attributeValue === 'number') return attributeValue;
+    if (typeof attributeValue === 'string') {
+      const parsed = Number(attributeValue);
+      return Number.isNaN(parsed) ? null : parsed;
     }
   }
   return null;
 }
 
-/**
- * Extracts the primary name from BGG's name field.
- * The name field can be a single object or an array.
- */
-function extractPrimaryName(nameField: unknown): string {
-  if (!nameField) return 'Unknown';
+function pickPrimaryName(nameField: unknown): string {
+  if (!nameField) return '';
+  const names = normalizeArray(nameField as unknown[]);
+  const primary = names.find((entry) =>
+    typeof entry === 'object' && entry !== null && (entry as Record<string, unknown>)['@_type'] === 'primary'
+  );
 
-  // If it's an array, find the primary type
-  if (Array.isArray(nameField)) {
-    const primary = nameField.find(
-      (n) => n['@_type'] === 'primary'
-    );
-    return primary?.['@_value'] || nameField[0]?.['@_value'] || 'Unknown';
-  }
-
-  // If it's a single object
-  if (typeof nameField === 'object' && nameField !== null) {
-    return (nameField as Record<string, unknown>)['@_value'] as string || 'Unknown';
-  }
-
-  return 'Unknown';
+  const target = (primary ?? names[0]) as Record<string, unknown> | undefined;
+  const value = target ? target['@_value'] : undefined;
+  return typeof value === 'string' ? value : '';
 }
 
-// -----------------------------------------------------------------------------
-// BGG API Functions
-// -----------------------------------------------------------------------------
+function stripHtml(text: string): string {
+  return text.replace(/<[^>]*>/g, '');
+}
 
-/**
- * Searches BoardGameGeek for games matching the query.
- * 
- * @param query - The search term
- * @returns Array of search results with id, name, and year
- * @throws Error if the API request fails
- */
-export async function searchBGG(query: string): Promise<BGGSearchResult[]> {
-  if (!query || query.trim() === '') {
+function truncate(text: string, limit: number): string {
+  return text.length > limit ? `${text.slice(0, limit)}...` : text;
+}
+
+function mapWeightToComplexity(weight: number): GameComplexity {
+  if (weight <= 2.3) return 'simple';
+  if (weight <= 3.5) return 'medium';
+  return 'complex';
+}
+
+export async function searchBggGames(query: string): Promise<BggSearchResult[]> {
+  if (!query.trim()) return [];
+
+  try {
+    const response = await fetch(
+      `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(query)}`
+    );
+
+    if (!response.ok) return [];
+
+    const xml = await response.text();
+    const parsed = parser.parse(xml);
+    const items = normalizeArray(parsed?.items?.item);
+
+    return items
+      .map((item) => {
+        if (typeof item !== 'object' || item === null) return null;
+        const data = item as Record<string, unknown>;
+        const id = data['@_id'];
+        const titleSource = data.name as Record<string, unknown> | undefined;
+        const title = titleSource?.['@_value'];
+        const yearValue = (data.yearpublished as Record<string, unknown> | undefined)?.['@_value'];
+
+        return {
+          id: typeof id === 'string' || typeof id === 'number' ? String(id) : '',
+          title: typeof title === 'string' ? title : '',
+          year: typeof yearValue === 'string' || typeof yearValue === 'number' ? String(yearValue) : '',
+        } satisfies BggSearchResult;
+      })
+      .filter((result): result is BggSearchResult => Boolean(result && result.id));
+  } catch (error) {
+    console.error('Failed to search BGG games', error);
     return [];
   }
+}
 
-  const encodedQuery = encodeURIComponent(query.trim());
-  const url = `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodedQuery}`;
+export async function getBggGameDetails(bggId: string): Promise<BggGameDetails | null> {
+  if (!bggId.trim()) return null;
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'User-Agent': 'GameHost-Manager/1.0 (admin@gamehost.com)',
-      'Accept': 'application/xml',
-    },
-    cache: 'no-store' // CRITICAL: Forces a fresh network request every time
-  });
+  try {
+    const response = await fetch(
+      `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(bggId)}&stats=1`
+    );
 
-  if (!response.ok) {
-    throw new Error(`BGG API error: ${response.status} ${response.statusText}`);
-  }
+    if (!response.ok) return null;
 
-  const xml = await response.text();
-  const parsed = parser.parse(xml);
+    const xml = await response.text();
+    const parsed = parser.parse(xml);
+    const item = normalizeArray(parsed?.items?.item)[0] as Record<string, unknown> | undefined;
 
-  // Handle empty results
-  if (!parsed.items || !parsed.items.item) {
-    return [];
-  }
+    if (!item) return null;
 
-  // Normalize to array (single result comes as object, multiple as array)
-  const items = Array.isArray(parsed.items.item)
-    ? parsed.items.item
-    : [parsed.items.item];
+    const title = pickPrimaryName(item.name);
+    const minPlayers = numericFromAttribute(item.minplayers) ?? 0;
+    const maxPlayers = numericFromAttribute(item.maxplayers) ?? minPlayers;
+    const minPlaytime = numericFromAttribute(item.minplaytime) ?? 0;
+    const maxPlaytime = numericFromAttribute(item.maxplaytime) ?? minPlaytime;
+    const coverImageUrl = typeof item.image === 'string' ? item.image : '';
 
-  return items.map((item: Record<string, unknown>) => {
-    const nameField = item.name;
-    let name = 'Unknown';
+    const ratings = (item.statistics as Record<string, unknown> | undefined)?.ratings as
+      | Record<string, unknown>
+      | undefined;
 
-    // Name can be an array (multiple names) or single object
-    if (Array.isArray(nameField)) {
-      const primary = nameField.find((n) => n['@_type'] === 'primary');
-      name = primary?.['@_value'] || nameField[0]?.['@_value'] || 'Unknown';
-    } else if (typeof nameField === 'object' && nameField !== null) {
-      name = (nameField as Record<string, unknown>)['@_value'] as string || 'Unknown';
-    }
+    const rankEntries = normalizeArray((ratings?.ranks as Record<string, unknown> | undefined)?.rank);
+    const boardGameRank = rankEntries.find(
+      (rank) => typeof rank === 'object' && rank !== null && (rank as Record<string, unknown>)['@_name'] === 'boardgame'
+    ) as Record<string, unknown> | undefined;
 
-    const yearPublished = item.yearpublished;
-    let year: number | null = null;
-    if (typeof yearPublished === 'object' && yearPublished !== null) {
-      const yearValue = (yearPublished as Record<string, unknown>)['@_value'];
-      if (typeof yearValue === 'number') {
-        year = yearValue;
-      }
-    }
+    const rankValue = boardGameRank?.['@_value'];
+    const parsedRank =
+      typeof rankValue === 'string' && rankValue !== 'Not Ranked'
+        ? Number(rankValue)
+        : typeof rankValue === 'number'
+          ? rankValue
+          : null;
+    const bggRank = Number.isFinite(parsedRank) ? parsedRank : null;
+
+    const averageRating = numericFromAttribute(ratings?.average);
+    const bggRating = averageRating !== null ? Math.round(averageRating * 10) / 10 : null;
+
+    const weight = numericFromAttribute(ratings?.averageweight);
+    const complexity = weight !== null ? mapWeightToComplexity(weight) : 'medium';
+
+    const descriptionRaw = typeof item.description === 'string' ? item.description : '';
+    const cleanedDescription = truncate(stripHtml(descriptionRaw), 200);
+
+    const linkEntries = normalizeArray(item.link as unknown[]);
+    const vibes = linkEntries
+      .filter(
+        (link) =>
+          typeof link === 'object' &&
+          link !== null &&
+          (link as Record<string, unknown>)['@_type'] === 'boardgamecategory'
+      )
+      .slice(0, 3)
+      .map((link) => {
+        const value = (link as Record<string, unknown>)['@_value'];
+        return typeof value === 'string' ? value : '';
+      })
+      .filter(Boolean);
 
     return {
-      id: String(item['@_id']),
-      name,
-      year,
+      title,
+      min_players: minPlayers,
+      max_players: maxPlayers,
+      min_time_minutes: minPlaytime,
+      max_time_minutes: maxPlaytime,
+      cover_image_url: coverImageUrl,
+      bgg_rank: bggRank,
+      bgg_rating: bggRating,
+      pitch: cleanedDescription,
+      vibes,
+      complexity,
     };
-  });
-}
-
-/**
- * Fetches detailed information about a specific game from BGG.
- * 
- * @param id - The BGG game ID
- * @returns Game details mapped to our schema
- * @throws Error if the API request fails or game is not found
- */
-export async function getBGGDetails(id: string): Promise<BGGGameDetails> {
-  if (!id || id.trim() === '') {
-    throw new Error('Game ID is required');
+  } catch (error) {
+    console.error('Failed to fetch BGG game details', error);
+    return null;
   }
-
-  const url = `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(id)}&stats=1`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'User-Agent': 'GameHost-Manager/1.0 (admin@gamehost.com)',
-      'Accept': 'application/xml',
-    },
-    cache: 'no-store' // CRITICAL: Forces a fresh network request every time
-  });
-
-  if (!response.ok) {
-    throw new Error(`BGG API error: ${response.status} ${response.statusText}`);
-  }
-
-  const xml = await response.text();
-  const parsed = parser.parse(xml);
-
-  // Check if game exists
-  if (!parsed.items || !parsed.items.item) {
-    throw new Error('Game not found on BoardGameGeek');
-  }
-
-  // Handle single item (most common) or take first from array
-  const item = Array.isArray(parsed.items.item)
-    ? parsed.items.item[0]
-    : parsed.items.item;
-
-  // Extract name
-  const name = extractPrimaryName(item.name);
-
-  // Extract description
-  const description = cleanDescription(item.description as string | undefined);
-
-  // Extract player counts
-  const minPlayers = extractNumericValue(item.minplayers) || 1;
-  const maxPlayers = extractNumericValue(item.maxplayers) || minPlayers;
-
-  // Extract playtime
-  const minPlaytime = extractNumericValue(item.minplaytime) || 30;
-  const maxPlaytime = extractNumericValue(item.maxplaytime) || minPlaytime;
-
-  // Extract thumbnail
-  const thumbnail = typeof item.thumbnail === 'string' ? item.thumbnail : null;
-
-  // Extract statistics
-  let bggRank: number | null = null;
-  let bggRating: number | null = null;
-  let complexity: GameComplexity = 'medium';
-
-  if (item.statistics?.ratings) {
-    const ratings = item.statistics.ratings;
-
-    // Extract average rating
-    bggRating = extractNumericValue(ratings.average);
-    if (bggRating !== null) {
-      bggRating = Math.round(bggRating * 10) / 10; // Round to 1 decimal
-    }
-
-    // Extract weight and map to complexity
-    const weight = extractNumericValue(ratings.averageweight);
-    if (weight !== null) {
-      complexity = mapWeightToComplexity(weight);
-    }
-
-    // Extract board game rank
-    if (ratings.ranks?.rank) {
-      const ranks = Array.isArray(ratings.ranks.rank)
-        ? ratings.ranks.rank
-        : [ratings.ranks.rank];
-
-      const boardGameRank = ranks.find(
-        (r: Record<string, unknown>) => r['@_name'] === 'boardgame'
-      );
-
-      if (boardGameRank) {
-        const rankValue = boardGameRank['@_value'];
-        if (typeof rankValue === 'number') {
-          bggRank = rankValue;
-        } else if (typeof rankValue === 'string' && rankValue !== 'Not Ranked') {
-          const parsed = parseInt(rankValue, 10);
-          if (!isNaN(parsed)) {
-            bggRank = parsed;
-          }
-        }
-      }
-    }
-  }
-
-  return {
-    name,
-    description,
-    minPlayers,
-    maxPlayers,
-    minPlaytime,
-    maxPlaytime,
-    complexity,
-    bggRank,
-    bggRating,
-    thumbnail,
-  };
 }
