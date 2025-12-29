@@ -3,33 +3,85 @@
 @tailwind utilities;
 
 :root {
-  color: #2a2626;
-  background-color: #f5f2eb;
+  --font-sans: "Instrument Sans", system-ui, -apple-system, sans-serif;
+  --font-serif: "Fraunces", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-surface: #f9f8f6;
+  --color-elevated: #ffffff;
+  --color-ink-primary: #2d2d2a;
+  --color-ink-secondary: #4f4b45;
+  --color-structure: #d7cfc4;
+  --color-structure-strong: #bbaea0;
+  --color-accent: #2f5d46;
+  --color-accent-soft: #dce7df;
+  --color-success: #3f704d;
+  --color-warn: #c0842c;
+  --color-danger: #9f2f2f;
+  --color-muted: #f0ede7;
+  --shadow-card: 0 2px 6px rgba(25, 31, 28, 0.05), 0 8px 28px rgba(25, 31, 28, 0.06);
+  --shadow-token: 0 4px 0 rgba(45, 45, 42, 0.18);
+  --shadow-soft: 0 16px 50px rgba(25, 31, 28, 0.1);
+}
+
+* {
+  @apply border-border;
 }
 
 body {
-  background-color: #f5f2eb;
-  color: #2a2626;
-  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  color: var(--color-ink-primary);
+  background-color: var(--color-surface);
+  font-family: var(--font-sans);
+  @apply antialiased;
 }
 
 @layer base {
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-surface);
+  }
+
   body {
-    @apply bg-paper text-ink-primary antialiased;
+    @apply text-base bg-[color:var(--color-surface)] text-[color:var(--color-ink-primary)];
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
   }
 
   .bg-noise {
     background-image: theme("backgroundImage.noise");
   }
+
+  .panel-surface {
+    @apply bg-[color:var(--color-elevated)] border border-[color:var(--color-structure)] shadow-[var(--shadow-card)]
+    rounded-2xl;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--color-structure-strong)];
+  }
 }
 
 @layer components {
-  .ledger-table th {
-    @apply uppercase text-[11px] tracking-ledger font-mono text-ink-secondary border-b border-stroke bg-card/70;
+  .rulebook-grid {
+    background: radial-gradient(circle at 10% 10%, rgba(47, 93, 70, 0.04), transparent 22%),
+      radial-gradient(circle at 80% 0%, rgba(47, 93, 70, 0.05), transparent 22%),
+      var(--color-surface);
   }
 
-  .ledger-table td {
-    @apply border-b border-stroke/80 text-sm text-ink-primary;
+  .density-cozy td,
+  .density-cozy th {
+    @apply py-3;
+  }
+
+  .density-compact td,
+  .density-compact th {
+    @apply py-2;
   }
 }
 

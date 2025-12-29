@@ -1,153 +1,140 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { OperatorShell } from "../../components/OperatorShell";
-import { Card } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
-import { useMockData } from "../../context/MockDataContext";
-import { Clock, Play, Scan } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Clock3, PlayCircle, StopCircle } from "lucide-react";
+import { AppShell, StatusBadge, TokenChip, useToast } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Game, Session } from "@/lib/db/types";
+import { mockGames, mockSessions, mockTables } from "@/lib/mockData";
 
-const tables = ["Table 1", "Table 2", "Table 3", "Table 4", "Table 5", "Table 6"];
-
-function formatDuration(start: number, now: number) {
-  const diff = Math.max(0, now - start);
-  const minutes = Math.floor(diff / 1000 / 60);
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hours > 0) return `${hours}h ${mins}m`;
-  return `${mins}m`;
+function formatDuration(started: string) {
+  const diff = Date.now() - new Date(started).getTime();
+  const mins = Math.max(1, Math.round(diff / 60000));
+  if (mins < 60) return `${mins}m`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
 export default function SessionsPage() {
-  const { games, sessions, startSession, endSession } = useMockData();
-  const [selectedTable, setSelectedTable] = useState(tables[0]);
-  const [selectedGame, setSelectedGame] = useState<string>("");
-  const [now, setNow] = useState(Date.now());
+  const { push } = useToast();
+  const [sessions, setSessions] = useState<Session[]>(mockSessions);
+  const [tableId, setTableId] = useState(mockTables[0]?.id ?? "");
+  const [gameId, setGameId] = useState(mockGames[0]?.id ?? "");
+  const [note, setNote] = useState("");
 
-  const availableGames = useMemo(
-    () => games.filter((game) => game.status === "available"),
-    [games]
-  );
+  const live = useMemo(() => sessions, [sessions]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(timer);
-  }, []);
+  const startSession = () => {
+    if (!tableId || !gameId) return;
+    const now = new Date().toISOString();
+    const newSession: Session = {
+      id: `session-${sessions.length + 1}`,
+      venue_id: mockGames[0].venue_id,
+      table_id: tableId,
+      game_id: gameId,
+      started_at: now,
+      wizard_params: { note },
+      created_at: now,
+      feedback_rating: null,
+      feedback_complexity: null,
+      feedback_replay: null,
+      feedback_comment: null,
+      feedback_submitted_at: null,
+    };
+    setSessions((prev) => [newSession, ...prev]);
+    push({ title: "Session started", description: `${mockGames.find((g) => g.id === gameId)?.title ?? "Game"} at ${tableId}`, tone: "success" });
+  };
 
-  useEffect(() => {
-    if (availableGames.length === 0) {
-      setSelectedGame("");
-      return;
-    }
-    const exists = availableGames.find((game) => game.id === selectedGame);
-    if (!exists) {
-      setSelectedGame(availableGames[0].id);
-    }
-  }, [availableGames, selectedGame]);
-
-  const activeSessions = sessions.map((session) => ({
-    ...session,
-    game: games.find((g) => g.id === session.gameId),
-  }));
+  const endSession = (id: string) => {
+    const ended = sessions.find((s) => s.id === id);
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+    push({ title: "Session ended", description: `${mockGames.find((g) => g.id === ended?.game_id)?.title ?? "Game"} closed`, tone: "neutral" });
+  };
 
   return (
-    <OperatorShell>
-      <div className="flex items-center justify-between mb-6">
+    <AppShell>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-ledger text-ink-secondary">Live Control</p>
-          <h1 className="text-3xl font-serif text-ink-primary">Sessions</h1>
+          <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Sessions</p>
+          <h1 className="text-3xl">Live tables</h1>
         </div>
-        <Badge tone="warning">Timers synced</Badge>
       </div>
 
-      <div className="grid grid-cols-[1fr_1.1fr] gap-6 items-start">
-        <Card className="border-2 border-stroke/80 p-5 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-xl bg-accent-secondary text-card flex items-center justify-center shadow-token">
-              <Scan className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-ledger text-ink-secondary">Quick Action</p>
-              <p className="text-lg font-serif text-ink-primary">Simulated QR Scanner</p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <label className="flex flex-col gap-2 text-sm font-semibold text-ink-primary">
-              <span className="text-xs uppercase tracking-ledger text-ink-secondary">Table</span>
-              <select
-                value={selectedTable}
-                onChange={(e) => setSelectedTable(e.target.value)}
-                className="rounded-token border border-stroke bg-card px-3 py-2 shadow-inner shadow-stroke/30 focus:border-ink-primary focus:outline-none"
-              >
-                {tables.map((table) => (
-                  <option key={table} value={table}>
-                    {table}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-semibold text-ink-primary">
-              <span className="text-xs uppercase tracking-ledger text-ink-secondary">Select game</span>
-              <select
-                value={selectedGame}
-                onChange={(e) => setSelectedGame(e.target.value)}
-                className="rounded-token border border-stroke bg-card px-3 py-2 shadow-inner shadow-stroke/30 focus:border-ink-primary focus:outline-none"
-              >
-                {availableGames.map((game) => (
-                  <option key={game.id} value={game.id}>
-                    {game.title} · {game.players} players
-                  </option>
-                ))}
-              </select>
-              {availableGames.length === 0 && (
-                <p className="text-xs text-ink-secondary">No available games right now.</p>
-              )}
-            </label>
-          </div>
-          <Button
-            className="w-full justify-center gap-2"
-            disabled={!selectedGame || availableGames.length === 0}
-            onClick={() => selectedGame && startSession(selectedTable, selectedGame)}
-          >
-            <Play className="h-4 w-4" /> Start session
-          </Button>
-        </Card>
-
-        <Card className="border-2 border-stroke/80">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-stroke bg-paper/70">
-            <div>
-              <p className="text-xs uppercase tracking-ledger text-ink-secondary">Active tables</p>
-              <p className="text-lg font-serif text-ink-primary">{sessions.length} Sessions</p>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-ink-secondary">
-              <Clock className="h-4 w-4" />
-              Live timers
-            </div>
-          </div>
-          <div className="divide-y divide-stroke">
-            {activeSessions.map((session) => (
-              <div key={session.id} className="flex items-center justify-between px-5 py-4 hover:bg-highlight/70">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Badge tone="warning">{session.table}</Badge>
-                    <span className="text-sm font-semibold text-ink-primary">{session.game?.title}</span>
+      <div className="grid md:grid-cols-[1.1fr_0.9fr] gap-4">
+        <Card>
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Live sessions</CardTitle>
+            <TokenChip tone="muted">{live.length} in progress</TokenChip>
+          </CardHeader>
+          <CardContent className="divide-y divide-[color:var(--color-structure)]">
+            {live.map((session) => {
+              const game = mockGames.find((g) => g.id === session.game_id) as Game;
+              return (
+                <div key={session.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-[color:var(--color-ink-primary)]">{game?.title}</p>
+                    <p className="text-sm text-[color:var(--color-ink-secondary)] flex items-center gap-2">
+                      <StatusBadge status="in_use" />
+                      <span className="font-mono">{session.table_id}</span>
+                      <Clock3 className="h-4 w-4" /> {formatDuration(session.started_at)}
+                    </p>
                   </div>
-                  <div className="text-xs text-ink-secondary font-mono">
-                    Started {formatDuration(session.startedAt, now)} ago
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => endSession(session.id)}>
+                      <StopCircle className="h-4 w-4" /> End
+                    </Button>
                   </div>
                 </div>
-                <Button variant="secondary" onClick={() => endSession(session.id)}>
-                  End session
-                </Button>
-              </div>
-            ))}
-            {activeSessions.length === 0 && (
-              <div className="px-5 py-6 text-sm text-ink-secondary">No games running right now.</div>
-            )}
-          </div>
+              );
+            })}
+            {live.length === 0 && <p className="py-6 text-center text-sm text-ink-secondary">No active sessions</p>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Start a session</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <label className="text-xs uppercase tracking-rulebook text-ink-secondary">Table token</label>
+              <select
+                value={tableId}
+                onChange={(e) => setTableId(e.target.value)}
+                className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2"
+              >
+                {mockTables.map((table) => (
+                  <option key={table.id} value={table.id}>
+                    {table.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-rulebook text-ink-secondary">Game QR</label>
+              <select
+                value={gameId}
+                onChange={(e) => setGameId(e.target.value)}
+                className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2"
+              >
+                {mockGames.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-rulebook text-ink-secondary">Notes</label>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Café shift, family table, etc." />
+            </div>
+            <Button className="w-full" onClick={startSession}>
+              <PlayCircle className="h-4 w-4" /> Start session
+            </Button>
+          </CardContent>
         </Card>
       </div>
-    </OperatorShell>
+    </AppShell>
   );
 }
