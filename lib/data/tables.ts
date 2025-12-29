@@ -1,5 +1,5 @@
-import { getSupabaseAdmin } from '@/lib/supabaseServer';
-import type { VenueTable } from '@/lib/db/types';
+import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import type { VenueTable } from "@/lib/db/types";
 
 /**
  * Fetches all active tables for a venue, ordered by label.
@@ -8,14 +8,14 @@ import type { VenueTable } from '@/lib/db/types';
  */
 export async function getVenueTables(venueId: string): Promise<VenueTable[]> {
   const { data, error } = await getSupabaseAdmin()
-    .from('venue_tables')
-    .select('*')
-    .eq('venue_id', venueId)
-    .eq('is_active', true)
-    .order('label', { ascending: true });
+    .from("venue_tables")
+    .select("*")
+    .eq("venue_id", venueId)
+    .eq("is_active", true)
+    .order("label", { ascending: true });
 
   if (error) {
-    console.error('Failed to fetch venue tables:', error);
+    console.error("Failed to fetch venue tables:", error);
     throw new Error(`Failed to fetch venue tables: ${error.message}`);
   }
 
@@ -29,13 +29,13 @@ export async function getVenueTables(venueId: string): Promise<VenueTable[]> {
  */
 export async function getVenueTableById(tableId: string): Promise<VenueTable | null> {
   const { data, error } = await getSupabaseAdmin()
-    .from('venue_tables')
-    .select('*')
-    .eq('id', tableId)
+    .from("venue_tables")
+    .select("*")
+    .eq("id", tableId)
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') {
+    if (error.code === "PGRST116") {
       return null;
     }
     throw new Error(`Failed to fetch venue table: ${error.message}`);

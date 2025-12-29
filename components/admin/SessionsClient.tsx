@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Clock3, StopCircle } from "lucide-react";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -29,9 +29,23 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
   const { push } = useToast();
   const [sessions, setSessions] = useState<SessionWithDetails[]>(initialSessions);
 
-  // Calculate which tables are currently in use
-  const tablesInUse = new Set(sessions.map((s) => s.table_id));
-  const availableForSession = availableTables.filter((t) => !tablesInUse.has(t.id));
+  const tablesInUse = useMemo(() => new Set(sessions.map((s) => s.table_id)), [sessions]);
+  const availableForSession = useMemo(
+    () => availableTables.filter((t) => !tablesInUse.has(t.id)),
+    [availableTables, tablesInUse],
+  );
+  const [selectedTableId, setSelectedTableId] = useState<string>(availableForSession[0]?.id ?? "");
+
+  useEffect(() => {
+    if (availableForSession.length === 0) {
+      setSelectedTableId("");
+      return;
+    }
+
+    if (!availableForSession.find((table) => table.id === selectedTableId)) {
+      setSelectedTableId(availableForSession[0].id);
+    }
+  }, [availableForSession, selectedTableId]);
 
   const endSession = async (session: SessionWithDetails) => {
     // TODO: Replace with actual server action call
@@ -57,6 +71,66 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
       </div>
 
       <div className="grid gap-4">
+        <Card className="panel-surface">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Start a session</CardTitle>
+            <TokenChip tone="muted">Beta</TokenChip>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {availableTables.length === 0 ? (
+              <p className="text-sm text-ink-secondary">
+                No tables found. <a href="/admin/settings" className="text-[color:var(--color-accent)] underline">Create one in Settings.</a>
+              </p>
+            ) : availableForSession.length === 0 ? (
+              <p className="text-sm text-ink-secondary">All tables are currently in use.</p>
+            ) : (
+              <form
+                className="flex flex-col gap-3 md:flex-row md:items-end"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!selectedTableId) {
+                    push({
+                      title: "Select a table",
+                      description: "Choose a table before starting a session.",
+                      tone: "danger",
+                    });
+                    return;
+                  }
+
+                  const selectedTable = availableTables.find((table) => table.id === selectedTableId);
+                  push({
+                    title: "Table ready",
+                    description: `${selectedTable?.label ?? "Table"} selected. Continue with your session setup.`,
+                    tone: "neutral",
+                  });
+                }}
+              >
+                <div className="flex-1 space-y-2">
+                  <label className="text-xs uppercase tracking-rulebook text-ink-secondary">
+                    Assign table
+                  </label>
+                  <select
+                    value={selectedTableId}
+                    onChange={(event) => setSelectedTableId(event.target.value)}
+                    className="w-full rounded-lg border border-structure bg-surface px-3 py-2 text-sm shadow-token focus:outline-none"
+                  >
+                    {availableForSession.map((table) => (
+                      <option key={table.id} value={table.id}>
+                        {table.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-ink-secondary">Tables currently in use are hidden.</p>
+                </div>
+
+                <Button type="submit" className="md:w-auto">
+                  Start session
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Tables Overview Card */}
         <Card className="panel-surface">
           <CardHeader className="flex flex-row items-center justify-between">
