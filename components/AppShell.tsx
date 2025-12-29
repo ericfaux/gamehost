@@ -10,11 +10,11 @@ import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
 
 const navItems = [
-  { href: "/library", label: "Library", icon: Library },
-  { href: "/sessions", label: "Sessions", icon: ScanLine },
-  { href: "/analytics", label: "Analytics", icon: BarChart2 },
-  { href: "/maintenance", label: "Maintenance", icon: Wrench },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/admin/library", label: "Library", icon: Library },
+  { href: "/admin/sessions", label: "Sessions", icon: ScanLine },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
+  { href: "/admin/maintenance", label: "Maintenance", icon: Wrench },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export type Density = "cozy" | "compact";
@@ -197,7 +197,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                             <p className="text-xs text-[color:var(--color-ink-secondary)]">{game.vibes.join(" · ")}</p>
                           </div>
                           <Link
-                            href="/library"
+                            href="/admin/library"
                             className="text-xs font-semibold text-[color:var(--color-accent)] underline"
                             onClick={() => setSearchTerm("")}
                           >
