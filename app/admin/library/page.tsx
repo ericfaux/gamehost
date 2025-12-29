@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getGamesForVenue } from '@/lib/data/games';
-import { GamesTable } from '@/components/admin/GamesTable';
+import { LibraryClient } from '@/components/admin/LibraryClient';
 
 export default async function LibraryPage() {
   const supabase = await createClient();
@@ -29,5 +29,5 @@ export default async function LibraryPage() {
   // Fetch all games for the venue
   const games = await getGamesForVenue(venue.id);
 
-  return <GamesTable games={games} />;
+  return <LibraryClient initialGames={games} />;
 }
