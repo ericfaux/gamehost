@@ -5,17 +5,12 @@ import Image from 'next/image';
 import { addGame, updateGame } from '@/app/admin/library/actions';
 import { searchGamesAction, getGameDetailsAction } from '@/app/admin/library/bgg-actions';
 import type { Game } from '@/lib/db/types';
+import type { BggGameDetails, BggSearchResult } from '@/lib/bgg';
 
 interface GameFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialData?: Game | null;
-}
-
-interface BGGSearchResult {
-  id: string;
-  name: string;
-  year: number | null;
 }
 
 interface FormState {
@@ -70,7 +65,7 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
   // BGG Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<BGGSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<BggSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -158,19 +153,19 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
     const result = await getGameDetailsAction(gameId);
 
     if (result.success && result.data) {
-      const details = result.data;
+      const details: BggGameDetails = result.data;
       setFormState({
-        title: details.name,
-        description: details.description || '',
-        minPlayers: String(details.minPlayers),
-        maxPlayers: String(details.maxPlayers),
-        minTime: String(details.minPlaytime),
-        maxTime: String(details.maxPlaytime),
+        title: details.title,
+        description: details.pitch || '',
+        minPlayers: String(details.min_players),
+        maxPlayers: String(details.max_players),
+        minTime: String(details.min_time_minutes),
+        maxTime: String(details.max_time_minutes),
         complexity: details.complexity,
         shelfLocation: '',
-        bggRank: details.bggRank ? String(details.bggRank) : '',
-        bggRating: details.bggRating ? String(details.bggRating) : '',
-        imageUrl: details.thumbnail || '',
+        bggRank: details.bgg_rank ? String(details.bgg_rank) : '',
+        bggRating: details.bgg_rating ? String(details.bgg_rating) : '',
+        imageUrl: details.cover_image_url || '',
       });
       setShowResults(false);
       setSearchResults([]);
@@ -297,7 +292,7 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
                           disabled={isFetchingDetails}
                           className="w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-between gap-2"
                         >
-                          <span className="text-sm text-slate-900 truncate">{game.name}</span>
+                          <span className="text-sm text-slate-900 truncate">{game.title}</span>
                           {game.year && (
                             <span className="text-xs text-slate-500 shrink-0">({game.year})</span>
                           )}
