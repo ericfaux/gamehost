@@ -1,6 +1,12 @@
 'use server';
 
-import { searchBGG, getBGGDetails, type BGGSearchResult, type BGGGameDetails } from '@/lib/bgg';
+// FIX: Updated imports to match the actual exports in lib/bgg.ts
+import { 
+  searchBggGames, 
+  getBggGameDetails, 
+  type BggSearchResult, 
+  type BggGameDetails 
+} from '@/lib/bgg';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -8,13 +14,13 @@ import { searchBGG, getBGGDetails, type BGGSearchResult, type BGGGameDetails } f
 
 interface SearchGamesResult {
   success: boolean;
-  data?: BGGSearchResult[];
+  data?: BggSearchResult[]; // FIX: Updated type name
   error?: string;
 }
 
 interface GetGameDetailsResult {
   success: boolean;
-  data?: BGGGameDetails;
+  data?: BggGameDetails; // FIX: Updated type name
   error?: string;
 }
 
@@ -25,8 +31,7 @@ interface GetGameDetailsResult {
 /**
  * Server action to search BoardGameGeek for games.
  * Provides a secure wrapper for client-side usage.
- * 
- * @param query - The search term
+ * * @param query - The search term
  * @returns Search results or error
  */
 export async function searchGamesAction(query: string): Promise<SearchGamesResult> {
@@ -35,7 +40,8 @@ export async function searchGamesAction(query: string): Promise<SearchGamesResul
   }
 
   try {
-    const results = await searchBGG(query);
+    // FIX: Updated function call
+    const results = await searchBggGames(query);
     return { success: true, data: results };
   } catch (error) {
     console.error('BGG search error:', error);
@@ -66,8 +72,7 @@ export async function searchGamesAction(query: string): Promise<SearchGamesResul
 /**
  * Server action to fetch game details from BoardGameGeek.
  * Provides a secure wrapper for client-side usage.
- * 
- * @param id - The BGG game ID
+ * * @param id - The BGG game ID
  * @returns Game details or error
  */
 export async function getGameDetailsAction(id: string): Promise<GetGameDetailsResult> {
@@ -76,7 +81,16 @@ export async function getGameDetailsAction(id: string): Promise<GetGameDetailsRe
   }
 
   try {
-    const details = await getBGGDetails(id);
+    // FIX: Updated function call
+    const details = await getBggGameDetails(id);
+    
+    if (!details) {
+       return { 
+          success: false, 
+          error: 'Game not found on BoardGameGeek.' 
+        };
+    }
+
     return { success: true, data: details };
   } catch (error) {
     console.error('BGG details fetch error:', error);
@@ -93,12 +107,6 @@ export async function getGameDetailsAction(id: string): Promise<GetGameDetailsRe
         return { 
           success: false, 
           error: 'BoardGameGeek is currently unavailable. Please try again later.' 
-        };
-      }
-      if (error.message.includes('not found')) {
-        return { 
-          success: false, 
-          error: 'Game not found on BoardGameGeek.' 
         };
       }
     }
