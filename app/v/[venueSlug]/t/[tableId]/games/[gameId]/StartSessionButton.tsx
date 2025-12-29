@@ -9,7 +9,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { startSession, type StartSessionInput } from './actions';
+import { startSession, type SelectGameInput } from './actions';
 
 interface StartSessionButtonProps {
   venueSlug: string;
@@ -54,7 +54,7 @@ export function StartSessionButton({
     setState('loading');
     setErrorMessage(null);
 
-    const input: StartSessionInput = {
+    const input: SelectGameInput = {
       venueSlug,
       tableId,
       gameId,
