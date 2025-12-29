@@ -9,7 +9,7 @@ import { cn } from "../lib/utils";
 type NavItem = {
   href: string;
   label: string;
-  icon: (props: React.SVGProps<SVGSVGElement>) => JSX.Element;
+  icon: (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element;
 };
 
 const navItems: NavItem[] = [
