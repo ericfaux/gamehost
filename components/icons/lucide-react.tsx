@@ -84,6 +84,15 @@ export function Plus(props: IconProps) {
   );
 }
 
+export function Pencil(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
+    </IconBase>
+  );
+}
+
 export function X(props: IconProps) {
   return (
     <IconBase {...props}>
