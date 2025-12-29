@@ -244,11 +244,12 @@ export function AppShell({
   );
 }
 
-export function TokenChip({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "accent" | "muted" }) {
+export function TokenChip({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "accent" | "muted" | "warn" }) {
   const palette = {
     default: "bg-[color:var(--color-elevated)] border-[color:var(--color-structure)] text-[color:var(--color-ink-primary)]",
     accent: "bg-[color:var(--color-accent-soft)] border-[color:var(--color-accent)] text-[color:var(--color-accent)]",
     muted: "bg-[color:var(--color-muted)] border-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)]",
+    warn: "bg-[color:var(--color-warn)]/10 border-[color:var(--color-warn)]/20 text-[color:var(--color-warn)]",
   };
   return (
     <span
