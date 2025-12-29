@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, StopCircle } from "lucide-react";
+import { Clock3, StopCircle, Search } from "lucide-react";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Session, VenueTable } from "@/lib/db/types";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { endSessionAction } from "@/app/admin/sessions/actions";
 
 // Type for session with joined game and table data
 export interface SessionWithDetails extends Session {
@@ -30,6 +31,7 @@ interface SessionsClientProps {
 export function SessionsClient({ initialSessions, availableTables }: SessionsClientProps) {
   const { push } = useToast();
   const [sessions, setSessions] = useState<SessionWithDetails[]>(initialSessions);
+  const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
   const router = useRouter();
 
   const tablesInUse = useMemo(() => new Set(sessions.map((s) => s.table_id)), [sessions]);
@@ -38,6 +40,16 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
     [availableTables, tablesInUse],
   );
   const [selectedTableId, setSelectedTableId] = useState<string>(availableForSession[0]?.id ?? "");
+
+  // Count browsing vs playing sessions
+  const browsingSessions = useMemo(
+    () => sessions.filter((s) => s.game_id === null),
+    [sessions],
+  );
+  const playingSessions = useMemo(
+    () => sessions.filter((s) => s.game_id !== null),
+    [sessions],
+  );
 
   useEffect(() => {
     const supabase = createClient();
@@ -70,17 +82,40 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
   }, [availableForSession, selectedTableId]);
 
   const endSession = async (session: SessionWithDetails) => {
-    // TODO: Replace with actual server action call
-    // await endSessionAction(session.id);
-    console.log("Ending session:", session.id);
+    if (endingSessionId === session.id) return;
 
-    // Optimistically remove from UI
-    setSessions((prev) => prev.filter((s) => s.id !== session.id));
-    push({
-      title: "Session ended",
-      description: `${session.games?.title ?? "Game"} closed`,
-      tone: "neutral",
-    });
+    setEndingSessionId(session.id);
+
+    try {
+      const result = await endSessionAction(session.id);
+
+      if (result.success) {
+        // Optimistically remove from UI
+        setSessions((prev) => prev.filter((s) => s.id !== session.id));
+        push({
+          title: "Session ended",
+          description: session.games?.title
+            ? `${session.games.title} closed`
+            : "Browsing session closed",
+          tone: "neutral",
+        });
+      } else {
+        push({
+          title: "Failed to end session",
+          description: result.error ?? "Something went wrong",
+          tone: "danger",
+        });
+      }
+    } catch (error) {
+      console.error("Error ending session:", error);
+      push({
+        title: "Failed to end session",
+        description: "Something went wrong. Please try again.",
+        tone: "danger",
+      });
+    } finally {
+      setEndingSessionId(null);
+    }
   };
 
   return (
@@ -175,18 +210,23 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
               <div className="flex flex-wrap gap-2">
                 {availableTables.map((table) => {
                   const inUse = tablesInUse.has(table.id);
+                  const session = sessions.find((s) => s.table_id === table.id);
+                  const isBrowsing = session && session.game_id === null;
+
                   return (
                     <div
                       key={table.id}
                       className={`px-3 py-2 rounded-xl border text-sm font-medium ${
                         inUse
-                          ? "bg-[color:var(--color-warn)]/10 border-[color:var(--color-warn)]/30 text-[color:var(--color-warn)]"
+                          ? isBrowsing
+                            ? "bg-yellow-100 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700/50 text-yellow-700 dark:text-yellow-400"
+                            : "bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700/50 text-green-700 dark:text-green-400"
                           : "bg-[color:var(--color-accent-soft)] border-[color:var(--color-accent)]/30 text-[color:var(--color-accent)]"
                       }`}
                     >
                       {table.label}
                       <span className="ml-2 text-xs opacity-70">
-                        {inUse ? "In use" : "Available"}
+                        {inUse ? (isBrowsing ? "Browsing" : "Playing") : "Available"}
                       </span>
                     </div>
                   );
@@ -200,37 +240,95 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
         <Card className="panel-surface">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Live sessions</CardTitle>
-            <TokenChip tone="muted">{sessions.length} in progress</TokenChip>
+            <div className="flex gap-2">
+              {browsingSessions.length > 0 && (
+                <TokenChip tone="warn">{browsingSessions.length} browsing</TokenChip>
+              )}
+              {playingSessions.length > 0 && (
+                <TokenChip tone="accent">{playingSessions.length} playing</TokenChip>
+              )}
+              {sessions.length === 0 && (
+                <TokenChip tone="muted">0 in progress</TokenChip>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="divide-y divide-[color:var(--color-structure)]">
-            {sessions.map((session) => (
-              <div
-                key={session.id}
-                className="py-3 flex flex-wrap items-center justify-between gap-3"
-              >
-                <div>
-                  <p className="font-semibold text-[color:var(--color-ink-primary)]">
-                    {session.games?.title ?? "Unknown Game"}
-                  </p>
-                  <p className="text-sm text-[color:var(--color-ink-secondary)] flex items-center gap-2">
-                    <StatusBadge status="in_use" />
-                    <span className="font-mono">
-                      {session.venue_tables?.label ?? session.table_id}
-                    </span>
-                    <Clock3 className="h-4 w-4" /> {formatDuration(session.started_at)}
-                  </p>
+            {sessions.map((session) => {
+              const isBrowsing = session.game_id === null;
+              const isEnding = endingSessionId === session.id;
+
+              return (
+                <div
+                  key={session.id}
+                  className="py-3 flex flex-wrap items-center justify-between gap-3"
+                >
+                  <div>
+                    {isBrowsing ? (
+                      // Browsing state - no game selected yet
+                      <div className="flex items-center gap-2">
+                        <Search className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                        <p className="font-semibold text-yellow-700 dark:text-yellow-400">
+                          Browsing...
+                        </p>
+                      </div>
+                    ) : (
+                      // Playing state - game selected
+                      <p className="font-semibold text-green-700 dark:text-green-400">
+                        {session.games?.title ?? "Unknown Game"}
+                      </p>
+                    )}
+                    <p className="text-sm text-[color:var(--color-ink-secondary)] flex items-center gap-2">
+                      <StatusBadge status={isBrowsing ? "pending" : "in_use"} />
+                      <span className="font-mono">
+                        {session.venue_tables?.label ?? session.table_id}
+                      </span>
+                      <Clock3 className="h-4 w-4" />
+                      <span>
+                        {isBrowsing ? "Deciding: " : "Playing: "}
+                        {formatDuration(session.started_at)}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => endSession(session)}
+                      disabled={isEnding}
+                    >
+                      {isEnding ? (
+                        <>
+                          <svg
+                            className="h-4 w-4 animate-spin"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                          Ending...
+                        </>
+                      ) : (
+                        <>
+                          <StopCircle className="h-4 w-4" /> End
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => endSession(session)}
-                  >
-                    <StopCircle className="h-4 w-4" /> End
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {sessions.length === 0 && (
               <p className="py-6 text-center text-sm text-ink-secondary">
                 No active sessions
