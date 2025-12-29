@@ -14,7 +14,10 @@
  */
 
 // Venue queries
-export { getVenueBySlug, getVenueAndTableBySlugAndTableId } from './venues';
+export { getVenueBySlug, getVenueByOwnerId, getVenueAndTableBySlugAndTableId } from './venues';
+
+// Table queries
+export { getVenueTables, getVenueTableById } from './tables';
 
 // Game queries
 export { getGameById, getGamesForVenue, getRecommendedGames } from './games';
