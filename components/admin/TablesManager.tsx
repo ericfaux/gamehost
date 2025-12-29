@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast, TokenChip } from "@/components/AppShell";
-import { createTable, deleteTable } from "@/app/admin/settings/actions";
+import { createTable, deleteTable, updateTable } from "@/app/admin/settings/actions";
 import type { VenueTable } from "@/lib/db/types";
 
 interface TablesManagerProps {
@@ -17,20 +17,43 @@ interface TablesManagerProps {
 export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
   const { push } = useToast();
   const [tables, setTables] = useState<VenueTable[]>(initialTables);
-  const [newLabel, setNewLabel] = useState("");
+  const [tableLabel, setTableLabel] = useState("");
+  const [capacity, setCapacity] = useState("4");
+  const [description, setDescription] = useState("");
+  const [editingTable, setEditingTable] = useState<VenueTable | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const resetDialog = () => {
-    setNewLabel("");
+    setTableLabel("");
+    setCapacity("4");
+    setDescription("");
+    setEditingTable(null);
     setIsDialogOpen(false);
   };
 
-  const handleAddTable = (e: React.FormEvent<HTMLFormElement>) => {
+  const openCreateDialog = () => {
+    setTableLabel("");
+    setCapacity("4");
+    setDescription("");
+    setEditingTable(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!newLabel.trim()) {
+    const trimmedLabel = tableLabel.trim();
+    const trimmedDescription = description.trim();
+    const parsedCapacity =
+      capacity.trim() === ""
+        ? null
+        : Number.isFinite(Number(capacity))
+          ? Number(capacity)
+          : NaN;
+
+    if (!trimmedLabel) {
       push({
         title: "Error",
         description: "Table label is required",
@@ -39,28 +62,63 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
       return;
     }
 
+    if (Number.isNaN(parsedCapacity)) {
+      push({
+        title: "Error",
+        description: "Capacity must be a valid number",
+        tone: "danger",
+      });
+      return;
+    }
+
+    if (parsedCapacity !== null && (!Number.isInteger(parsedCapacity) || parsedCapacity <= 0)) {
+      push({
+        title: "Error",
+        description: "Capacity must be a positive whole number",
+        tone: "danger",
+      });
+      return;
+    }
+
     const formData = new FormData();
-    formData.set("label", newLabel.trim());
+    formData.set("label", trimmedLabel);
+    formData.set("description", trimmedDescription);
+    formData.set("capacity", capacity.trim());
+
+    if (editingTable) {
+      formData.set("id", editingTable.id);
+    }
 
     startTransition(async () => {
-      const result = await createTable(formData);
+      const result = editingTable ? await updateTable(formData) : await createTable(formData);
 
       if (result.success) {
-        const optimisticTable: VenueTable = {
-          id: crypto.randomUUID(),
+        const updatedTable: VenueTable = {
+          id: editingTable?.id ?? crypto.randomUUID(),
           venue_id: venueId,
-          label: newLabel.trim(),
+          label: trimmedLabel,
+          description: trimmedDescription || null,
+          capacity: parsedCapacity,
           is_active: true,
-          created_at: new Date().toISOString(),
+          created_at: editingTable?.created_at ?? new Date().toISOString(),
         };
 
-        setTables((prev) =>
-          [...prev, optimisticTable].sort((a, b) => a.label.localeCompare(b.label)),
-        );
+        setTables((prev) => {
+          if (editingTable) {
+            return prev
+              .map((table) => (table.id === editingTable.id ? { ...table, ...updatedTable } : table))
+              .sort((a, b) => a.label.localeCompare(b.label));
+          }
+
+          return [...prev, updatedTable].sort((a, b) => a.label.localeCompare(b.label));
+        });
+
         push({
-          title: "Table added",
-          description: `"${newLabel.trim()}" is ready for use`,
-          tone: "success",
+          title: editingTable ? "Table updated" : "Table added",
+          description: editingTable
+            ? `"${trimmedLabel}" has been updated`
+            : `"${trimmedLabel}" is ready for use`,
+          tone: editingTable ? "neutral" : "success",
         });
         resetDialog();
       } else {
@@ -110,7 +168,7 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
           </div>
           <div className="flex items-center gap-3">
             <TokenChip tone="muted">{tables.length} active</TokenChip>
-            <Button variant="secondary" onClick={() => setIsDialogOpen(true)}>
+            <Button variant="secondary" onClick={openCreateDialog}>
               <Plus className="h-4 w-4" />
               Add table
             </Button>
@@ -129,22 +187,45 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
                   key={table.id}
                   className="flex items-center justify-between gap-3 rounded-xl border border-structure bg-surface/80 p-4"
                 >
-                  <div>
+                  <div className="space-y-1">
                     <p className="font-semibold text-ink-primary">{table.label}</p>
-                    <p className="text-xs text-ink-secondary">
-                      Created {new Date(table.created_at).toLocaleDateString()}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-ink-secondary">
+                      <span>{table.capacity ? `${table.capacity} seats` : "Capacity not set"}</span>
+                      <span className="text-ink-subtle">•</span>
+                      <span>Created {new Date(table.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm text-ink-secondary">
+                      {table.description ? table.description : "No description provided"}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteTable(table)}
-                    disabled={isPending || deletingId === table.id}
-                    className="text-[color:var(--color-danger)] hover:bg-[color:var(--color-danger)]/10"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {deletingId === table.id ? "Archiving..." : "Archive"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingTable(table);
+                        setTableLabel(table.label);
+                        setCapacity(table.capacity?.toString() ?? "");
+                        setDescription(table.description ?? "");
+                        setIsDialogOpen(true);
+                      }}
+                      disabled={isPending}
+                      className="text-ink-secondary hover:text-ink-primary"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteTable(table)}
+                      disabled={isPending || deletingId === table.id}
+                      className="text-[color:var(--color-danger)] hover:bg-[color:var(--color-danger)]/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {deletingId === table.id ? "Archiving..." : "Archive"}
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -157,7 +238,9 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
           <div className="w-full max-w-md rounded-2xl border border-structure bg-surface shadow-token">
             <div className="flex items-start justify-between gap-3 border-b border-structure p-6">
               <div>
-                <CardTitle className="text-xl">Add Table</CardTitle>
+                <CardTitle className="text-xl">
+                  {editingTable ? "Edit Table" : "Add Table"}
+                </CardTitle>
                 <p className="text-sm text-ink-secondary">
                   Name the table or booth so staff can assign sessions.
                 </p>
@@ -173,7 +256,7 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
               </Button>
             </div>
             <CardContent className="p-6">
-              <form className="space-y-4" onSubmit={handleAddTable}>
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-rulebook text-ink-secondary">
                     Table label
@@ -181,10 +264,35 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
                   <Input
                     type="text"
                     placeholder="e.g., Table 1, Booth A"
-                    value={newLabel}
-                    onChange={(e) => setNewLabel(e.target.value)}
+                    value={tableLabel}
+                    onChange={(e) => setTableLabel(e.target.value)}
                     disabled={isPending}
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs uppercase tracking-rulebook text-ink-secondary">
+                    Capacity
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="e.g., 4"
+                    value={capacity}
+                    onChange={(e) => setCapacity(e.target.value)}
+                    disabled={isPending}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs uppercase tracking-rulebook text-ink-secondary">
+                    Description
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Optional notes about the table"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    disabled={isPending}
                   />
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -196,8 +304,8 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isPending || !newLabel.trim()}>
-                    Save table
+                  <Button type="submit" disabled={isPending || !tableLabel.trim()}>
+                    {editingTable ? "Save changes" : "Save table"}
                   </Button>
                 </div>
               </form>

@@ -39,6 +39,8 @@ export interface VenueTable {
   id: string;
   venue_id: string;
   label: string;
+  description: string | null;
+  capacity: number | null;
   is_active: boolean;
   created_at: string;
 }
