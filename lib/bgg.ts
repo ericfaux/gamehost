@@ -1,6 +1,11 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { GameComplexity } from '@/lib/db/types';
 
+const BGG_HEADERS = {
+  'User-Agent': 'GameHost-App/1.0',
+  Accept: 'application/xml',
+};
+
 export interface BggSearchResult {
   id: string;
   title: string;
@@ -79,7 +84,11 @@ export async function searchBggGames(query: string): Promise<BggSearchResult[]> 
 
   try {
     const response = await fetch(
-      `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(query)}`
+      `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(query)}`,
+      {
+        headers: BGG_HEADERS,
+        cache: 'no-store',
+      }
     );
 
     if (!response.ok) return [];
@@ -115,7 +124,12 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
 
   try {
     const response = await fetch(
-      `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(bggId)}&stats=1`
+      `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(bggId)}&stats=1`,
+      {
+        headers: BGG_HEADERS,
+        cache: 'force-cache',
+        next: { revalidate: 3600 },
+      }
     );
 
     if (!response.ok) return null;
