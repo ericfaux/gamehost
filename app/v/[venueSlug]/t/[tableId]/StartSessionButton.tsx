@@ -2,11 +2,12 @@
 
 /**
  * Client component for the "Start Session" check-in button.
- * Handles the check-in flow and refreshes the page on success.
+ * Handles the check-in flow (creating a session without a game) and refreshes the page.
  */
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+// FIX: Correctly import startCheckIn from the local actions file
 import { startCheckIn } from './actions';
 
 interface StartSessionButtonProps {
@@ -28,11 +29,12 @@ export function StartSessionButton({ venueSlug, tableId }: StartSessionButtonPro
     setErrorMessage(null);
 
     try {
+      // FIX: Call the correct action for this page
       const result = await startCheckIn(venueSlug, tableId);
 
       if (result.success) {
         setState('success');
-        // Refresh the page to show the active session UI
+        // Refresh the page to show the "Active Session" UI state
         router.refresh();
       } else {
         setState('error');
