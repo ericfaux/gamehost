@@ -1,10 +1,20 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { GameComplexity } from '@/lib/db/types';
 
-const BGG_HEADERS = {
-  'User-Agent': 'GameHost-Manager/1.0 (admin@gamehost.local)',
-  Accept: 'application/xml',
-};
+const BGG_API_TOKEN = process.env.BGG_API_TOKEN;
+
+function getBggHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    'User-Agent': 'GameHost-App/1.0',
+    Accept: 'application/xml',
+  };
+
+  if (BGG_API_TOKEN) {
+    headers.Authorization = `Bearer ${BGG_API_TOKEN}`;
+  }
+
+  return headers;
+}
 
 export interface BggSearchResult {
   id: string;
@@ -86,10 +96,14 @@ export async function searchBggGames(query: string): Promise<BggSearchResult[]> 
     const response = await fetch(
       `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(query)}`,
       {
-        headers: BGG_HEADERS,
+        headers: getBggHeaders(),
         cache: 'no-store',
       }
     );
+
+    if (response.status === 401) {
+      console.error('BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.');
+    }
 
     if (!response.ok) {
       console.error('BGG search request failed', response.status, response.statusText);
@@ -122,6 +136,11 @@ export async function searchBggGames(query: string): Promise<BggSearchResult[]> 
       })
       .filter((result): result is BggSearchResult => Boolean(result && result.id));
   } catch (error) {
+    if ((error as { status?: number }).status === 401) {
+      console.error(
+        'BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.'
+      );
+    }
     console.error('Failed to search BGG games', error);
     return [];
   }
@@ -134,11 +153,15 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
     const response = await fetch(
       `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(bggId)}&stats=1`,
       {
-        headers: BGG_HEADERS,
+        headers: getBggHeaders(),
         cache: 'force-cache',
         next: { revalidate: 3600 },
       }
     );
+
+    if (response.status === 401) {
+      console.error('BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.');
+    }
 
     if (!response.ok) return null;
 
@@ -211,6 +234,11 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
       complexity,
     };
   } catch (error) {
+    if ((error as { status?: number }).status === 401) {
+      console.error(
+        'BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.'
+      );
+    }
     console.error('Failed to fetch BGG game details', error);
     return null;
   }
