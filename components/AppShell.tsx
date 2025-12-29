@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Library, ScanLine, Settings, Sparkle, Wrench, BarChart2, Bell, Search, Menu } from "lucide-react";
 import { createContext, useContext, useMemo, useState } from "react";
-import { mockGames, mockVenues } from "@/lib/mockData";
+import { mockGames } from "@/lib/mockData";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
@@ -46,13 +46,19 @@ export function useToast() {
   return ctx;
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  userVenues = []
+}: {
+  children: React.ReactNode;
+  userVenues?: { id: string; name: string }[];
+}) {
   const pathname = usePathname();
   const [density, setDensity] = useState<Density>("cozy");
   const [openMobile, setOpenMobile] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [venueId, setVenueId] = useState(mockVenues[0]?.id ?? "");
+  const [venueId, setVenueId] = useState(userVenues[0]?.id ?? "");
 
   const toggleDensity = () => setDensity((prev) => (prev === "cozy" ? "compact" : "cozy"));
 
@@ -167,11 +173,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     className="bg-transparent text-sm font-semibold focus:outline-none"
                     aria-label="Select venue"
                   >
-                    {mockVenues.map((venue) => (
-                      <option key={venue.id} value={venue.id} className="text-[color:var(--color-ink-primary)]">
-                        {venue.name}
+                    {userVenues.length === 0 ? (
+                      <option value="" className="text-[color:var(--color-ink-primary)]">
+                        No Venue Found
                       </option>
-                    ))}
+                    ) : (
+                      userVenues.map((venue) => (
+                        <option key={venue.id} value={venue.id} className="text-[color:var(--color-ink-primary)]">
+                          {venue.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                   <ChevronDown className="h-4 w-4 text-[color:var(--color-ink-secondary)]" />
                 </div>
