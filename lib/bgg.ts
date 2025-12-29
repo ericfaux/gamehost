@@ -2,7 +2,7 @@ import { XMLParser } from 'fast-xml-parser';
 import type { GameComplexity } from '@/lib/db/types';
 
 const BGG_HEADERS = {
-  'User-Agent': 'GameHost-App/1.0',
+  'User-Agent': 'GameHost-Manager/1.0 (admin@gamehost.local)',
   Accept: 'application/xml',
 };
 
@@ -91,11 +91,19 @@ export async function searchBggGames(query: string): Promise<BggSearchResult[]> 
       }
     );
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.error('BGG search request failed', response.status, response.statusText);
+      return [];
+    }
 
     const xml = await response.text();
     const parsed = parser.parse(xml);
     const items = normalizeArray(parsed?.items?.item);
+
+    if (items.length === 0) {
+      console.warn('BGG search returned no items. Raw response:', truncate(xml, 200));
+      return [];
+    }
 
     return items
       .map((item) => {
