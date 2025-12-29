@@ -54,7 +54,7 @@ export default async function AdminSettingsPage() {
 
       <div className="grid gap-4">
         {/* Tables Manager */}
-        <TablesManager tables={tables} venueId={venue.id} />
+        <TablesManager initialTables={tables} venueId={venue.id} />
 
         {/* Venue Profile */}
         <div className="grid md:grid-cols-2 gap-4">
