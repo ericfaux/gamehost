@@ -5,66 +5,13 @@ import { Filter, Plus } from "lucide-react";
 import { AppShell, StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { DataTable, Column } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GameFormModal as AddGameModal } from "@/components/admin/AddGameModal";
 import { Game, GameStatus } from "@/lib/db/types";
 import { mockGames } from "@/lib/mockData";
 
 const vibeFilters = ["calming", "pattern", "nature", "drafting", "asymmetric", "conflict", "engine", "serene", "racing"];
 const statusOptions: GameStatus[] = ["in_rotation", "out_for_repair", "retired", "for_sale"];
-
-function AddGameModal({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (game: Partial<Game>) => void }) {
-  const [title, setTitle] = useState("");
-  const [vibe, setVibe] = useState("calming");
-  const [players, setPlayers] = useState("2-4");
-  const [time, setTime] = useState("30-45");
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center px-4">
-      <div className="panel-surface max-w-lg w-full">
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>Add game</CardTitle>
-          <button onClick={onClose} aria-label="Close" className="text-sm text-ink-secondary">✕</button>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <label className="text-xs uppercase tracking-rulebook text-ink-secondary">Title</label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Scout" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs uppercase tracking-rulebook text-ink-secondary">Vibe</label>
-              <Input value={vibe} onChange={(e) => setVibe(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-rulebook text-ink-secondary">Players</label>
-              <Input value={players} onChange={(e) => setPlayers(e.target.value)} />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-rulebook text-ink-secondary">Time</label>
-            <Input value={time} onChange={(e) => setTime(e.target.value)} />
-          </div>
-        </CardContent>
-        <div className="px-5 pb-4 flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              onSave({ title, vibes: [vibe], min_players: Number(players.split("-")[0] ?? 2), max_players: Number(players.split("-")[1] ?? 4), min_time_minutes: Number(time.split("-")[0] ?? 30), max_time_minutes: Number(time.split("-")[1] ?? 45) });
-              onClose();
-            }}
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function LibraryPage() {
   return (
@@ -209,28 +156,33 @@ function LibraryContent() {
       </Card>
 
       <AddGameModal
-        open={open}
+        isOpen={open}
         onClose={() => setOpen(false)}
         onSave={(game) => {
+          const minPlayers = game.min_players ?? 2;
+          const maxPlayers = game.max_players ?? 4;
+          const minTime = game.min_time_minutes ?? 30;
+          const maxTime = game.max_time_minutes ?? 45;
+
           const newGame: Game = {
             id: `game-${rows.length + 1}`,
             venue_id: mockGames[0].venue_id,
             title: game.title ?? "Untitled",
-            min_players: game.min_players ?? 2,
-            max_players: game.max_players ?? 4,
-            min_time_minutes: game.min_time_minutes ?? 30,
-            max_time_minutes: game.max_time_minutes ?? 45,
-            complexity: "medium",
+            min_players: minPlayers,
+            max_players: maxPlayers,
+            min_time_minutes: minTime,
+            max_time_minutes: maxTime,
+            complexity: game.complexity ?? "medium",
             vibes: game.vibes ?? ["calming"],
             status: "in_rotation",
-            condition: "new",
-            shelf_location: "Wall X",
-            pitch: null,
+            condition: game.condition ?? "new",
+            shelf_location: game.shelf_location ?? "Wall X",
+            pitch: game.pitch ?? null,
             setup_steps: null,
             rules_bullets: null,
-            cover_image_url: null,
-            bgg_rank: null,
-            bgg_rating: null,
+            cover_image_url: game.cover_image_url ?? null,
+            bgg_rank: game.bgg_rank ?? null,
+            bgg_rating: game.bgg_rating ?? null,
             created_at: new Date().toISOString(),
           };
           setRows((prev) => [newGame, ...prev]);

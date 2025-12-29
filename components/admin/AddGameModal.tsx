@@ -2,6 +2,8 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react';
 import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { addGame, updateGame } from '@/app/admin/library/actions';
 import { searchGamesAction, getGameDetailsAction } from '@/app/admin/library/bgg-actions';
 import type { Game } from '@/lib/db/types';
@@ -11,6 +13,7 @@ interface GameFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialData?: Game | null;
+  onSave?: (game: Partial<Game>) => void;
 }
 
 interface FormState {
@@ -57,7 +60,7 @@ function mapGameToFormState(game: Game): FormState {
   };
 }
 
-export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalProps) {
+export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameFormModalProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -195,8 +198,22 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
       const result = initialData ? await updateGame(formData) : await addGame(formData);
       if (result.success) {
+        const savedGame: Partial<Game> = {
+          title: formState.title,
+          pitch: formState.description,
+          min_players: Number(formState.minPlayers) || 0,
+          max_players: Number(formState.maxPlayers) || 0,
+          min_time_minutes: Number(formState.minTime) || 0,
+          max_time_minutes: Number(formState.maxTime) || 0,
+          complexity: (formState.complexity || 'medium') as Game['complexity'],
+          shelf_location: formState.shelfLocation,
+          bgg_rank: formState.bggRank ? Number(formState.bggRank) : null,
+          bgg_rating: formState.bggRating ? Number(formState.bggRating) : null,
+          cover_image_url: formState.imageUrl,
+        };
         formRef.current?.reset();
         setFormState(initialFormState);
+        onSave?.(savedGame);
         onClose();
       } else {
         setError(result.error || 'An unexpected error occurred');
@@ -213,53 +230,55 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="panel-surface w-full max-w-lg max-h-[90vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-          <h2 id="modal-title" className="text-lg font-semibold text-slate-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-structure">
+          <h2 id="modal-title" className="text-lg font-semibold text-ink-primary">
             {initialData ? 'Edit Game' : 'Add New Game'}
           </h2>
-          <button
+          <Button
             type="button"
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+            variant="ghost"
+            size="icon"
             aria-label="Close modal"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {/* Form */}
         <form ref={formRef} action={handleSubmit} className="p-6 space-y-5">
           {/* BGG Search Section */}
-          <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-muted rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-ink-primary">
+              <svg className="w-4 h-4 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               Search BoardGameGeek
             </div>
             <div className="flex gap-2">
-              <input
-                type="text"
+              <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search for a game..."
-                className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                className="flex-1"
                 disabled={isSearching || isFetchingDetails}
               />
-              <button
+              <Button
                 type="button"
                 onClick={handleSearch}
                 disabled={isSearching || isFetchingDetails || !searchQuery.trim()}
-                className="px-4 py-2 bg-slate-700 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                variant="secondary"
+                size="sm"
+                className="whitespace-nowrap"
               >
                 {isSearching ? (
                   <>
@@ -272,29 +291,29 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
                 ) : (
                   'Search'
                 )}
-              </button>
+              </Button>
             </div>
 
             {/* Search Results */}
             {showResults && (
-              <div className="border border-slate-200 rounded-lg bg-white max-h-48 overflow-y-auto">
+              <div className="border border-structure rounded-lg bg-[color:var(--color-elevated)] max-h-48 overflow-y-auto">
                 {isSearching ? (
-                  <div className="p-3 text-center text-sm text-slate-500">Searching...</div>
+                  <div className="p-3 text-center text-sm text-ink-secondary">Searching...</div>
                 ) : searchError ? (
-                  <div className="p-3 text-center text-sm text-red-600">{searchError}</div>
+                  <div className="p-3 text-center text-sm text-[color:var(--color-danger)]">{searchError}</div>
                 ) : searchResults.length > 0 ? (
-                  <ul className="divide-y divide-slate-100">
+                  <ul className="divide-y divide-structure">
                     {searchResults.map((game) => (
                       <li key={game.id}>
                         <button
                           type="button"
                           onClick={() => handleSelectGame(game.id)}
                           disabled={isFetchingDetails}
-                          className="w-full px-3 py-2 text-left hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center justify-between gap-2"
+                          className="w-full px-3 py-2 text-left hover:bg-muted transition-colors disabled:opacity-50 flex items-center justify-between gap-2"
                         >
-                          <span className="text-sm text-slate-900 truncate">{game.title}</span>
+                          <span className="text-sm text-ink-primary truncate">{game.title}</span>
                           {game.year && (
-                            <span className="text-xs text-slate-500 shrink-0">({game.year})</span>
+                            <span className="text-xs text-ink-secondary shrink-0">({game.year})</span>
                           )}
                         </button>
                       </li>
@@ -306,7 +325,7 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
             {/* Loading overlay for fetching details */}
             {isFetchingDetails && (
-              <div className="flex items-center justify-center gap-2 py-2 text-sm text-slate-600">
+              <div className="flex items-center justify-center gap-2 py-2 text-sm text-ink-secondary">
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -318,18 +337,18 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
           {/* Image Preview */}
           {formState.imageUrl && (
-            <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-lg">
+            <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
               <Image
                 src={formState.imageUrl}
                 alt="Game thumbnail"
                 width={64}
                 height={64}
-                className="w-16 h-16 object-cover rounded-lg border border-slate-200"
+                className="w-16 h-16 object-cover rounded-lg border border-structure"
                 unoptimized
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{formState.title}</p>
-                <p className="text-xs text-slate-500">Image from BoardGameGeek</p>
+                <p className="text-sm font-medium text-ink-primary truncate">{formState.title}</p>
+                <p className="text-xs text-ink-secondary">Image from BoardGameGeek</p>
               </div>
             </div>
           )}
@@ -339,31 +358,29 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
           {/* Error Message */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-[color:var(--color-danger-muted)] border border-[color:var(--color-danger)] rounded-lg text-[color:var(--color-danger-strong)] text-sm">
               {error}
             </div>
           )}
 
           {/* Title */}
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="title" className="block text-sm font-medium text-ink-primary mb-1">
               Title <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
+            <Input
               id="title"
               name="title"
               required
               value={formState.title}
               onChange={(e) => updateFormField('title', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., Catan"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="description" className="block text-sm font-medium text-ink-primary mb-1">
               Description
             </label>
             <textarea
@@ -372,19 +389,19 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
               rows={3}
               value={formState.description}
               onChange={(e) => updateFormField('description', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm text-ink-primary shadow-card focus-ring placeholder:text-ink-secondary resize-none"
               placeholder="A brief pitch for this game..."
             />
           </div>
 
           {/* Players Range */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-ink-primary mb-1">
               Players <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <input
+                <Input
                   type="number"
                   id="minPlayers"
                   name="minPlayers"
@@ -393,13 +410,12 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
                   required
                   value={formState.minPlayers}
                   onChange={(e) => updateFormField('minPlayers', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Min"
                 />
               </div>
-              <span className="text-slate-400">–</span>
+              <span className="text-ink-secondary">–</span>
               <div className="flex-1">
-                <input
+                <Input
                   type="number"
                   id="maxPlayers"
                   name="maxPlayers"
@@ -408,7 +424,6 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
                   required
                   value={formState.maxPlayers}
                   onChange={(e) => updateFormField('maxPlayers', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Max"
                 />
               </div>
@@ -417,12 +432,12 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
           {/* Time Range */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-ink-primary mb-1">
               Playtime (minutes) <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <input
+                <Input
                   type="number"
                   id="minTime"
                   name="minTime"
@@ -431,13 +446,12 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
                   required
                   value={formState.minTime}
                   onChange={(e) => updateFormField('minTime', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Min"
                 />
               </div>
-              <span className="text-slate-400">–</span>
+              <span className="text-ink-secondary">–</span>
               <div className="flex-1">
-                <input
+                <Input
                   type="number"
                   id="maxTime"
                   name="maxTime"
@@ -446,7 +460,6 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
                   required
                   value={formState.maxTime}
                   onChange={(e) => updateFormField('maxTime', e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Max"
                 />
               </div>
@@ -455,7 +468,7 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
           {/* Complexity */}
           <div>
-            <label htmlFor="complexity" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="complexity" className="block text-sm font-medium text-ink-primary mb-1">
               Complexity <span className="text-red-500">*</span>
             </label>
             <select
@@ -464,7 +477,7 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
               required
               value={formState.complexity}
               onChange={(e) => updateFormField('complexity', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm text-ink-primary shadow-card focus-ring"
             >
               <option value="">Select complexity...</option>
               <option value="simple">Simple</option>
@@ -475,16 +488,14 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
           {/* Shelf Location */}
           <div>
-            <label htmlFor="shelfLocation" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor="shelfLocation" className="block text-sm font-medium text-ink-primary mb-1">
               Location / Shelf
             </label>
-            <input
-              type="text"
+            <Input
               id="shelfLocation"
               name="shelfLocation"
               value={formState.shelfLocation}
               onChange={(e) => updateFormField('shelfLocation', e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., Shelf A3"
             />
           </div>
@@ -492,25 +503,24 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
           {/* BGG Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="bggRank" className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bggRank" className="block text-sm font-medium text-ink-primary mb-1">
                 BGG Rank
               </label>
-              <input
+              <Input
                 type="number"
                 id="bggRank"
                 name="bggRank"
                 min={1}
                 value={formState.bggRank}
                 onChange={(e) => updateFormField('bggRank', e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., 42"
               />
             </div>
             <div>
-              <label htmlFor="bggRating" className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="bggRating" className="block text-sm font-medium text-ink-primary mb-1">
                 BGG Rating
               </label>
-              <input
+              <Input
                 type="number"
                 id="bggRating"
                 name="bggRating"
@@ -519,7 +529,6 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
                 step={0.1}
                 value={formState.bggRating}
                 onChange={(e) => updateFormField('bggRating', e.target.value)}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="0-10"
               />
             </div>
@@ -527,31 +536,24 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
 
           {/* Actions */}
           <div className="flex items-center justify-between pt-2">
-            <button
+            <Button
               type="button"
               onClick={handleClearForm}
               disabled={isPending}
-              className="px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+              variant="ghost"
+              size="sm"
+              className="text-ink-secondary"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Clear Form
-            </button>
+            </Button>
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isPending}
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors disabled:opacity-50"
-              >
+              <Button type="button" onClick={onClose} disabled={isPending} variant="ghost" size="sm">
                 Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isPending}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-              >
+              </Button>
+              <Button type="submit" disabled={isPending} size="sm">
                 {isPending ? (
                   <>
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -565,7 +567,7 @@ export function GameFormModal({ isOpen, onClose, initialData }: GameFormModalPro
                 ) : (
                   'Add Game'
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </form>
