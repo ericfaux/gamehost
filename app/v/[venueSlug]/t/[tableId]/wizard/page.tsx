@@ -8,6 +8,7 @@
 import { getVenueAndTableBySlugAndTableId } from '@/lib/data';
 import Link from 'next/link';
 import { WizardForm } from './WizardForm';
+import { GuestHeader } from '@/components/table-app';
 
 interface PageProps {
   params: Promise<{
@@ -25,11 +26,11 @@ export default async function WizardPage({ params }: PageProps) {
   // If venue or table not found, show error
   if (!result || !result.table.is_active) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gray-50 dark:bg-gray-950">
+      <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 rulebook-grid">
         <div className="w-full max-w-md text-center space-y-6">
-          <div className="w-16 h-16 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto bg-[#f5e8e8] border border-[color:var(--color-danger)]/20 rounded-full flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-red-600 dark:text-red-400"
+              className="w-8 h-8 text-[color:var(--color-danger)]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -42,12 +43,12 @@ export default async function WizardPage({ params }: PageProps) {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-[color:var(--color-ink-primary)]">
             This table link is not valid
           </h1>
           <Link
             href="/"
-            className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:text-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-[color:var(--color-ink-primary)] bg-[color:var(--color-muted)] hover:bg-[color:var(--color-structure)] border border-[color:var(--color-structure)] rounded-xl transition-colors focus-ring"
           >
             Go to Home
           </Link>
@@ -59,34 +60,14 @@ export default async function WizardPage({ params }: PageProps) {
   const { venue, table } = result;
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <main className="min-h-screen rulebook-grid">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <Link
-            href={`/v/${venueSlug}/t/${tableId}`}
-            className="p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            aria-label="Go back"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </Link>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Find a Game
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {venue.name} · {table.label}
-            </p>
-          </div>
-        </div>
-      </header>
+      <GuestHeader
+        title="Find a Game"
+        subtitle={`${venue.name} · ${table.label}`}
+        backHref={`/v/${venueSlug}/t/${tableId}`}
+        backLabel="Back to table"
+      />
 
       {/* Wizard Form (Client Component) */}
       <div className="max-w-lg mx-auto px-4 py-6">

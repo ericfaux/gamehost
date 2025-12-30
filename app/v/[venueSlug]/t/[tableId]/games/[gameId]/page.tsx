@@ -12,7 +12,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getVenueAndTableBySlugAndTableId, getGameById } from '@/lib/data';
 import { parseSetupSteps, parseRulesBullets } from '@/lib/games/formatters';
-import { ComplexityBadge, TagChip } from '@/components/table-app';
+import { ComplexityBadge, TagChip, GuestHeader } from '@/components/table-app';
 import { StartSessionButton } from './StartSessionButton';
 
 interface PageProps {
@@ -42,11 +42,11 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
   // Handle missing data
   if (!venueTableResult || !venueTableResult.table.is_active || !game) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-gray-50 dark:bg-gray-950">
+      <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 rulebook-grid">
         <div className="w-full max-w-md text-center space-y-6">
-          <div className="w-16 h-16 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto bg-[#f5e8e8] border border-[color:var(--color-danger)]/20 rounded-full flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-red-600 dark:text-red-400"
+              className="w-8 h-8 text-[color:var(--color-danger)]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -59,17 +59,17 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-[color:var(--color-ink-primary)]">
             {!game ? 'Game not found' : 'This table link is not valid'}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-[color:var(--color-ink-secondary)]">
             {!game
               ? 'The game you are looking for does not exist or has been removed.'
               : 'Please scan a valid QR code at your table.'}
           </p>
           <Link
             href={venueTableResult ? `/v/${venueSlug}/t/${tableId}` : '/'}
-            className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:text-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="inline-flex items-center justify-center px-6 py-3 text-base font-medium text-[color:var(--color-ink-primary)] bg-[color:var(--color-muted)] hover:bg-[color:var(--color-structure)] border border-[color:var(--color-structure)] rounded-xl transition-colors focus-ring"
           >
             {venueTableResult ? 'Back to table' : 'Go to Home'}
           </Link>
@@ -99,39 +99,19 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
   const backUrl = `/v/${venueSlug}/t/${tableId}/wizard`;
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24">
+    <main className="min-h-screen rulebook-grid pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <Link
-            href={backUrl}
-            className="p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            aria-label="Go back"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-              {game.title}
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {venue.name} · {table.label}
-            </p>
-          </div>
-        </div>
-      </header>
+      <GuestHeader
+        title={game.title}
+        subtitle={`${venue.name} · ${table.label}`}
+        backHref={backUrl}
+        backLabel="Back to wizard"
+      />
 
       <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Cover image */}
         {game.cover_image_url && (
-          <div className="relative w-full aspect-video bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden">
+          <div className="relative w-full aspect-video bg-[color:var(--color-muted)] rounded-xl overflow-hidden shadow-[var(--shadow-card)]">
             <Image
               src={game.cover_image_url}
               alt={`${game.title} cover`}
@@ -145,13 +125,13 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
 
         {/* Game title and metadata */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{game.title}</h2>
+          <h2 className="text-2xl font-bold text-[color:var(--color-ink-primary)]">{game.title}</h2>
 
           {/* Quick stats */}
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex flex-wrap items-center gap-4 text-sm text-[color:var(--color-ink-secondary)]">
             <div className="flex items-center gap-1.5">
               <svg
-                className="w-5 h-5 text-gray-400"
+                className="w-5 h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -170,7 +150,7 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
 
             <div className="flex items-center gap-1.5">
               <svg
-                className="w-5 h-5 text-gray-400"
+                className="w-5 h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -190,7 +170,7 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
             {game.shelf_location && (
               <div className="flex items-center gap-1.5">
                 <svg
-                  className="w-5 h-5 text-gray-400"
+                  className="w-5 h-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -215,7 +195,7 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
 
           {/* Complexity badge */}
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Complexity:</span>
+            <span className="text-sm text-[color:var(--color-ink-secondary)]">Complexity:</span>
             <ComplexityBadge complexity={game.complexity} />
           </div>
 
@@ -231,25 +211,25 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
 
         {/* Pitch / Overview */}
         {game.pitch && (
-          <section className="space-y-2">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <section className="panel-surface p-4 space-y-2">
+            <h3 className="text-lg font-semibold text-[color:var(--color-ink-primary)]">
               Why you might like it
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{game.pitch}</p>
+            <p className="text-[color:var(--color-ink-secondary)] leading-relaxed">{game.pitch}</p>
           </section>
         )}
 
         {/* Setup steps */}
         {setupSteps.length > 0 && (
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Setup</h3>
+            <h3 className="text-lg font-semibold text-[color:var(--color-ink-primary)]">Setup</h3>
             <ol className="space-y-2">
               {setupSteps.map((step, index) => (
                 <li key={index} className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-medium rounded-full flex items-center justify-center">
+                  <span className="flex-shrink-0 w-6 h-6 bg-[color:var(--color-muted)] border border-[color:var(--color-structure)] text-[color:var(--color-ink-primary)] text-sm font-medium rounded-full flex items-center justify-center">
                     {index + 1}
                   </span>
-                  <span className="text-gray-600 dark:text-gray-400 pt-0.5">{step}</span>
+                  <span className="text-[color:var(--color-ink-secondary)] pt-0.5">{step}</span>
                 </li>
               ))}
             </ol>
@@ -259,12 +239,12 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
         {/* Rules bullets */}
         {rulesBullets.length > 0 && (
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">How to play</h3>
+            <h3 className="text-lg font-semibold text-[color:var(--color-ink-primary)]">How to play</h3>
             <ul className="space-y-2">
               {rulesBullets.map((rule, index) => (
                 <li key={index} className="flex gap-3">
-                  <span className="flex-shrink-0 w-1.5 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full mt-2" />
-                  <span className="text-gray-600 dark:text-gray-400">{rule}</span>
+                  <span className="flex-shrink-0 w-1.5 h-1.5 bg-[color:var(--color-structure-strong)] rounded-full mt-2" />
+                  <span className="text-[color:var(--color-ink-secondary)]">{rule}</span>
                 </li>
               ))}
             </ul>
@@ -273,7 +253,7 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
       </div>
 
       {/* Sticky bottom button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 p-4">
+      <div className="fixed bottom-0 left-0 right-0 bg-[color:var(--color-elevated)] border-t border-[color:var(--color-structure)] p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         <div className="max-w-lg mx-auto">
           <StartSessionButton
             venueSlug={venueSlug}

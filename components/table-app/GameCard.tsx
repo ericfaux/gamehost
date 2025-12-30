@@ -2,7 +2,7 @@
 
 /**
  * Card component for displaying a game recommendation.
- * Used in the wizard results to show recommended games.
+ * Uses theme tokens for consistent "Tabletop Tactile" styling.
  */
 
 import Link from 'next/link';
@@ -23,10 +23,10 @@ export function GameCard({ game, venueSlug, tableId, queryString }: GameCardProp
   const detailsUrl = `/v/${venueSlug}/t/${tableId}/games/${game.id}${queryString ? `?${queryString}` : ''}`;
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="panel-surface overflow-hidden">
       {/* Cover image */}
       {game.cover_image_url && (
-        <div className="relative w-full h-40 bg-gray-100 dark:bg-gray-800">
+        <div className="relative w-full h-40 bg-[color:var(--color-muted)]">
           <Image
             src={game.cover_image_url}
             alt={`${game.title} cover`}
@@ -39,10 +39,10 @@ export function GameCard({ game, venueSlug, tableId, queryString }: GameCardProp
 
       <div className="p-4 space-y-3">
         {/* Title */}
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">{game.title}</h3>
+        <h3 className="text-lg font-bold text-[color:var(--color-ink-primary)]">{game.title}</h3>
 
         {/* Metadata row */}
-        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex flex-wrap items-center gap-2 text-sm text-[color:var(--color-ink-secondary)]">
           <span className="flex items-center gap-1">
             <svg
               className="w-4 h-4"
@@ -59,7 +59,7 @@ export function GameCard({ game, venueSlug, tableId, queryString }: GameCardProp
             </svg>
             {game.min_players}–{game.max_players} players
           </span>
-          <span className="text-gray-300 dark:text-gray-600">•</span>
+          <span className="text-[color:var(--color-structure)]">•</span>
           <span className="flex items-center gap-1">
             <svg
               className="w-4 h-4"
@@ -88,7 +88,7 @@ export function GameCard({ game, venueSlug, tableId, queryString }: GameCardProp
               <TagChip key={vibe} label={vibe} />
             ))}
             {game.vibes.length > 3 && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 self-center">
+              <span className="text-xs text-[color:var(--color-ink-secondary)] self-center">
                 +{game.vibes.length - 3} more
               </span>
             )}
@@ -97,7 +97,7 @@ export function GameCard({ game, venueSlug, tableId, queryString }: GameCardProp
 
         {/* Pitch */}
         {game.pitch && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+          <p className="text-sm text-[color:var(--color-ink-secondary)] line-clamp-2">
             {game.pitch}
           </p>
         )}
@@ -105,7 +105,7 @@ export function GameCard({ game, venueSlug, tableId, queryString }: GameCardProp
         {/* Details button */}
         <Link
           href={detailsUrl}
-          className="inline-flex items-center justify-center w-full px-4 py-2.5 mt-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+          className="inline-flex items-center justify-center w-full px-4 py-2.5 mt-2 text-sm font-semibold text-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] hover:bg-[color:var(--color-accent)]/10 border border-[color:var(--color-accent)]/20 rounded-xl transition-colors focus-ring"
         >
           View Details
           <svg

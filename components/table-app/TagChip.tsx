@@ -2,6 +2,7 @@
 
 /**
  * Small chip component for displaying tags like vibes or complexity.
+ * Uses theme tokens for consistent "Tabletop Tactile" styling.
  */
 
 interface TagChipProps {
@@ -23,16 +24,19 @@ export function formatTagLabel(tag: string): string {
 
 export function TagChip({ label, variant = 'default', onClick, className = '' }: TagChipProps) {
   const baseClasses =
-    'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-colors';
+    'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-all border';
 
   const variantClasses = {
-    default: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-    primary: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-    selected: 'bg-blue-600 text-white dark:bg-blue-500',
+    default:
+      'bg-[color:var(--color-muted)] text-[color:var(--color-ink-secondary)] border-[color:var(--color-structure)]',
+    primary:
+      'bg-[color:var(--color-accent-soft)] text-[color:var(--color-accent)] border-[color:var(--color-accent)]/30',
+    selected:
+      'bg-[color:var(--color-accent)] text-[color:var(--color-surface)] border-[color:var(--color-accent)] shadow-[var(--shadow-token)]',
   };
 
   const interactiveClasses = onClick
-    ? 'cursor-pointer hover:opacity-80 active:scale-95'
+    ? 'cursor-pointer hover:shadow-sm active:scale-95 focus-ring'
     : '';
 
   return (
