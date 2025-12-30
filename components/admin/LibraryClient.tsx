@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
-import { Plus, Play, AlertCircle } from "@/components/icons";
-import { StatusBadge, TokenChip, useToast } from '@/components/AppShell';
+import { Plus, Play, Pencil } from "@/components/icons";
+import { TokenChip, useToast } from '@/components/AppShell';
 import { Button } from '@/components/ui/button';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +11,13 @@ import { ImportGamesButton } from '@/components/admin/ImportGamesButton';
 import { LibraryCommandBar, LibraryFilter } from '@/components/admin/LibraryCommandBar';
 import { GameLiveDrawer } from '@/components/admin/GameLiveDrawer';
 import { AssignToTableModal } from '@/components/admin/AssignToTableModal';
+import {
+  StatusSelect,
+  ConditionSelect,
+  CopiesStepper,
+  LocationInput,
+  FullChip,
+} from '@/components/admin/InlineEditors';
 import { Game } from '@/lib/db/types';
 import type { LibraryAggregatedData, SessionWithTable } from '@/app/admin/library/page';
 
@@ -35,6 +42,10 @@ export function LibraryClient({ data }: LibraryClientProps) {
   // Assign modal state
   const [assignGame, setAssignGame] = useState<Game | null>(null);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
+
+  // Edit modal state
+  const [editGame, setEditGame] = useState<Game | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Toggle filter
   const handleFilterToggle = useCallback((filter: LibraryFilter) => {
@@ -77,12 +88,25 @@ export function LibraryClient({ data }: LibraryClientProps) {
     setAssignGame(null);
   }, []);
 
+  // Open edit modal
+  const handleOpenEditModal = useCallback((game: Game) => {
+    setEditGame(game);
+    setEditModalOpen(true);
+  }, []);
+
+  // Close edit modal
+  const handleCloseEditModal = useCallback(() => {
+    setEditModalOpen(false);
+    setEditGame(null);
+  }, []);
+
   // Table columns
   const columns: Column<Game>[] = useMemo(() => [
     {
       key: 'title',
       header: 'Title',
       sortable: true,
+      minWidth: 150,
       render: (row) => (
         <span className="font-medium text-[color:var(--color-ink-primary)]">{row.title}</span>
       ),
@@ -90,6 +114,7 @@ export function LibraryClient({ data }: LibraryClientProps) {
     {
       key: 'vibes',
       header: 'Vibe',
+      minWidth: 120,
       render: (row) => (
         <div className="flex flex-wrap gap-1">
           {row.vibes.slice(0, 2).map((vibe) => (
@@ -105,27 +130,42 @@ export function LibraryClient({ data }: LibraryClientProps) {
       key: 'min_players',
       header: 'Players',
       sortable: true,
+      minWidth: 70,
       render: (row) => `${row.min_players}-${row.max_players}`,
     },
     {
       key: 'min_time_minutes',
       header: 'Time',
       sortable: true,
+      minWidth: 80,
       render: (row) => `${row.min_time_minutes}-${row.max_time_minutes}m`,
     },
     {
       key: 'shelf_location',
       header: 'Location',
-      render: (row) => <span className="font-mono text-xs">{row.shelf_location}</span>,
+      minWidth: 90,
+      render: (row) => (
+        <LocationInput
+          gameId={row.id}
+          currentValue={row.shelf_location}
+        />
+      ),
     },
     {
       key: 'copies_in_rotation',
       header: 'Copies',
-      render: (row) => <span className="text-center">{row.copies_in_rotation ?? 1}</span>,
+      minWidth: 90,
+      render: (row) => (
+        <CopiesStepper
+          gameId={row.id}
+          currentValue={row.copies_in_rotation ?? 1}
+        />
+      ),
     },
     {
       key: 'in_use',
       header: 'In use',
+      minWidth: 80,
       render: (row) => {
         const inUse = copiesInUse[row.id] ?? 0;
         const copies = row.copies_in_rotation ?? 1;
@@ -138,39 +178,51 @@ export function LibraryClient({ data }: LibraryClientProps) {
         }
 
         return (
-          <button
-            onClick={() => handleOpenDrawer(row)}
-            className={`
-              inline-flex items-center gap-1 px-2 py-1 rounded-lg
-              font-semibold text-sm cursor-pointer
-              transition-colors hover:opacity-80
-              ${isBottlenecked
-                ? 'bg-[color:var(--color-danger)]/10 text-[color:var(--color-danger)]'
-                : 'bg-[color:var(--color-warn)]/10 text-[color:var(--color-warn)]'
-              }
-            `}
-            title="Click to view active sessions"
-          >
-            <Play className="h-3 w-3" />
-            {inUse}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleOpenDrawer(row)}
+              className={`
+                inline-flex items-center gap-1 px-2 py-1 rounded-lg
+                font-semibold text-sm cursor-pointer
+                transition-colors hover:opacity-80
+                ${isBottlenecked
+                  ? 'bg-[color:var(--color-danger)]/10 text-[color:var(--color-danger)]'
+                  : 'bg-[color:var(--color-warn)]/10 text-[color:var(--color-warn)]'
+                }
+              `}
+              title="Click to view active sessions"
+            >
+              <Play className="h-3 w-3" />
+              {inUse}
+            </button>
+            {isBottlenecked && (
+              <FullChip copiesInUse={inUse} copiesInRotation={copies} />
+            )}
+          </div>
         );
       },
     },
     {
       key: 'status',
       header: 'Status',
-      minWidth: 120,
-      render: (row) => <StatusBadge status={row.status} />,
+      minWidth: 140,
+      render: (row) => (
+        <StatusSelect
+          gameId={row.id}
+          currentValue={row.status}
+        />
+      ),
     },
     {
       key: 'condition',
       header: 'Condition',
-      minWidth: 100,
-      render: (row) => {
-        const tone = row.condition === 'problematic' ? 'warn' : 'muted';
-        return <TokenChip tone={tone}>{row.condition}</TokenChip>;
-      },
+      minWidth: 120,
+      render: (row) => (
+        <ConditionSelect
+          gameId={row.id}
+          currentValue={row.condition}
+        />
+      ),
     },
     {
       key: 'actions',
@@ -183,35 +235,35 @@ export function LibraryClient({ data }: LibraryClientProps) {
         const hasAvailableCopies = available > 0;
         const hasBrowsingSessions = browsingSessions.length > 0;
 
-        if (!hasAvailableCopies) {
-          return (
-            <span
-              className="text-xs text-[color:var(--color-ink-secondary)] flex items-center gap-1"
-              title="All copies in use"
-            >
-              <AlertCircle className="h-3 w-3" />
-              Full
-            </span>
-          );
-        }
-
-        if (!hasBrowsingSessions) {
-          return null;
-        }
-
         return (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs"
-            onClick={() => handleOpenAssignModal(row)}
-          >
-            Assign
-          </Button>
+          <div className="flex items-center gap-1">
+            {/* Edit button - always visible */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => handleOpenEditModal(row)}
+              title="Edit game"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+
+            {/* Assign button - only if copies available and browsing sessions exist */}
+            {hasAvailableCopies && hasBrowsingSessions && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs"
+                onClick={() => handleOpenAssignModal(row)}
+              >
+                Assign
+              </Button>
+            )}
+          </div>
         );
       },
     },
-  ], [copiesInUse, browsingSessions.length, handleOpenDrawer, handleOpenAssignModal]);
+  ], [copiesInUse, browsingSessions.length, handleOpenDrawer, handleOpenAssignModal, handleOpenEditModal]);
 
   // Filter games
   const filtered = useMemo(() => {
@@ -289,34 +341,17 @@ export function LibraryClient({ data }: LibraryClientProps) {
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onSave={(game) => {
-          const minPlayers = game.min_players ?? 2;
-          const maxPlayers = game.max_players ?? 4;
-          const minTime = game.min_time_minutes ?? 30;
-          const maxTime = game.max_time_minutes ?? 45;
+          push({ title: 'Game added', description: `${game.title} logged to library`, tone: 'success' });
+        }}
+      />
 
-          const newGame: Game = {
-            id: `game-${Date.now()}`,
-            venue_id: data.venueId,
-            title: game.title ?? 'Untitled',
-            min_players: minPlayers,
-            max_players: maxPlayers,
-            min_time_minutes: minTime,
-            max_time_minutes: maxTime,
-            complexity: game.complexity ?? 'medium',
-            vibes: game.vibes ?? ['calming'],
-            status: 'in_rotation',
-            condition: game.condition ?? 'new',
-            shelf_location: game.shelf_location ?? 'Wall X',
-            pitch: game.pitch ?? null,
-            setup_steps: null,
-            rules_bullets: null,
-            cover_image_url: game.cover_image_url ?? null,
-            bgg_rank: game.bgg_rank ?? null,
-            bgg_rating: game.bgg_rating ?? null,
-            copies_in_rotation: game.copies_in_rotation ?? 1,
-            created_at: new Date().toISOString(),
-          };
-          push({ title: 'Game added', description: `${newGame.title} logged to library`, tone: 'success' });
+      {/* Edit Game Modal */}
+      <GameFormModal
+        isOpen={editModalOpen}
+        onClose={handleCloseEditModal}
+        initialData={editGame}
+        onSave={(game) => {
+          push({ title: 'Game updated', description: `${game.title} has been updated`, tone: 'success' });
         }}
       />
 
