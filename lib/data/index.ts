@@ -31,6 +31,9 @@ export {
   getSessionById,
   validateSessionForTable,
   endSession,
+  sanitizeActiveSessionsForTable,
+  endAllActiveSessionsForTable,
+  getActiveSessionsForVenue,
   type CreateSessionParams,
 } from './sessions';
 
