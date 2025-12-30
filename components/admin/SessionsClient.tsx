@@ -13,13 +13,17 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Star,
+  Heart,
+  MessageSquare,
+  ThumbsDown,
 } from "@/components/icons";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Session, VenueTable, Game } from "@/lib/db/types";
-import type { EndedSession, DateRangePreset } from "@/lib/data";
+import type { EndedSession, DateRangePreset, VenueExperienceSummary } from "@/lib/data";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import {
@@ -28,6 +32,7 @@ import {
   listEndedSessionsAction,
 } from "@/app/admin/sessions/actions";
 import { AssignGameModal } from "./AssignGameModal";
+import { VenueCommentsDrawer } from "./VenueCommentsDrawer";
 
 // =============================================================================
 // CONSTANTS - Stale session thresholds (easy to adjust)
@@ -132,6 +137,7 @@ interface SessionsClientProps {
   venueId: string;
   initialEndedSessions: EndedSession[];
   initialEndedCursor: { endedAt: string; id: string } | null;
+  venuePulse: VenueExperienceSummary;
 }
 
 export function SessionsClient({
@@ -141,6 +147,7 @@ export function SessionsClient({
   venueId,
   initialEndedSessions,
   initialEndedCursor,
+  venuePulse,
 }: SessionsClientProps) {
   const { push } = useToast();
   const router = useRouter();
@@ -169,6 +176,13 @@ export function SessionsClient({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRecentExpanded, setIsRecentExpanded] = useState(true);
   const [isFilteringEnded, setIsFilteringEnded] = useState(false);
+
+  // Feedback filters for ended sessions
+  const [hasFeedbackFilter, setHasFeedbackFilter] = useState(false);
+  const [lowExperienceFilter, setLowExperienceFilter] = useState(false);
+
+  // Venue comments drawer state
+  const [venueCommentsOpen, setVenueCommentsOpen] = useState(false);
 
   // Sync local state when initialSessions prop changes
   useEffect(() => {
@@ -438,17 +452,35 @@ export function SessionsClient({
     }
   }, [endedCursor, isLoadingMore, endedRangePreset, endedSearchTerm, fetchEndedSessions]);
 
-  // Filter ended sessions by search term (client-side for already-loaded data)
+  // Filter ended sessions by search term and feedback filters (client-side for already-loaded data)
   const filteredEndedSessions = useMemo(() => {
-    if (!endedSearchTerm.trim()) return endedSessions;
+    let result = endedSessions;
 
-    const term = endedSearchTerm.toLowerCase().trim();
-    return endedSessions.filter((s) => {
-      const tableMatch = s.venue_tables?.label?.toLowerCase().includes(term);
-      const gameMatch = s.games?.title?.toLowerCase().includes(term);
-      return tableMatch || gameMatch;
-    });
-  }, [endedSessions, endedSearchTerm]);
+    // Apply "Has feedback" filter
+    if (hasFeedbackFilter) {
+      result = result.filter((s) => s.feedback_submitted_at !== null);
+    }
+
+    // Apply "Low experience" filter (venue rating <=2)
+    if (lowExperienceFilter) {
+      result = result.filter((s) => {
+        const rating = s.feedback_venue_rating;
+        return rating !== null && rating <= 2;
+      });
+    }
+
+    // Apply search term
+    if (endedSearchTerm.trim()) {
+      const term = endedSearchTerm.toLowerCase().trim();
+      result = result.filter((s) => {
+        const tableMatch = s.venue_tables?.label?.toLowerCase().includes(term);
+        const gameMatch = s.games?.title?.toLowerCase().includes(term);
+        return tableMatch || gameMatch;
+      });
+    }
+
+    return result;
+  }, [endedSessions, endedSearchTerm, hasFeedbackFilter, lowExperienceFilter]);
 
   // =============================================================================
   // RENDER
@@ -767,6 +799,53 @@ export function SessionsClient({
           </CardContent>
         </Card>
 
+        {/* Venue Pulse Summary */}
+        {venuePulse.responseCount > 0 && (
+          <Card className="panel-surface">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Heart className="h-4 w-4 text-pink-500" />
+                    <span className="text-sm font-medium text-[color:var(--color-ink-primary)]">
+                      Venue pulse
+                    </span>
+                  </div>
+                  <div className="h-4 w-px bg-[color:var(--color-structure)]" />
+                  <div className="flex items-center gap-1.5">
+                    <Star className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="font-semibold text-[color:var(--color-ink-primary)]">
+                      {venuePulse.avgRating !== null ? venuePulse.avgRating.toFixed(1) : '—'}
+                    </span>
+                    <span className="text-xs text-[color:var(--color-ink-secondary)]">
+                      ({venuePulse.responseCount} ratings, 7d)
+                    </span>
+                  </div>
+                  {venuePulse.negativeCount > 0 && (
+                    <>
+                      <div className="h-4 w-px bg-[color:var(--color-structure)]" />
+                      <TokenChip tone="warn">
+                        <ThumbsDown className="h-3 w-3" />
+                        {venuePulse.negativeCount} low
+                      </TokenChip>
+                    </>
+                  )}
+                </div>
+                {venuePulse.commentCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVenueCommentsOpen(true)}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-1" />
+                    {venuePulse.commentCount} comments
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Recent Sessions Card (Historical / Ended) */}
         <Card className="panel-surface">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -851,6 +930,34 @@ export function SessionsClient({
                   <Search className="h-4 w-4 absolute left-3 top-2 text-ink-secondary" />
                 </div>
 
+                {/* Feedback filter toggles */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setHasFeedbackFilter(!hasFeedbackFilter)}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+                      hasFeedbackFilter
+                        ? "bg-[color:var(--color-accent-soft)] border-[color:var(--color-accent)] text-[color:var(--color-accent)]"
+                        : "border-structure text-ink-secondary hover:text-ink-primary"
+                    }`}
+                    aria-pressed={hasFeedbackFilter}
+                  >
+                    Has feedback
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLowExperienceFilter(!lowExperienceFilter)}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors ${
+                      lowExperienceFilter
+                        ? "bg-red-100 dark:bg-red-900/20 border-red-400 dark:border-red-600 text-red-700 dark:text-red-400"
+                        : "border-structure text-ink-secondary hover:text-ink-primary"
+                    }`}
+                    aria-pressed={lowExperienceFilter}
+                  >
+                    Low experience
+                  </button>
+                </div>
+
                 {/* Loading indicator */}
                 {isFilteringEnded && (
                   <Loader2 className="h-4 w-4 animate-spin text-ink-secondary" />
@@ -861,52 +968,106 @@ export function SessionsClient({
               {filteredEndedSessions.length > 0 ? (
                 <div className="space-y-0">
                   {/* Header row */}
-                  <div className="hidden sm:grid grid-cols-[1fr_100px_1fr_80px] gap-2 px-2 py-1.5 text-xs font-medium text-ink-secondary uppercase tracking-wide border-b border-structure">
+                  <div className="hidden sm:grid grid-cols-[1fr_100px_1fr_60px_80px] gap-2 px-2 py-1.5 text-xs font-medium text-ink-secondary uppercase tracking-wide border-b border-structure">
                     <span>Ended</span>
                     <span>Table</span>
                     <span>Game</span>
+                    <span>Rating</span>
                     <span className="text-right">Duration</span>
                   </div>
 
                   {/* Data rows */}
-                  {filteredEndedSessions.map((session) => (
-                    <div
-                      key={session.id}
-                      className="grid grid-cols-1 sm:grid-cols-[1fr_100px_1fr_80px] gap-1 sm:gap-2 px-2 py-2 text-sm border-b border-structure/50 hover:bg-elevated/50 transition-colors"
-                    >
-                      {/* Ended timestamp */}
-                      <span className="text-ink-secondary text-xs sm:text-sm">
-                        <span className="sm:hidden font-medium text-ink-primary">Ended: </span>
-                        {session.ended_at
-                          ? formatEndedTimestamp(session.ended_at)
-                          : "—"}
-                      </span>
+                  {filteredEndedSessions.map((session) => {
+                    const hasFeedback = session.feedback_submitted_at !== null;
+                    const gameRating = session.feedback_rating;
+                    const venueRating = session.feedback_venue_rating;
+                    const hasComment = session.feedback_comment !== null;
 
-                      {/* Table */}
-                      <span className="font-mono text-xs sm:text-sm">
-                        <span className="sm:hidden font-medium text-ink-primary font-sans">Table: </span>
-                        {session.venue_tables?.label ?? "—"}
-                      </span>
+                    return (
+                      <div
+                        key={session.id}
+                        className="grid grid-cols-1 sm:grid-cols-[1fr_100px_1fr_60px_80px] gap-1 sm:gap-2 px-2 py-2 text-sm border-b border-structure/50 hover:bg-elevated/50 transition-colors"
+                      >
+                        {/* Ended timestamp */}
+                        <span className="text-ink-secondary text-xs sm:text-sm">
+                          <span className="sm:hidden font-medium text-ink-primary">Ended: </span>
+                          {session.ended_at
+                            ? formatEndedTimestamp(session.ended_at)
+                            : "—"}
+                        </span>
 
-                      {/* Game */}
-                      <span className={`text-xs sm:text-sm truncate ${session.game_id ? "" : "text-ink-secondary italic"}`}>
-                        <span className="sm:hidden font-medium text-ink-primary">Game: </span>
-                        {session.games?.title ?? "No game selected"}
-                      </span>
+                        {/* Table */}
+                        <span className="font-mono text-xs sm:text-sm">
+                          <span className="sm:hidden font-medium text-ink-primary font-sans">Table: </span>
+                          {session.venue_tables?.label ?? "—"}
+                        </span>
 
-                      {/* Duration */}
-                      <span className="text-xs sm:text-sm text-right tabular-nums">
-                        <span className="sm:hidden font-medium text-ink-primary">Duration: </span>
-                        {session.ended_at
-                          ? formatSessionDuration(
-                              session.started_at,
-                              session.created_at,
-                              session.ended_at
-                            )
-                          : "—"}
-                      </span>
-                    </div>
-                  ))}
+                        {/* Game */}
+                        <span className={`text-xs sm:text-sm truncate ${session.game_id ? "" : "text-ink-secondary italic"}`}>
+                          <span className="sm:hidden font-medium text-ink-primary">Game: </span>
+                          {session.games?.title ?? "No game selected"}
+                        </span>
+
+                        {/* Rating markers */}
+                        <span className="flex items-center gap-1">
+                          {hasFeedback ? (
+                            <>
+                              {gameRating !== null && (
+                                <span
+                                  className={`inline-flex items-center gap-0.5 text-xs ${
+                                    gameRating >= 4
+                                      ? "text-green-600"
+                                      : gameRating <= 2
+                                      ? "text-red-600"
+                                      : "text-yellow-600"
+                                  }`}
+                                  title={`Game: ${gameRating}/5`}
+                                >
+                                  <Star className="h-3 w-3" />
+                                  {gameRating}
+                                </span>
+                              )}
+                              {venueRating !== null && (
+                                <span
+                                  className={`inline-flex items-center gap-0.5 text-xs ${
+                                    venueRating >= 4
+                                      ? "text-green-600"
+                                      : venueRating <= 2
+                                      ? "text-red-600"
+                                      : "text-yellow-600"
+                                  }`}
+                                  title={`Venue: ${venueRating}/5`}
+                                >
+                                  <Heart className="h-3 w-3" />
+                                  {venueRating}
+                                </span>
+                              )}
+                              {hasComment && (
+                                <MessageSquare
+                                  className="h-3 w-3 text-ink-secondary"
+                                  title="Has comment"
+                                />
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-ink-secondary">—</span>
+                          )}
+                        </span>
+
+                        {/* Duration */}
+                        <span className="text-xs sm:text-sm text-right tabular-nums">
+                          <span className="sm:hidden font-medium text-ink-primary">Duration: </span>
+                          {session.ended_at
+                            ? formatSessionDuration(
+                                session.started_at,
+                                session.created_at,
+                                session.ended_at
+                              )
+                            : "—"}
+                        </span>
+                      </div>
+                    );
+                  })}
 
                   {/* Load more button */}
                   {endedCursor && (
@@ -951,6 +1112,13 @@ export function SessionsClient({
         games={availableGames}
         tableLabel={assignModalSession?.venue_tables?.label ?? "Table"}
         isAssigning={isAssigning}
+      />
+
+      {/* Venue Comments Drawer */}
+      <VenueCommentsDrawer
+        venueId={venueId}
+        isOpen={venueCommentsOpen}
+        onClose={() => setVenueCommentsOpen(false)}
       />
     </>
   );

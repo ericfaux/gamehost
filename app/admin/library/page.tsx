@@ -3,9 +3,10 @@ import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getGamesForVenue } from '@/lib/data/games';
 import { getVenueTables } from '@/lib/data/tables';
-import { getCopiesInUseByGame, getActiveSessionsForVenue } from '@/lib/data/sessions';
+import { getCopiesInUseByGame, getActiveSessionsForVenue, getFeedbackSummariesByGame } from '@/lib/data/sessions';
 import { LibraryClient } from '@/components/admin/LibraryClient';
 import type { Session, VenueTable, Game } from '@/lib/db/types';
+import type { GameFeedbackSummary } from '@/lib/data/sessions';
 
 /** Session with table label for display */
 export interface SessionWithTable extends Session {
@@ -20,6 +21,8 @@ export interface LibraryAggregatedData {
   activeSessionsByGame: Record<string, SessionWithTable[]>;
   browsingSessions: SessionWithTable[];
   venueId: string;
+  /** Per-game feedback summaries (last 90 days) */
+  feedbackSummaries: Record<string, GameFeedbackSummary>;
 }
 
 export default async function LibraryPage() {
@@ -45,11 +48,12 @@ export default async function LibraryPage() {
   }
 
   // Fetch all data in parallel
-  const [games, tables, copiesInUse, activeSessions] = await Promise.all([
+  const [games, tables, copiesInUse, activeSessions, feedbackSummaries] = await Promise.all([
     getGamesForVenue(venue.id),
     getVenueTables(venue.id),
     getCopiesInUseByGame(venue.id),
     getActiveSessionsForVenue(venue.id),
+    getFeedbackSummariesByGame(venue.id),
   ]);
 
   // Build tables map for quick lookup
@@ -88,6 +92,7 @@ export default async function LibraryPage() {
     activeSessionsByGame,
     browsingSessions,
     venueId: venue.id,
+    feedbackSummaries,
   };
 
   return <LibraryClient data={aggregatedData} />;

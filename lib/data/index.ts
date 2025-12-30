@@ -37,12 +37,22 @@ export {
   getCopiesInUseByGame,
   getEndedSessionsForVenue,
   submitFeedbackAndEndSession,
+  // Feedback aggregation
+  getFeedbackSummariesByGame,
+  getGameFeedbackDetail,
+  getVenueExperienceSummary,
+  getVenueExperienceComments,
+  FEEDBACK_TIMEFRAME_DAYS,
   type CreateSessionParams,
   type DateRangePreset,
   type EndedSessionsOptions,
   type EndedSession,
   type EndedSessionsResult,
   type SubmitFeedbackParams,
+  type GameFeedbackSummary,
+  type GameFeedbackDetail,
+  type VenueExperienceSummary,
+  type VenueExperienceComment,
 } from './sessions';
 
 // Re-export types for convenience

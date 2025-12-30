@@ -2,11 +2,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { getVenueByOwnerId } from "@/lib/data/venues";
 import { getVenueTables } from "@/lib/data/tables";
-import { getActiveSessionsForVenue, getEndedSessionsForVenue } from "@/lib/data/sessions";
+import { getActiveSessionsForVenue, getEndedSessionsForVenue, getVenueExperienceSummary } from "@/lib/data/sessions";
 import { getGamesForVenue } from "@/lib/data/games";
 import { SessionsClient, type SessionWithDetails } from "@/components/admin/SessionsClient";
 import type { Game } from "@/lib/db/types";
-import type { EndedSession } from "@/lib/data";
+import type { EndedSession, VenueExperienceSummary } from "@/lib/data";
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +32,7 @@ export default async function AdminSessionsPage() {
   }
 
   // Fetch all data in parallel for better performance
-  const [sessions, tables, allGames, endedSessionsResult] = await Promise.all([
+  const [sessions, tables, allGames, endedSessionsResult, venuePulse] = await Promise.all([
     // FIX: Use data layer function with admin client (bypasses RLS)
     // This ensures Admin UI can see all guest-created sessions
     getActiveSessionsForVenue(venue.id),
@@ -40,6 +40,8 @@ export default async function AdminSessionsPage() {
     getGamesForVenue(venue.id),
     // Fetch first page of ended sessions (default: last 7 days)
     getEndedSessionsForVenue(venue.id, { limit: 50, dateRangePreset: '7d' }),
+    // Venue experience summary (last 7 days)
+    getVenueExperienceSummary(venue.id, 7),
   ]);
 
   // Filter games to only include those in rotation and not problematic
@@ -63,6 +65,7 @@ export default async function AdminSessionsPage() {
       venueId={venue.id}
       initialEndedSessions={initialEndedSessions}
       initialEndedCursor={initialEndedCursor}
+      venuePulse={venuePulse}
     />
   );
 }

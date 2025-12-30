@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
-import { Plus, Play, Pencil } from "@/components/icons";
+import { Plus, Play, Pencil, Star, Eye } from "@/components/icons";
 import { TokenChip, useToast } from '@/components/AppShell';
 import { Button } from '@/components/ui/button';
 import { DataTable, Column } from '@/components/ui/data-table';
@@ -10,6 +10,7 @@ import { GameFormModal } from '@/components/admin/AddGameModal';
 import { ImportGamesButton } from '@/components/admin/ImportGamesButton';
 import { LibraryCommandBar, LibraryFilter } from '@/components/admin/LibraryCommandBar';
 import { GameLiveDrawer } from '@/components/admin/GameLiveDrawer';
+import { GameFeedbackDrawer } from '@/components/admin/GameFeedbackDrawer';
 import { AssignToTableModal } from '@/components/admin/AssignToTableModal';
 import {
   StatusSelect,
@@ -27,7 +28,7 @@ interface LibraryClientProps {
 
 export function LibraryClient({ data }: LibraryClientProps) {
   const { push } = useToast();
-  const { games, copiesInUse, activeSessionsByGame, browsingSessions } = data;
+  const { games, copiesInUse, activeSessionsByGame, browsingSessions, feedbackSummaries, venueId } = data;
 
   // State
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -46,6 +47,10 @@ export function LibraryClient({ data }: LibraryClientProps) {
   // Edit modal state
   const [editGame, setEditGame] = useState<Game | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+
+  // Feedback drawer state
+  const [feedbackGame, setFeedbackGame] = useState<Game | null>(null);
+  const [feedbackDrawerOpen, setFeedbackDrawerOpen] = useState(false);
 
   // Toggle filter
   const handleFilterToggle = useCallback((filter: LibraryFilter) => {
@@ -100,16 +105,44 @@ export function LibraryClient({ data }: LibraryClientProps) {
     setEditGame(null);
   }, []);
 
+  // Open feedback drawer
+  const handleOpenFeedbackDrawer = useCallback((game: Game) => {
+    setFeedbackGame(game);
+    setFeedbackDrawerOpen(true);
+  }, []);
+
+  // Close feedback drawer
+  const handleCloseFeedbackDrawer = useCallback(() => {
+    setFeedbackDrawerOpen(false);
+    setFeedbackGame(null);
+  }, []);
+
   // Table columns
   const columns: Column<Game>[] = useMemo(() => [
     {
       key: 'title',
       header: 'Title',
       sortable: true,
-      minWidth: 150,
-      render: (row) => (
-        <span className="font-medium text-[color:var(--color-ink-primary)]">{row.title}</span>
-      ),
+      minWidth: 180,
+      render: (row) => {
+        const feedback = feedbackSummaries[row.id];
+        return (
+          <div className="space-y-0.5">
+            <span className="font-medium text-[color:var(--color-ink-primary)]">{row.title}</span>
+            {feedback && feedback.responseCount > 0 && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <Star className="h-3 w-3 text-amber-500" />
+                <span className="font-medium text-[color:var(--color-ink-primary)]">
+                  {feedback.avgRating !== null ? feedback.avgRating.toFixed(1) : '—'}
+                </span>
+                <span className="text-[color:var(--color-ink-secondary)]">
+                  ({feedback.responseCount})
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'vibes',
@@ -227,16 +260,30 @@ export function LibraryClient({ data }: LibraryClientProps) {
     {
       key: 'actions',
       header: '',
-      minWidth: 100,
+      minWidth: 130,
       render: (row) => {
         const copies = row.copies_in_rotation ?? 1;
         const inUse = copiesInUse[row.id] ?? 0;
         const available = copies - inUse;
         const hasAvailableCopies = available > 0;
         const hasBrowsingSessions = browsingSessions.length > 0;
+        const hasFeedback = feedbackSummaries[row.id]?.responseCount > 0;
 
         return (
           <div className="flex items-center gap-1">
+            {/* View feedback button - only if has feedback */}
+            {hasFeedback && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => handleOpenFeedbackDrawer(row)}
+                title="View feedback"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
+
             {/* Edit button - always visible */}
             <Button
               variant="ghost"
@@ -263,7 +310,7 @@ export function LibraryClient({ data }: LibraryClientProps) {
         );
       },
     },
-  ], [copiesInUse, browsingSessions.length, handleOpenDrawer, handleOpenAssignModal, handleOpenEditModal]);
+  ], [copiesInUse, browsingSessions.length, feedbackSummaries, handleOpenDrawer, handleOpenAssignModal, handleOpenEditModal, handleOpenFeedbackDrawer]);
 
   // Filter games
   const filtered = useMemo(() => {
@@ -374,6 +421,16 @@ export function LibraryClient({ data }: LibraryClientProps) {
           browsingSessions={browsingSessions}
           isOpen={assignModalOpen}
           onClose={handleCloseAssignModal}
+        />
+      )}
+
+      {/* Feedback Drawer */}
+      {feedbackGame && (
+        <GameFeedbackDrawer
+          game={feedbackGame}
+          venueId={venueId}
+          isOpen={feedbackDrawerOpen}
+          onClose={handleCloseFeedbackDrawer}
         />
       )}
     </>
