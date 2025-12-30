@@ -5,7 +5,7 @@
  *
  * Session state flow (based on user's cookie):
  * 1. Scenario A (Playing): User has a session with a game -> Show "Now Playing" dashboard
- * 2. Scenario B (Browsing): User has a session but no game -> Show "Session Active" with game options
+ * 2. Scenario B (Browsing): User has a session but no game -> Show "Session Active" with Quick Picks
  * 3. Scenario C (No Session): No valid session cookie -> Show "Start Session" button
  */
 
@@ -17,9 +17,11 @@ import {
   getSessionById,
   getGameById,
   getActiveSession,
+  getQuickPickGames,
 } from '@/lib/data';
 import { StartSessionButton } from './StartSessionButton';
 import { EndSessionButton } from './EndSessionButton';
+import { QuickPickCard } from '@/components/table-app';
 
 interface PageProps {
   params: Promise<{
@@ -133,6 +135,12 @@ export default async function TableLandingPage({ params }: PageProps) {
   // Determine session state
   const hasValidSession = !!userSession;
   const isPlaying = hasValidSession && currentGame !== null;
+
+  // Fetch quick picks for browsing state
+  let quickPicks: Awaited<ReturnType<typeof getQuickPickGames>> = [];
+  if (hasValidSession && !isPlaying) {
+    quickPicks = await getQuickPickGames(venue.id, 6);
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 rulebook-grid">
@@ -266,10 +274,46 @@ export default async function TableLandingPage({ params }: PageProps) {
               Session Active
             </div>
 
-            <p className="text-[color:var(--color-ink-secondary)]">
-              Ready to find the perfect game for your group? Let us help you discover
-              something fun to play!
-            </p>
+            {/* Quick Picks Section */}
+            {quickPicks.length > 0 && (
+              <div className="space-y-4 text-left">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-[color:var(--color-ink-primary)]">
+                      Quick Picks
+                    </h2>
+                    <p className="text-sm text-[color:var(--color-ink-secondary)]">
+                      Top games available now
+                    </p>
+                  </div>
+                  <Link
+                    href={`/v/${venueSlug}/t/${tableId}/wizard`}
+                    className="text-sm font-medium text-[color:var(--color-accent)] hover:underline"
+                  >
+                    More options →
+                  </Link>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {quickPicks.map((game) => (
+                    <QuickPickCard
+                      key={game.id}
+                      game={game}
+                      venueSlug={venueSlug}
+                      tableId={tableId}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Fallback text if no quick picks */}
+            {quickPicks.length === 0 && (
+              <p className="text-[color:var(--color-ink-secondary)]">
+                Ready to find the perfect game for your group? Let us help you discover
+                something fun to play!
+              </p>
+            )}
 
             {/* Game selection buttons */}
             <div className="space-y-3">

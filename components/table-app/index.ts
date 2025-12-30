@@ -6,5 +6,6 @@
 export { TagChip, formatTagLabel } from './TagChip';
 export { ComplexityBadge } from './ComplexityBadge';
 export { GameCard } from './GameCard';
+export { QuickPickCard } from './QuickPickCard';
 export { GuestShell, GuestContainer } from './GuestShell';
 export { GuestHeader } from './GuestHeader';

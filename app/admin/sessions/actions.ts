@@ -22,6 +22,10 @@ export async function endSessionAction(sessionId: string): Promise<EndSessionRes
 
     await endSession(sessionId);
 
+    // Revalidate both sessions and library pages
+    revalidatePath('/admin/sessions');
+    revalidatePath('/admin/library');
+
     return { success: true };
   } catch (error) {
     console.error('Error ending session:', error);
@@ -72,8 +76,9 @@ export async function assignGameToSessionAction(
     // Update the session with the game
     await updateSessionGame(sessionId, gameId);
 
-    // Revalidate the sessions page to reflect changes
+    // Revalidate both sessions and library pages
     revalidatePath('/admin/sessions');
+    revalidatePath('/admin/library');
 
     return { ok: true };
   } catch (error) {
