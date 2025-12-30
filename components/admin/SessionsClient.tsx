@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, StopCircle, Search, RefreshCw } from "lucide-react";
+import { Clock3, StopCircle, Search, RotateCw } from "lucide-react";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,7 +140,7 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
           disabled={isRefreshing}
           title="Refresh sessions"
         >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          <RotateCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
           <span className="ml-1">Refresh</span>
         </Button>
       </div>
