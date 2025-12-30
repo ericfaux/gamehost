@@ -9,7 +9,7 @@ import {
   AlertTriangle,
   Gamepad2,
   ArrowDownWideNarrow,
-} from "lucide-react";
+} from "@/components/icons";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
