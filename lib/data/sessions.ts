@@ -472,3 +472,150 @@ export async function endSession(sessionId: string): Promise<Session> {
 
   return session as Session;
 }
+
+// =============================================================================
+// HISTORICAL SESSIONS (for Admin "Recent sessions" view)
+// =============================================================================
+
+export type DateRangePreset = 'today' | '7d' | '30d';
+
+export interface EndedSessionsOptions {
+  /** Maximum rows to return (default: 50) */
+  limit?: number;
+  /** Cursor for pagination: { endedAt: string, id: string } */
+  before?: { endedAt: string; id: string };
+  /** Date range preset */
+  dateRangePreset?: DateRangePreset;
+  /** Custom start date (ISO string, overrides preset) */
+  startDate?: string;
+  /** Custom end date (ISO string, overrides preset) */
+  endDate?: string;
+  /** Search term to match table label or game title (case-insensitive substring) */
+  search?: string;
+}
+
+export interface EndedSession extends Session {
+  games: { title: string } | null;
+  venue_tables: { label: string } | null;
+}
+
+export interface EndedSessionsResult {
+  sessions: EndedSession[];
+  /** Next cursor for pagination, null if no more results */
+  nextCursor: { endedAt: string; id: string } | null;
+}
+
+/**
+ * Gets ended sessions for a venue with pagination and filtering support.
+ * Ended sessions are those with feedback_submitted_at IS NOT NULL.
+ *
+ * Orders by feedback_submitted_at DESC (most recently ended first),
+ * with tie-breaker by id DESC to ensure stable ordering.
+ *
+ * @param venueId - The venue ID
+ * @param options - Pagination and filter options
+ * @returns Paginated ended sessions with next cursor
+ */
+export async function getEndedSessionsForVenue(
+  venueId: string,
+  options: EndedSessionsOptions = {}
+): Promise<EndedSessionsResult> {
+  const {
+    limit = 50,
+    before,
+    dateRangePreset,
+    startDate,
+    endDate,
+    search,
+  } = options;
+
+  const supabase = getSupabaseAdmin();
+
+  // Build the base query
+  let query = supabase
+    .from('sessions')
+    .select('*, games(title), venue_tables(label)')
+    .eq('venue_id', venueId)
+    .not('feedback_submitted_at', 'is', null);
+
+  // Apply date range filter
+  const now = new Date();
+  let rangeStart: Date | null = null;
+  let rangeEnd: Date | null = null;
+
+  if (startDate) {
+    rangeStart = new Date(startDate);
+  } else if (dateRangePreset) {
+    if (dateRangePreset === 'today') {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (dateRangePreset === '7d') {
+      rangeStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    } else if (dateRangePreset === '30d') {
+      rangeStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+  }
+
+  if (endDate) {
+    rangeEnd = new Date(endDate);
+  }
+
+  if (rangeStart) {
+    query = query.gte('feedback_submitted_at', rangeStart.toISOString());
+  }
+  if (rangeEnd) {
+    query = query.lte('feedback_submitted_at', rangeEnd.toISOString());
+  }
+
+  // Apply cursor-based pagination (before cursor)
+  // We want rows where (feedback_submitted_at, id) < (cursor.endedAt, cursor.id)
+  // Using a compound condition to handle ties
+  if (before) {
+    query = query.or(
+      `feedback_submitted_at.lt.${before.endedAt},` +
+      `and(feedback_submitted_at.eq.${before.endedAt},id.lt.${before.id})`
+    );
+  }
+
+  // Order by ended_at (feedback_submitted_at) desc, then id desc for tie-breaker
+  query = query
+    .order('feedback_submitted_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1); // Fetch one extra to check if there's more
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching ended sessions:', error);
+    return { sessions: [], nextCursor: null };
+  }
+
+  const sessions = (data ?? []) as EndedSession[];
+
+  // Filter by search term (done client-side since we need to match joined data)
+  // This is efficient for small result sets; for very large sets, consider SQL functions
+  let filtered = sessions;
+  if (search && search.trim()) {
+    const term = search.toLowerCase().trim();
+    filtered = sessions.filter((s) => {
+      const tableMatch = s.venue_tables?.label?.toLowerCase().includes(term);
+      const gameMatch = s.games?.title?.toLowerCase().includes(term);
+      return tableMatch || gameMatch;
+    });
+  }
+
+  // Determine if there are more results
+  const hasMore = filtered.length > limit;
+  const resultSessions = hasMore ? filtered.slice(0, limit) : filtered;
+
+  // Calculate next cursor
+  let nextCursor: { endedAt: string; id: string } | null = null;
+  if (hasMore && resultSessions.length > 0) {
+    const lastSession = resultSessions[resultSessions.length - 1];
+    nextCursor = {
+      endedAt: lastSession.feedback_submitted_at!,
+      id: lastSession.id,
+    };
+  }
+
+  return { sessions: resultSessions, nextCursor };
+}

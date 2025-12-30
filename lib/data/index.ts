@@ -35,7 +35,12 @@ export {
   endAllActiveSessionsForTable,
   getActiveSessionsForVenue,
   getCopiesInUseByGame,
+  getEndedSessionsForVenue,
   type CreateSessionParams,
+  type DateRangePreset,
+  type EndedSessionsOptions,
+  type EndedSession,
+  type EndedSessionsResult,
 } from './sessions';
 
 // Re-export types for convenience
