@@ -56,7 +56,7 @@ export async function selectGameForSession(input: SelectGameInput): Promise<Sele
 
       if (
         cookieSession &&
-        !cookieSession.feedback_submitted_at &&
+        !cookieSession.ended_at &&
         cookieSession.table_id === tableId
       ) {
         // Cookie session is valid and belongs to this table

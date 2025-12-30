@@ -2,76 +2,103 @@
 
 /**
  * Client component for the "End Session & Check Out" button.
- * Handles ending the current session and refreshing the page.
+ * Opens a feedback sheet modal, then handles ending the session.
  */
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { endSession } from './actions';
+import { submitFeedbackAndEndSessionAction } from './actions';
+import { FeedbackSheet, type FeedbackData } from './FeedbackSheet';
 
 interface EndSessionButtonProps {
   venueSlug: string;
   tableId: string;
+  sessionId: string | null;
+  hasGame: boolean;
 }
 
-type ButtonState = 'idle' | 'loading' | 'success' | 'error';
+type ButtonState = 'idle' | 'success' | 'error';
 
-export function EndSessionButton({ venueSlug, tableId }: EndSessionButtonProps) {
+export function EndSessionButton({ venueSlug, tableId, sessionId, hasGame }: EndSessionButtonProps) {
   const router = useRouter();
   const [state, setState] = useState<ButtonState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showFeedbackSheet, setShowFeedbackSheet] = useState(false);
 
-  const handleClick = async () => {
-    if (state === 'loading') return;
+  const handleClick = () => {
+    if (state === 'success') return;
+    setShowFeedbackSheet(true);
+  };
 
-    setState('loading');
-    setErrorMessage(null);
+  const handleSubmitFeedback = async (feedback: FeedbackData) => {
+    if (!sessionId) {
+      // Fallback: no session ID, just close the sheet
+      setShowFeedbackSheet(false);
+      return;
+    }
 
     try {
-      const result = await endSession(venueSlug, tableId);
+      const result = await submitFeedbackAndEndSessionAction({
+        sessionId,
+        tableId,
+        venueSlug,
+        gameRating: feedback.gameRating,
+        venueRating: feedback.venueRating,
+        complexity: feedback.complexity,
+        replay: feedback.replay,
+        comment: feedback.comment,
+        skipped: false,
+      });
 
       if (result.success) {
         setState('success');
+        setShowFeedbackSheet(false);
         // Refresh the page to show the "Start Session" UI state
         router.refresh();
       } else {
-        setState('error');
         setErrorMessage(result.error ?? 'Something went wrong');
+        setState('error');
       }
     } catch (error) {
       console.error('End session error:', error);
-      setState('error');
       setErrorMessage('Something went wrong. Please try again.');
+      setState('error');
+    }
+  };
+
+  const handleSkipFeedback = async () => {
+    if (!sessionId) {
+      // Fallback: no session ID, just close the sheet
+      setShowFeedbackSheet(false);
+      return;
+    }
+
+    try {
+      const result = await submitFeedbackAndEndSessionAction({
+        sessionId,
+        tableId,
+        venueSlug,
+        skipped: true,
+      });
+
+      if (result.success) {
+        setState('success');
+        setShowFeedbackSheet(false);
+        // Refresh the page to show the "Start Session" UI state
+        router.refresh();
+      } else {
+        setErrorMessage(result.error ?? 'Something went wrong');
+        setState('error');
+      }
+    } catch (error) {
+      console.error('Skip feedback error:', error);
+      setErrorMessage('Something went wrong. Please try again.');
+      setState('error');
     }
   };
 
   const getButtonContent = () => {
     switch (state) {
-      case 'loading':
-        return (
-          <>
-            <svg
-              className="w-5 h-5 mr-2 animate-spin"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            Ending...
-          </>
-        );
       case 'success':
         return (
           <>
@@ -147,17 +174,27 @@ export function EndSessionButton({ venueSlug, tableId }: EndSessionButtonProps) 
   };
 
   return (
-    <div className="space-y-2">
-      <button
-        onClick={handleClick}
-        disabled={state === 'loading' || state === 'success'}
-        className={getButtonClasses()}
-      >
-        {getButtonContent()}
-      </button>
-      {errorMessage && (
-        <p className="text-sm text-[color:var(--color-danger)]">{errorMessage}</p>
-      )}
-    </div>
+    <>
+      <div className="space-y-2">
+        <button
+          onClick={handleClick}
+          disabled={state === 'success'}
+          className={getButtonClasses()}
+        >
+          {getButtonContent()}
+        </button>
+        {errorMessage && (
+          <p className="text-sm text-[color:var(--color-danger)]">{errorMessage}</p>
+        )}
+      </div>
+
+      <FeedbackSheet
+        isOpen={showFeedbackSheet}
+        onClose={() => setShowFeedbackSheet(false)}
+        onSubmit={handleSubmitFeedback}
+        onSkip={handleSkipFeedback}
+        hasGame={hasGame}
+      />
+    </>
   );
 }

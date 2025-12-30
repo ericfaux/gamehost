@@ -2,13 +2,14 @@
  * Session Data Layer
  *
  * This module manages session CRUD operations with a key invariant:
- * The table's active session (feedback_submitted_at IS NULL) is the source of truth.
+ * The table's active session (ended_at IS NULL) is the source of truth.
  *
  * Session State Invariants:
  * - At most one active session per table at any time
  * - If multiple active sessions exist, the most recent (by created_at) wins
  * - Cookies are convenience pointers; they must be validated against the table
- * - An "ended" session has feedback_submitted_at set (non-null)
+ * - An "ended" session has ended_at set (non-null)
+ * - feedback_submitted_at indicates when feedback was submitted (separate from session end)
  *
  * =============================================================================
  * MANUAL QA CHECKLIST - Session State Consistency
@@ -85,11 +86,17 @@
  *   4. Guest selects a game -> Admin shows "Playing"
  *   5. Guest ends session -> Admin shows Table 1 as "Available"
  *
+ * Test 13: Feedback flow works correctly
+ *   1. Start session, select a game
+ *   2. Click "End Session & Check Out"
+ *   3. Submit feedback -> ended_at AND feedback_submitted_at are set
+ *   4. Skip feedback -> only ended_at is set, feedback_skipped = true
+ *
  * =============================================================================
  */
 
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
-import type { Session } from '@/lib/db/types';
+import type { Session, FeedbackComplexity, FeedbackReplay, FeedbackSource } from '@/lib/db/types';
 import { getVenueBySlug } from './venues';
 
 export interface CreateSessionParams {
@@ -183,10 +190,10 @@ export async function updateSessionGame(sessionId: string, gameId: string): Prom
     throw new Error(`Game not found: ${gameId}`);
   }
 
-  // Verify session exists and is active (no feedback submitted)
+  // Verify session exists and is active (not ended)
   const { data: existingSession, error: sessionError } = await supabase
     .from('sessions')
-    .select('id, feedback_submitted_at')
+    .select('id, ended_at')
     .eq('id', sessionId)
     .single();
 
@@ -194,7 +201,7 @@ export async function updateSessionGame(sessionId: string, gameId: string): Prom
     throw new Error(`Session not found: ${sessionId}`);
   }
 
-  if (existingSession.feedback_submitted_at) {
+  if (existingSession.ended_at) {
     throw new Error(`Session has already ended: ${sessionId}`);
   }
 
@@ -218,7 +225,7 @@ export async function updateSessionGame(sessionId: string, gameId: string): Prom
 
 /**
  * Gets the active session ID for a table, if one exists.
- * An active session is one where feedback_submitted_at is NULL.
+ * An active session is one where ended_at is NULL.
  *
  * @param tableId - The table ID to check
  * @returns The session ID if active, null otherwise
@@ -228,7 +235,7 @@ export async function getActiveSessionId(tableId: string): Promise<string | null
     .from('sessions')
     .select('id')
     .eq('table_id', tableId)
-    .is('feedback_submitted_at', null)
+    .is('ended_at', null)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -252,7 +259,7 @@ export async function getActiveSession(tableId: string): Promise<Session | null>
     .from('sessions')
     .select('*')
     .eq('table_id', tableId)
-    .is('feedback_submitted_at', null)
+    .is('ended_at', null)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -300,10 +307,10 @@ export async function validateSessionForTable(
 ): Promise<Session | null> {
   const session = await getSessionById(sessionId);
 
-  // Session must exist, be active (no feedback), and belong to the correct table
+  // Session must exist, be active (not ended), and belong to the correct table
   if (
     session &&
-    !session.feedback_submitted_at &&
+    !session.ended_at &&
     session.table_id === tableId
   ) {
     return session;
@@ -327,7 +334,7 @@ export async function sanitizeActiveSessionsForTable(tableId: string): Promise<S
     .from('sessions')
     .select('*')
     .eq('table_id', tableId)
-    .is('feedback_submitted_at', null)
+    .is('ended_at', null)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -349,7 +356,7 @@ export async function sanitizeActiveSessionsForTable(tableId: string): Promise<S
 
     const { error: endError } = await supabase
       .from('sessions')
-      .update({ feedback_submitted_at: new Date().toISOString() })
+      .update({ ended_at: new Date().toISOString() })
       .in('id', duplicateIds);
 
     if (endError) {
@@ -375,7 +382,7 @@ export async function endAllActiveSessionsForTable(tableId: string): Promise<num
     .from('sessions')
     .select('id')
     .eq('table_id', tableId)
-    .is('feedback_submitted_at', null);
+    .is('ended_at', null);
 
   if (fetchError || !activeSessions || activeSessions.length === 0) {
     return 0;
@@ -386,7 +393,7 @@ export async function endAllActiveSessionsForTable(tableId: string): Promise<num
 
   const { error: updateError } = await supabase
     .from('sessions')
-    .update({ feedback_submitted_at: new Date().toISOString() })
+    .update({ ended_at: new Date().toISOString() })
     .in('id', sessionIds);
 
   if (updateError) {
@@ -409,7 +416,7 @@ export async function getActiveSessionsForVenue(venueId: string): Promise<Sessio
     .from('sessions')
     .select('*, games(title), venue_tables(label)')
     .eq('venue_id', venueId)
-    .is('feedback_submitted_at', null)
+    .is('ended_at', null)
     .order('started_at', { ascending: false });
 
   if (error) {
@@ -432,7 +439,7 @@ export async function getCopiesInUseByGame(venueId: string): Promise<Record<stri
     .from('sessions')
     .select('game_id')
     .eq('venue_id', venueId)
-    .is('feedback_submitted_at', null)
+    .is('ended_at', null)
     .not('game_id', 'is', null);
 
   if (error) {
@@ -450,8 +457,9 @@ export async function getCopiesInUseByGame(venueId: string): Promise<Record<stri
 }
 
 /**
- * Ends a session by setting feedback_submitted_at.
- * Used when admin ends a session or when feedback is submitted.
+ * Ends a session by setting ended_at.
+ * Used when admin ends a session directly (without feedback).
+ * Does NOT set feedback_submitted_at - that's only for when feedback is actually submitted.
  *
  * @param sessionId - The session ID to end
  * @returns The updated session row
@@ -460,7 +468,7 @@ export async function endSession(sessionId: string): Promise<Session> {
   const { data: session, error } = await getSupabaseAdmin()
     .from('sessions')
     .update({
-      feedback_submitted_at: new Date().toISOString(),
+      ended_at: new Date().toISOString(),
     })
     .eq('id', sessionId)
     .select('*')
@@ -468,6 +476,116 @@ export async function endSession(sessionId: string): Promise<Session> {
 
   if (error) {
     throw new Error(`Failed to end session: ${error.message}`);
+  }
+
+  return session as Session;
+}
+
+// =============================================================================
+// FEEDBACK SUBMISSION
+// =============================================================================
+
+export interface SubmitFeedbackParams {
+  sessionId: string;
+  tableId: string;
+  // Feedback fields (all optional)
+  gameRating?: number | null; // 1-5, mapped from sentiment
+  venueRating?: number | null; // 1-5, mapped from sentiment
+  complexity?: FeedbackComplexity | null;
+  replay?: FeedbackReplay | null;
+  comment?: string | null;
+  // Skip flag
+  skipped: boolean;
+  // Source of feedback
+  source?: FeedbackSource;
+}
+
+/**
+ * Submits feedback for a session and ends the session.
+ * This is the primary way guests end their session at checkout.
+ *
+ * @param params - Feedback submission parameters
+ * @returns The updated session row
+ * @throws Error if session doesn't exist, is already ended, or doesn't belong to table
+ */
+export async function submitFeedbackAndEndSession(params: SubmitFeedbackParams): Promise<Session> {
+  const {
+    sessionId,
+    tableId,
+    gameRating,
+    venueRating,
+    complexity,
+    replay,
+    comment,
+    skipped,
+    source = 'end_sheet',
+  } = params;
+
+  const supabase = getSupabaseAdmin();
+
+  // Verify session exists, is active, and belongs to the table
+  const { data: existingSession, error: fetchError } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('id', sessionId)
+    .single();
+
+  if (fetchError || !existingSession) {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
+
+  if (existingSession.ended_at) {
+    throw new Error(`Session has already ended: ${sessionId}`);
+  }
+
+  if (existingSession.table_id !== tableId) {
+    throw new Error(`Session does not belong to table: ${tableId}`);
+  }
+
+  const now = new Date().toISOString();
+
+  // Build update payload
+  const updatePayload: Record<string, unknown> = {
+    ended_at: now,
+    feedback_skipped: skipped,
+    feedback_source: source,
+  };
+
+  if (skipped) {
+    // On skip: just end the session, leave feedback fields null
+    // feedback_submitted_at remains null to indicate no feedback was given
+  } else {
+    // On submit: set feedback fields and feedback_submitted_at
+    updatePayload.feedback_submitted_at = now;
+
+    // Game feedback (only if game was selected)
+    if (existingSession.game_id) {
+      if (gameRating !== undefined) updatePayload.feedback_rating = gameRating;
+      if (complexity !== undefined) updatePayload.feedback_complexity = complexity;
+      if (replay !== undefined) updatePayload.feedback_replay = replay;
+      // Store comment in game comment field if game exists
+      if (comment !== undefined) updatePayload.feedback_comment = comment;
+    }
+
+    // Venue feedback
+    if (venueRating !== undefined) updatePayload.feedback_venue_rating = venueRating;
+
+    // Store comment in venue comment ONLY if venue rating is negative (1)
+    // This captures "experience complaints" without duplicating every comment
+    if (venueRating === 1 && comment) {
+      updatePayload.feedback_venue_comment = comment;
+    }
+  }
+
+  const { data: session, error: updateError } = await supabase
+    .from('sessions')
+    .update(updatePayload)
+    .eq('id', sessionId)
+    .select('*')
+    .single();
+
+  if (updateError) {
+    throw new Error(`Failed to submit feedback: ${updateError.message}`);
   }
 
   return session as Session;
@@ -507,9 +625,9 @@ export interface EndedSessionsResult {
 
 /**
  * Gets ended sessions for a venue with pagination and filtering support.
- * Ended sessions are those with feedback_submitted_at IS NOT NULL.
+ * Ended sessions are those with ended_at IS NOT NULL.
  *
- * Orders by feedback_submitted_at DESC (most recently ended first),
+ * Orders by ended_at DESC (most recently ended first),
  * with tie-breaker by id DESC to ensure stable ordering.
  *
  * @param venueId - The venue ID
@@ -536,7 +654,7 @@ export async function getEndedSessionsForVenue(
     .from('sessions')
     .select('*, games(title), venue_tables(label)')
     .eq('venue_id', venueId)
-    .not('feedback_submitted_at', 'is', null);
+    .not('ended_at', 'is', null);
 
   // Apply date range filter
   const now = new Date();
@@ -560,25 +678,25 @@ export async function getEndedSessionsForVenue(
   }
 
   if (rangeStart) {
-    query = query.gte('feedback_submitted_at', rangeStart.toISOString());
+    query = query.gte('ended_at', rangeStart.toISOString());
   }
   if (rangeEnd) {
-    query = query.lte('feedback_submitted_at', rangeEnd.toISOString());
+    query = query.lte('ended_at', rangeEnd.toISOString());
   }
 
   // Apply cursor-based pagination (before cursor)
-  // We want rows where (feedback_submitted_at, id) < (cursor.endedAt, cursor.id)
+  // We want rows where (ended_at, id) < (cursor.endedAt, cursor.id)
   // Using a compound condition to handle ties
   if (before) {
     query = query.or(
-      `feedback_submitted_at.lt.${before.endedAt},` +
-      `and(feedback_submitted_at.eq.${before.endedAt},id.lt.${before.id})`
+      `ended_at.lt.${before.endedAt},` +
+      `and(ended_at.eq.${before.endedAt},id.lt.${before.id})`
     );
   }
 
-  // Order by ended_at (feedback_submitted_at) desc, then id desc for tie-breaker
+  // Order by ended_at desc, then id desc for tie-breaker
   query = query
-    .order('feedback_submitted_at', { ascending: false })
+    .order('ended_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(limit + 1); // Fetch one extra to check if there's more
 
@@ -612,7 +730,7 @@ export async function getEndedSessionsForVenue(
   if (hasMore && resultSessions.length > 0) {
     const lastSession = resultSessions[resultSessions.length - 1];
     nextCursor = {
-      endedAt: lastSession.feedback_submitted_at!,
+      endedAt: lastSession.ended_at!,
       id: lastSession.id,
     };
   }

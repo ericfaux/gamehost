@@ -36,11 +36,13 @@ export {
   getActiveSessionsForVenue,
   getCopiesInUseByGame,
   getEndedSessionsForVenue,
+  submitFeedbackAndEndSession,
   type CreateSessionParams,
   type DateRangePreset,
   type EndedSessionsOptions,
   type EndedSession,
   type EndedSessionsResult,
+  type SubmitFeedbackParams,
 } from './sessions';
 
 // Re-export types for convenience
@@ -55,4 +57,7 @@ export type {
   GameComplexity,
   GameStatus,
   GameCondition,
+  FeedbackComplexity,
+  FeedbackReplay,
+  FeedbackSource,
 } from '@/lib/db/types';

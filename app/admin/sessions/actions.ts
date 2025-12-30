@@ -21,7 +21,7 @@ export interface EndSessionResult {
 
 /**
  * Server action to end a session from the admin dashboard.
- * Sets feedback_submitted_at to mark the session as ended.
+ * Sets ended_at to mark the session as ended.
  */
 export async function endSessionAction(sessionId: string): Promise<EndSessionResult> {
   try {
@@ -74,7 +74,7 @@ export async function assignGameToSessionAction(
     if (!session) {
       return { ok: false, error: 'Session not found' };
     }
-    if (session.feedback_submitted_at) {
+    if (session.ended_at) {
       return { ok: false, error: 'Session has already ended' };
     }
 

@@ -2,12 +2,20 @@
 
 /**
  * Server actions for the table landing page.
- * Handles session check-in (creating session without a game) and ending sessions.
+ * Handles session check-in (creating session without a game), ending sessions,
+ * and feedback submission.
  */
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import { createSession, sanitizeActiveSessionsForTable, endAllActiveSessionsForTable } from '@/lib/data';
+import {
+  createSession,
+  sanitizeActiveSessionsForTable,
+  endAllActiveSessionsForTable,
+  submitFeedbackAndEndSession,
+  type FeedbackComplexity,
+  type FeedbackReplay,
+} from '@/lib/data';
 
 const STALE_SESSION_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12 hours
 
@@ -98,14 +106,11 @@ export async function startCheckIn(
 }
 
 /**
- * Server action to end the current session for the table.
+ * Server action to end the current session for the table without feedback.
+ * Used as a fallback when guest skips feedback from the legacy flow.
  *
  * FIX: Ends ALL active sessions for the table (not just one) to prevent
  * "random game" bug where older orphaned sessions resurface after ending.
- * This ensures:
- * 1. The table is completely cleared - no stale sessions can appear.
- * 2. A new session after checkout starts fresh (browsing, no game).
- * 3. The cookie is deleted robustly with the correct path.
  */
 export async function endSession(
   venueSlug: string,
@@ -136,6 +141,102 @@ export async function endSession(
 
     const message =
       error instanceof Error ? error.message : 'Failed to end session. Please try again.';
+
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+// =============================================================================
+// FEEDBACK SUBMISSION
+// =============================================================================
+
+export interface FeedbackSubmissionInput {
+  sessionId: string;
+  tableId: string;
+  venueSlug: string;
+  // Feedback fields (all optional)
+  gameRating?: number | null; // 1 = 👎, 3 = 😐, 5 = 👍
+  venueRating?: number | null; // 1 = 👎, 3 = 😐, 5 = 👍
+  complexity?: FeedbackComplexity | null;
+  replay?: FeedbackReplay | null;
+  comment?: string | null;
+  // Skip flag
+  skipped: boolean;
+}
+
+export interface FeedbackSubmissionResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Server action to submit feedback and end the session.
+ * This is the primary checkout flow for guests.
+ *
+ * On Submit:
+ * - Updates session with feedback fields
+ * - Sets feedback_submitted_at = now
+ * - Sets feedback_skipped = false
+ * - Sets feedback_source = 'end_sheet'
+ * - Sets ended_at = now
+ *
+ * On Skip:
+ * - Sets ended_at = now
+ * - Sets feedback_skipped = true
+ * - Leaves feedback_submitted_at NULL
+ */
+export async function submitFeedbackAndEndSessionAction(
+  input: FeedbackSubmissionInput
+): Promise<FeedbackSubmissionResult> {
+  try {
+    const {
+      sessionId,
+      tableId,
+      venueSlug,
+      gameRating,
+      venueRating,
+      complexity,
+      replay,
+      comment,
+      skipped,
+    } = input;
+
+    console.log(`Submitting feedback for session ${sessionId}, skipped: ${skipped}`);
+
+    // Submit feedback and end session
+    await submitFeedbackAndEndSession({
+      sessionId,
+      tableId,
+      gameRating,
+      venueRating,
+      complexity,
+      replay,
+      comment,
+      skipped,
+      source: 'end_sheet',
+    });
+
+    // Delete the session cookie
+    const cookieStore = await cookies();
+    cookieStore.delete({
+      name: 'gamehost_session_id',
+      path: '/',
+    });
+
+    // Revalidate the page to reflect the new state
+    revalidatePath(`/v/${venueSlug}/t/${tableId}`);
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error submitting feedback:', error);
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to submit feedback. Please try again.';
 
     return {
       success: false,
