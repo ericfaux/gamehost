@@ -126,6 +126,20 @@ function formatSessionDuration(startedAt: string, createdAt: string, endedAt: st
   return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
 }
 
+function prioritizeSessions(a: SessionWithDetails, b: SessionWithDetails) {
+  const aHasGame = a.game_id !== null;
+  const bHasGame = b.game_id !== null;
+
+  if (aHasGame !== bHasGame) {
+    return aHasGame ? -1 : 1;
+  }
+
+  const aTimestamp = new Date(a.started_at ?? a.created_at).getTime();
+  const bTimestamp = new Date(b.started_at ?? b.created_at).getTime();
+
+  return bTimestamp - aTimestamp;
+}
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -219,9 +233,34 @@ export function SessionsClient({
   // COMPUTED VALUES
   // =============================================================================
 
+  const { dedupedSessions, hasDuplicateTables } = useMemo(() => {
+    const grouped = new Map<string, SessionWithDetails[]>();
+
+    sessions.forEach((session) => {
+      const existing = grouped.get(session.table_id) ?? [];
+      grouped.set(session.table_id, [...existing, session]);
+    });
+
+    const winners: SessionWithDetails[] = [];
+    let duplicatesDetected = false;
+
+    grouped.forEach((sessionList) => {
+      if (sessionList.length > 1) {
+        duplicatesDetected = true;
+      }
+
+      const [winner] = [...sessionList].sort(prioritizeSessions);
+      if (winner) {
+        winners.push(winner);
+      }
+    });
+
+    return { dedupedSessions: winners, hasDuplicateTables: duplicatesDetected };
+  }, [sessions]);
+
   const tablesInUse = useMemo(
-    () => new Set(sessions.map((s) => s.table_id)),
-    [sessions]
+    () => new Set(dedupedSessions.map((s) => s.table_id)),
+    [dedupedSessions]
   );
 
   const availableForSession = useMemo(
@@ -231,18 +270,18 @@ export function SessionsClient({
 
   // Count browsing vs playing sessions
   const browsingSessions = useMemo(
-    () => sessions.filter((s) => s.game_id === null),
-    [sessions]
+    () => dedupedSessions.filter((s) => s.game_id === null),
+    [dedupedSessions]
   );
 
   const playingSessions = useMemo(
-    () => sessions.filter((s) => s.game_id !== null),
-    [sessions]
+    () => dedupedSessions.filter((s) => s.game_id !== null),
+    [dedupedSessions]
   );
 
   // Filter sessions based on mode and search
   const filteredSessions = useMemo(() => {
-    let result = sessions;
+    let result = dedupedSessions;
 
     // Apply filter mode
     if (filterMode === "browsing") {
@@ -273,7 +312,7 @@ export function SessionsClient({
     });
 
     return result;
-  }, [sessions, filterMode, searchTerm, sortMode]);
+  }, [dedupedSessions, filterMode, searchTerm, sortMode]);
 
   // Count stale browsing sessions for badge
   const staleBrowsingCount = useMemo(
@@ -528,7 +567,7 @@ export function SessionsClient({
               >
                 All
                 <span className="ml-1.5 text-xs opacity-70">
-                  ({sessions.length})
+                  ({dedupedSessions.length})
                 </span>
               </button>
               <button
@@ -629,7 +668,7 @@ export function SessionsClient({
               <div className="flex flex-wrap gap-2">
                 {availableTables.map((table) => {
                   const inUse = tablesInUse.has(table.id);
-                  const session = sessions.find((s) => s.table_id === table.id);
+                  const session = dedupedSessions.find((s) => s.table_id === table.id);
                   const isBrowsing = session && session.game_id === null;
                   const stale = session && isSessionStale(session);
 
@@ -669,6 +708,9 @@ export function SessionsClient({
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Live sessions</CardTitle>
             <div className="flex gap-2">
+              {hasDuplicateTables && (
+                <TokenChip tone="warn">Duplicate sessions detected</TokenChip>
+              )}
               {browsingSessions.length > 0 && (
                 <TokenChip tone="warn">
                   {browsingSessions.length} browsing
@@ -679,7 +721,7 @@ export function SessionsClient({
                   {playingSessions.length} playing
                 </TokenChip>
               )}
-              {sessions.length === 0 && (
+              {dedupedSessions.length === 0 && (
                 <TokenChip tone="muted">0 in progress</TokenChip>
               )}
             </div>
@@ -791,7 +833,7 @@ export function SessionsClient({
             })}
             {filteredSessions.length === 0 && (
               <p className="py-6 text-center text-sm text-ink-secondary">
-                {sessions.length === 0
+                {dedupedSessions.length === 0
                   ? "No active sessions"
                   : "No sessions match your filters"}
               </p>
