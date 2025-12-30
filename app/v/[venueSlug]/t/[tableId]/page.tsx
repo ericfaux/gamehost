@@ -10,6 +10,7 @@
  */
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { cookies } from 'next/headers';
 import {
   getVenueAndTableBySlugAndTableId,
@@ -149,10 +150,13 @@ export default async function TableLandingPage({ params }: PageProps) {
               {/* Cover image */}
               {currentGame.cover_image_url ? (
                 <div className="relative w-full aspect-[16/9]">
-                  <img
+                  <Image
                     src={currentGame.cover_image_url}
                     alt={currentGame.title}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    priority
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="absolute bottom-4 left-4 right-4">
