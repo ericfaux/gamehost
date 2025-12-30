@@ -275,7 +275,7 @@ export function StatusBadge({ status }: { status: string }) {
   };
 
   const tone = map[status] ?? { label: status, className: "bg-[color:var(--color-muted)] text-[color:var(--color-ink-secondary)]" };
-  return <span className={cn("px-3 py-1 text-xs font-semibold rounded-full border border-[color:var(--color-structure)]", tone.className)}>{tone.label}</span>;
+  return <span className={cn("px-3 py-1 text-xs font-semibold rounded-full border border-[color:var(--color-structure)] whitespace-nowrap", tone.className)}>{tone.label}</span>;
 }
 
 export function Callout({ title, children }: { title: string; children: React.ReactNode }) {

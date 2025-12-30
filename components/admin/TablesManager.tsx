@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, QrCode, Trash2, X } from "@/components/icons/lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast, TokenChip } from "@/components/AppShell";
 import { createTable, deleteTable, updateTable } from "@/app/admin/settings/actions";
+import { QRCodeModal } from "@/components/admin/QRCodeModal";
 import type { VenueTable } from "@/lib/db/types";
 
 interface TablesManagerProps {
   initialTables: VenueTable[];
   venueId: string;
+  venueName: string;
+  venueSlug: string;
 }
 
-export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
+export function TablesManager({ initialTables, venueId, venueName, venueSlug }: TablesManagerProps) {
   const { push } = useToast();
   const [tables, setTables] = useState<VenueTable[]>(initialTables);
   const [tableLabel, setTableLabel] = useState("");
@@ -24,6 +27,7 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [qrTable, setQrTable] = useState<VenueTable | null>(null);
 
   const resetDialog = () => {
     setTableLabel("");
@@ -202,6 +206,18 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
                     <Button
                       variant="ghost"
                       size="sm"
+                      onClick={() => setQrTable(table)}
+                      disabled={isPending}
+                      className="text-ink-secondary hover:text-ink-primary"
+                      aria-label={`View QR code for ${table.label}`}
+                      title="View QR"
+                    >
+                      <QrCode className="h-4 w-4" />
+                      QR
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         setEditingTable(table);
                         setTableLabel(table.label);
@@ -313,6 +329,16 @@ export function TablesManager({ initialTables, venueId }: TablesManagerProps) {
           </div>
         </div>
       )}
+
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={qrTable !== null}
+        onClose={() => setQrTable(null)}
+        tableId={qrTable?.id ?? ""}
+        tableLabel={qrTable?.label ?? ""}
+        venueName={venueName}
+        venueSlug={venueSlug}
+      />
     </>
   );
 }
