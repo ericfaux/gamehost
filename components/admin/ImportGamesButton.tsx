@@ -20,9 +20,9 @@ export function ImportGamesButton() {
   function handleDownloadTemplate() {
     // Define the headers and a sample row
     const csvContent = [
-      ['Title', 'MinPlayers', 'MaxPlayers', 'MinTime', 'MaxTime', 'Complexity'],
-      ['Catan', '3', '4', '60', '120', 'Medium'],
-      ['Ticket to Ride', '2', '5', '30', '60', 'Simple'],
+      ['Title', 'MinPlayers', 'MaxPlayers', 'MinTime', 'MaxTime', 'Complexity', 'copies_in_rotation'],
+      ['Catan', '3', '4', '60', '120', 'Medium', '1'],
+      ['Ticket to Ride', '2', '5', '30', '60', 'Simple', '2'],
     ]
       .map((e) => e.join(','))
       .join('\n');

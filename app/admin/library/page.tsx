@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getGamesForVenue } from '@/lib/data/games';
+import { getCopiesInUseByGame } from '@/lib/data/sessions';
 import { LibraryClient } from '@/components/admin/LibraryClient';
 
 export default async function LibraryPage() {
@@ -26,8 +27,11 @@ export default async function LibraryPage() {
     );
   }
 
-  // Fetch all games for the venue
-  const games = await getGamesForVenue(venue.id);
+  // Fetch all games for the venue and copies in use
+  const [games, copiesInUse] = await Promise.all([
+    getGamesForVenue(venue.id),
+    getCopiesInUseByGame(venue.id),
+  ]);
 
-  return <LibraryClient initialGames={games} />;
+  return <LibraryClient initialGames={games} copiesInUse={copiesInUse} />;
 }

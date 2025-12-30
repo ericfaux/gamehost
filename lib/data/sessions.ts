@@ -421,6 +421,35 @@ export async function getActiveSessionsForVenue(venueId: string): Promise<Sessio
 }
 
 /**
+ * Gets a map of game_id -> count of active sessions using that game for a venue.
+ * Used by Admin Library UI and Guest recommendation filtering.
+ *
+ * @param venueId - The venue ID
+ * @returns Record mapping game_id to number of active sessions
+ */
+export async function getCopiesInUseByGame(venueId: string): Promise<Record<string, number>> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('sessions')
+    .select('game_id')
+    .eq('venue_id', venueId)
+    .is('feedback_submitted_at', null)
+    .not('game_id', 'is', null);
+
+  if (error) {
+    console.error('Error fetching copies in use:', error);
+    return {};
+  }
+
+  const counts: Record<string, number> = {};
+  for (const session of data ?? []) {
+    const gameId = session.game_id as string;
+    counts[gameId] = (counts[gameId] || 0) + 1;
+  }
+
+  return counts;
+}
+
+/**
  * Ends a session by setting feedback_submitted_at.
  * Used when admin ends a session or when feedback is submitted.
  *
