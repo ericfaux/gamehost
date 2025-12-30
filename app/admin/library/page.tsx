@@ -2,8 +2,25 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getGamesForVenue } from '@/lib/data/games';
-import { getCopiesInUseByGame } from '@/lib/data/sessions';
+import { getVenueTables } from '@/lib/data/tables';
+import { getCopiesInUseByGame, getActiveSessionsForVenue } from '@/lib/data/sessions';
 import { LibraryClient } from '@/components/admin/LibraryClient';
+import type { Session, VenueTable, Game } from '@/lib/db/types';
+
+/** Session with table label for display */
+export interface SessionWithTable extends Session {
+  tableLabel: string;
+}
+
+/** Aggregated data for library service console */
+export interface LibraryAggregatedData {
+  games: Game[];
+  tables: Record<string, VenueTable>;
+  copiesInUse: Record<string, number>;
+  activeSessionsByGame: Record<string, SessionWithTable[]>;
+  browsingSessions: SessionWithTable[];
+  venueId: string;
+}
 
 export default async function LibraryPage() {
   const supabase = await createClient();
@@ -27,11 +44,51 @@ export default async function LibraryPage() {
     );
   }
 
-  // Fetch all games for the venue and copies in use
-  const [games, copiesInUse] = await Promise.all([
+  // Fetch all data in parallel
+  const [games, tables, copiesInUse, activeSessions] = await Promise.all([
     getGamesForVenue(venue.id),
+    getVenueTables(venue.id),
     getCopiesInUseByGame(venue.id),
+    getActiveSessionsForVenue(venue.id),
   ]);
 
-  return <LibraryClient initialGames={games} copiesInUse={copiesInUse} />;
+  // Build tables map for quick lookup
+  const tablesMap: Record<string, VenueTable> = {};
+  for (const table of tables) {
+    tablesMap[table.id] = table;
+  }
+
+  // Build active sessions by game_id for the drawer
+  const activeSessionsByGame: Record<string, SessionWithTable[]> = {};
+  const browsingSessions: SessionWithTable[] = [];
+
+  for (const session of activeSessions) {
+    const tableLabel = tablesMap[session.table_id]?.label ?? 'Unknown table';
+    const sessionWithTable: SessionWithTable = {
+      ...session,
+      tableLabel,
+    };
+
+    if (session.game_id) {
+      // Playing session - add to game's active sessions
+      if (!activeSessionsByGame[session.game_id]) {
+        activeSessionsByGame[session.game_id] = [];
+      }
+      activeSessionsByGame[session.game_id].push(sessionWithTable);
+    } else {
+      // Browsing session - no game selected yet
+      browsingSessions.push(sessionWithTable);
+    }
+  }
+
+  const aggregatedData: LibraryAggregatedData = {
+    games,
+    tables: tablesMap,
+    copiesInUse,
+    activeSessionsByGame,
+    browsingSessions,
+    venueId: venue.id,
+  };
+
+  return <LibraryClient data={aggregatedData} />;
 }

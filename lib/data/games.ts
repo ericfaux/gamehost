@@ -235,3 +235,47 @@ async function queryGames(options: QueryGamesOptions): Promise<Game[]> {
 
   return games;
 }
+
+/**
+ * Fetches quick pick games for the guest landing page.
+ * Returns available games, prioritizing by BGG rating then title.
+ * Only returns games that are:
+ * - in_rotation status
+ * - not problematic condition
+ * - have available copies (copies_in_rotation > copies_in_use)
+ *
+ * @param venueId - The venue's UUID
+ * @param limit - Maximum number of games to return (default 6)
+ * @returns Array of available games for quick picks
+ */
+export async function getQuickPickGames(venueId: string, limit: number = 6): Promise<Game[]> {
+  // Fetch copies in use for availability filtering
+  const copiesInUse = await getCopiesInUseByGame(venueId);
+
+  // Query for in-rotation games with good condition
+  const { data, error } = await getSupabaseAdmin()
+    .from('games')
+    .select('*')
+    .eq('venue_id', venueId)
+    .eq('status', 'in_rotation')
+    .neq('condition', 'problematic')
+    .gt('copies_in_rotation', 0)
+    .order('bgg_rating', { ascending: false, nullsFirst: false })
+    .order('title', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching quick pick games:', error);
+    return [];
+  }
+
+  const games = (data ?? []) as Game[];
+
+  // Filter by availability and return up to limit
+  const available = games.filter((game) => {
+    const copies = game.copies_in_rotation ?? 1;
+    const inUse = copiesInUse[game.id] ?? 0;
+    return copies - inUse > 0;
+  });
+
+  return available.slice(0, limit);
+}
