@@ -10,6 +10,8 @@ export type Column<T> = {
   header: string;
   sortable?: boolean;
   render?: (row: T) => React.ReactNode;
+  minWidth?: number;
+  width?: number;
 };
 
 export interface DataTableProps<T> {
@@ -50,7 +52,14 @@ export function DataTable<T>({ data, columns, pageSize = 6, filters }: DataTable
           <thead className="text-left text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
             <tr>
               {columns.map((col) => (
-                <th key={String(col.key)} className="px-4 border-b border-[color:var(--color-structure)]">
+                <th
+                  key={String(col.key)}
+                  className="px-4 border-b border-[color:var(--color-structure)]"
+                  style={{
+                    minWidth: col.minWidth ? `${col.minWidth}px` : undefined,
+                    width: col.width ? `${col.width}px` : undefined,
+                  }}
+                >
                   <button
                     type="button"
                     className="flex items-center gap-1 py-1 font-semibold"

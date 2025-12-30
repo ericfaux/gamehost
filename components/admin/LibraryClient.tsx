@@ -66,11 +66,13 @@ export function LibraryClient({ initialGames, copiesInUse }: LibraryClientProps)
     {
       key: 'status',
       header: 'Status',
+      minWidth: 120,
       render: (row) => <StatusBadge status={row.status} />,
     },
     {
       key: 'condition',
       header: 'Condition',
+      minWidth: 100,
       render: (row) => <TokenChip tone="muted">{row.condition}</TokenChip>,
     },
   ];
