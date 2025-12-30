@@ -320,22 +320,22 @@ export async function validateSessionForTable(
 }
 
 /**
- * Sanitizes active sessions for a table by ending all but the newest.
+ * Sanitizes active sessions for a table by ending all but the canonical session.
+ * Canonical selection prioritizes playing sessions, then newest started_at/created_at.
  * This enforces the "at most one active session per table" invariant.
  *
  * @param tableId - The table ID to sanitize
- * @returns The single canonical active session (newest), or null if none exist
+ * @returns The single canonical active session, or null if none exist
  */
 export async function sanitizeActiveSessionsForTable(tableId: string): Promise<Session | null> {
   const supabase = getSupabaseAdmin();
 
-  // Get ALL active sessions for this table, ordered by created_at desc
+  // Get ALL active sessions for this table
   const { data: activeSessions, error } = await supabase
     .from('sessions')
     .select('*')
     .eq('table_id', tableId)
-    .is('ended_at', null)
-    .order('created_at', { ascending: false });
+    .is('ended_at', null);
 
   if (error) {
     console.error('Error fetching active sessions for sanitization:', error);
@@ -346,10 +346,22 @@ export async function sanitizeActiveSessionsForTable(tableId: string): Promise<S
     return null;
   }
 
-  // The newest session is the canonical one
-  const [canonical, ...duplicates] = activeSessions as Session[];
+  const sortedSessions = (activeSessions as Session[]).sort((a, b) => {
+    const aHasGame = a.game_id !== null;
+    const bHasGame = b.game_id !== null;
 
-  // End all duplicate sessions (older ones)
+    if (aHasGame !== bHasGame) {
+      return aHasGame ? -1 : 1; // Prefer sessions with a game selected
+    }
+
+    const aTimestamp = new Date(a.started_at ?? a.created_at).getTime();
+    const bTimestamp = new Date(b.started_at ?? b.created_at).getTime();
+
+    return bTimestamp - aTimestamp; // Newest started_at (or created_at) wins
+  });
+
+  const [canonical, ...duplicates] = sortedSessions;
+
   if (duplicates.length > 0) {
     const duplicateIds = duplicates.map((s) => s.id);
     console.log(`[sanitize] Closing ${duplicates.length} duplicate active sessions for table ${tableId}: ${duplicateIds.join(', ')}`);

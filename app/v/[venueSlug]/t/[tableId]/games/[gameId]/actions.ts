@@ -45,6 +45,9 @@ export async function selectGameForSession(input: SelectGameInput): Promise<Sele
 
     console.log(`Selecting game ${gameId} for Table: ${tableId}`);
 
+    // Defensive cleanup: ensure only one active session exists before proceeding
+    const canonicalActiveSession = await sanitizeActiveSessionsForTable(tableId);
+
     const cookieStore = await cookies();
     const cookieSessionId = cookieStore.get('gamehost_session_id')?.value;
 
@@ -68,13 +71,10 @@ export async function selectGameForSession(input: SelectGameInput): Promise<Sele
       }
     }
 
-    // Step 2: If no valid cookie session, sanitize and get the canonical active session
-    if (!targetSessionId) {
-      const activeSession = await sanitizeActiveSessionsForTable(tableId);
-      if (activeSession) {
-        targetSessionId = activeSession.id;
-        console.log(`Using table's canonical active session ${targetSessionId}`);
-      }
+    // Step 2: If no valid cookie session, use the canonical active session (if any)
+    if (!targetSessionId && canonicalActiveSession) {
+      targetSessionId = canonicalActiveSession.id;
+      console.log(`Using table's canonical active session ${targetSessionId}`);
     }
 
     // Step 3: If we found a session to update, update it
