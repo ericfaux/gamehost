@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
-import type { Game, RecommendationParams, GameComplexity, TimeBucket } from '@/lib/db/types';
+import type { Game, GameWithCopiesInfo, RecommendationParams, GameComplexity, TimeBucket } from '@/lib/db/types';
 
 /**
  * Fetches a single game by its ID.
@@ -43,6 +43,81 @@ export async function getGamesForVenue(venueId: string): Promise<Game[]> {
 }
 
 /**
+ * Gets the count of active sessions per game for a venue.
+ * An active session is one where feedback_submitted_at IS NULL.
+ *
+ * @param venueId - The venue's UUID
+ * @returns Map of gameId -> count of active sessions using that game
+ */
+export async function getActiveCopiesByGameIdForVenue(venueId: string): Promise<Map<string, number>> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('sessions')
+    .select('game_id')
+    .eq('venue_id', venueId)
+    .is('feedback_submitted_at', null)
+    .not('game_id', 'is', null);
+
+  if (error) {
+    console.error('Error fetching active sessions for copies count:', error);
+    return new Map();
+  }
+
+  const counts = new Map<string, number>();
+  for (const session of data ?? []) {
+    const gameId = session.game_id as string;
+    counts.set(gameId, (counts.get(gameId) || 0) + 1);
+  }
+
+  return counts;
+}
+
+/**
+ * Fetches all games for a venue with copies_in_use derived from active sessions.
+ * Used by Admin library UI to display copy availability.
+ *
+ * @param venueId - The venue's UUID
+ * @returns Array of games with copies_in_use field
+ */
+export async function getGamesForVenueWithCopiesInfo(venueId: string): Promise<GameWithCopiesInfo[]> {
+  const [games, copiesInUse] = await Promise.all([
+    getGamesForVenue(venueId),
+    getActiveCopiesByGameIdForVenue(venueId),
+  ]);
+
+  return games.map((game) => ({
+    ...game,
+    copies_in_use: copiesInUse.get(game.id) || 0,
+  }));
+}
+
+/**
+ * Checks if a specific game has available copies in a venue.
+ *
+ * @param gameId - The game's UUID
+ * @param venueId - The venue's UUID
+ * @returns Object with copies_in_rotation, copies_in_use, and available count
+ */
+export async function getGameAvailability(gameId: string, venueId: string): Promise<{
+  copies_in_rotation: number;
+  copies_in_use: number;
+  available: number;
+} | null> {
+  const game = await getGameById(gameId);
+  if (!game || game.venue_id !== venueId) {
+    return null;
+  }
+
+  const copiesInUseMap = await getActiveCopiesByGameIdForVenue(venueId);
+  const copiesInUse = copiesInUseMap.get(gameId) || 0;
+
+  return {
+    copies_in_rotation: game.copies_in_rotation,
+    copies_in_use: copiesInUse,
+    available: game.copies_in_rotation - copiesInUse,
+  };
+}
+
+/**
  * Maps a time bucket to min/max minute ranges.
  */
 function getTimeRange(bucket: TimeBucket): { min: number; max: number } {
@@ -77,9 +152,10 @@ function getAllowedComplexities(tolerance: string): GameComplexity[] {
 /**
  * Fetches recommended games based on wizard parameters.
  * Applies filters progressively and relaxes them if no results are found.
+ * Games with no available copies (all copies in use) are excluded.
  *
  * @param params - Recommendation parameters from the wizard
- * @returns Array of up to 5 recommended games
+ * @returns Array of up to 5 recommended games that have available copies
  */
 export async function getRecommendedGames(params: RecommendationParams): Promise<Game[]> {
   const { venueId, playerCount, timeBucket, complexityTolerance, vibes } = params;
@@ -90,6 +166,18 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
 
   // Effective player count: for 5+ groups, treat as 5 but still check max_players
   const effectivePlayerCount = Math.min(playerCount, 5);
+
+  // Get copies in use for the venue to filter out unavailable games
+  const copiesInUse = await getActiveCopiesByGameIdForVenue(venueId);
+
+  // Helper to filter games by availability
+  const filterAvailable = (games: Game[]): Game[] => {
+    return games.filter((game) => {
+      const inUse = copiesInUse.get(game.id) || 0;
+      const available = game.copies_in_rotation - inUse;
+      return available > 0;
+    });
+  };
 
   // Attempt 1: Full filters including vibes
   let games = await queryGames({
@@ -102,6 +190,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     vibes,
     includeVibesFilter: true,
   });
+  games = filterAvailable(games);
 
   if (games.length > 0) {
     return games.slice(0, 5);
@@ -118,6 +207,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     vibes: [],
     includeVibesFilter: false,
   });
+  games = filterAvailable(games);
 
   if (games.length > 0) {
     return games.slice(0, 5);
@@ -134,6 +224,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     vibes: [],
     includeVibesFilter: false,
   });
+  games = filterAvailable(games);
 
   return games.slice(0, 5);
 }

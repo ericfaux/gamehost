@@ -20,7 +20,14 @@ export { getVenueBySlug, getVenueByOwnerId, getVenueAndTableBySlugAndTableId } f
 export { getVenueTables, getVenueTableById } from './tables';
 
 // Game queries
-export { getGameById, getGamesForVenue, getRecommendedGames } from './games';
+export {
+  getGameById,
+  getGamesForVenue,
+  getGamesForVenueWithCopiesInfo,
+  getActiveCopiesByGameIdForVenue,
+  getGameAvailability,
+  getRecommendedGames,
+} from './games';
 
 // Session operations
 export {
@@ -42,6 +49,7 @@ export type {
   Venue,
   VenueTable,
   Game,
+  GameWithCopiesInfo,
   Session,
   RecommendationParams,
   TimeBucket,

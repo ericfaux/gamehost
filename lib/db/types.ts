@@ -67,7 +67,16 @@ export interface Game {
   cover_image_url: string | null;
   bgg_rank: number | null;
   bgg_rating: number | null;
+  copies_in_rotation: number;
   created_at: string;
+}
+
+/**
+ * Game with derived copies_in_use field for admin UI.
+ * copies_in_use = count of active sessions using this game.
+ */
+export interface GameWithCopiesInfo extends Game {
+  copies_in_use: number;
 }
 
 /**

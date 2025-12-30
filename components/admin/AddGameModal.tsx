@@ -28,6 +28,7 @@ interface FormState {
   bggRank: string;
   bggRating: string;
   imageUrl: string;
+  copiesInRotation: string;
 }
 
 const initialFormState: FormState = {
@@ -42,6 +43,7 @@ const initialFormState: FormState = {
   bggRank: '',
   bggRating: '',
   imageUrl: '',
+  copiesInRotation: '1',
 };
 
 function mapGameToFormState(game: Game): FormState {
@@ -57,6 +59,7 @@ function mapGameToFormState(game: Game): FormState {
     bggRank: game.bgg_rank ? String(game.bgg_rank) : '',
     bggRating: game.bgg_rating ? String(game.bgg_rating) : '',
     imageUrl: game.cover_image_url || '',
+    copiesInRotation: String(game.copies_in_rotation || 1),
   };
 }
 
@@ -157,7 +160,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
 
     if (result.success && result.data) {
       const details: BggGameDetails = result.data;
-      setFormState({
+      setFormState((prev) => ({
         title: details.title,
         description: details.pitch || '',
         minPlayers: String(details.min_players),
@@ -169,7 +172,8 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
         bggRank: details.bgg_rank ? String(details.bgg_rank) : '',
         bggRating: details.bgg_rating ? String(details.bgg_rating) : '',
         imageUrl: details.cover_image_url || '',
-      });
+        copiesInRotation: prev.copiesInRotation || '1', // Preserve existing value
+      }));
       setShowResults(false);
       setSearchResults([]);
     } else {
@@ -210,6 +214,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
           bgg_rank: formState.bggRank ? Number(formState.bggRank) : null,
           bgg_rating: formState.bggRating ? Number(formState.bggRating) : null,
           cover_image_url: formState.imageUrl,
+          copies_in_rotation: Number(formState.copiesInRotation) || 1,
         };
         formRef.current?.reset();
         setFormState(initialFormState);
@@ -363,19 +368,37 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
             </div>
           )}
 
-          {/* Title */}
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-ink-primary mb-1">
-              Title <span className="text-red-500">*</span>
-            </label>
-            <Input
-              id="title"
-              name="title"
-              required
-              value={formState.title}
-              onChange={(e) => updateFormField('title', e.target.value)}
-              placeholder="e.g., Catan"
-            />
+          {/* Title and Copies */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <label htmlFor="title" className="block text-sm font-medium text-ink-primary mb-1">
+                Title <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="title"
+                name="title"
+                required
+                value={formState.title}
+                onChange={(e) => updateFormField('title', e.target.value)}
+                placeholder="e.g., Catan"
+              />
+            </div>
+            <div>
+              <label htmlFor="copiesInRotation" className="block text-sm font-medium text-ink-primary mb-1">
+                Copies
+              </label>
+              <Input
+                type="number"
+                id="copiesInRotation"
+                name="copiesInRotation"
+                min={1}
+                max={99}
+                required
+                value={formState.copiesInRotation}
+                onChange={(e) => updateFormField('copiesInRotation', e.target.value)}
+                placeholder="1"
+              />
+            </div>
           </div>
 
           {/* Description */}

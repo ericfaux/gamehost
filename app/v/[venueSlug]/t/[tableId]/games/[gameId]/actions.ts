@@ -9,10 +9,21 @@
  * 1. Cookie session (if valid and belongs to this table)
  * 2. Table's active session (if exists)
  * 3. Create new session (fallback)
+ *
+ * COPIES SUPPORT: Checks game availability before selection.
+ * If all copies are in use, returns a friendly error.
  */
 
 import { cookies } from 'next/headers';
-import { createSession, updateSessionGame, getSessionById, sanitizeActiveSessionsForTable, endAllActiveSessionsForTable } from '@/lib/data';
+import {
+  createSession,
+  updateSessionGame,
+  getSessionById,
+  sanitizeActiveSessionsForTable,
+  endAllActiveSessionsForTable,
+  getGameAvailability,
+  getVenueBySlug,
+} from '@/lib/data';
 
 export interface SelectGameInput {
   venueSlug: string;
@@ -44,6 +55,30 @@ export async function selectGameForSession(input: SelectGameInput): Promise<Sele
     const { venueSlug, tableId, gameId, wizardParams } = input;
 
     console.log(`Selecting game ${gameId} for Table: ${tableId}`);
+
+    // Step 0: Check game availability before proceeding
+    const venue = await getVenueBySlug(venueSlug);
+    if (!venue) {
+      return {
+        success: false,
+        error: 'Venue not found.',
+      };
+    }
+
+    const availability = await getGameAvailability(gameId, venue.id);
+    if (!availability) {
+      return {
+        success: false,
+        error: 'Game not found.',
+      };
+    }
+
+    if (availability.available <= 0) {
+      return {
+        success: false,
+        error: 'Sorry, all copies of this game are currently in use. Please pick a different game.',
+      };
+    }
 
     const cookieStore = await cookies();
     const cookieSessionId = cookieStore.get('gamehost_session_id')?.value;

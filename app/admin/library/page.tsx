@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
-import { getGamesForVenue } from '@/lib/data/games';
+import { getGamesForVenueWithCopiesInfo } from '@/lib/data/games';
 import { LibraryClient } from '@/components/admin/LibraryClient';
 
 export default async function LibraryPage() {
@@ -26,8 +26,8 @@ export default async function LibraryPage() {
     );
   }
 
-  // Fetch all games for the venue
-  const games = await getGamesForVenue(venue.id);
+  // Fetch all games for the venue with copies info
+  const games = await getGamesForVenueWithCopiesInfo(venue.id);
 
   return <LibraryClient initialGames={games} />;
 }

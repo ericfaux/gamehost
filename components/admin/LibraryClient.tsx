@@ -8,13 +8,13 @@ import { DataTable, Column } from '@/components/ui/data-table';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { GameFormModal } from '@/components/admin/AddGameModal';
 import { ImportGamesButton } from '@/components/admin/ImportGamesButton';
-import { Game, GameStatus } from '@/lib/db/types';
+import { GameWithCopiesInfo, GameStatus } from '@/lib/db/types';
 
 const vibeFilters = ['calming', 'pattern', 'nature', 'drafting', 'asymmetric', 'conflict', 'engine', 'serene', 'racing'];
 const statusOptions: GameStatus[] = ['in_rotation', 'out_for_repair', 'retired', 'for_sale'];
 
 interface LibraryClientProps {
-  initialGames: Game[];
+  initialGames: GameWithCopiesInfo[];
 }
 
 export function LibraryClient({ initialGames }: LibraryClientProps) {
@@ -24,10 +24,28 @@ export function LibraryClient({ initialGames }: LibraryClientProps) {
   const [players, setPlayers] = useState('all');
   const [time, setTime] = useState('all');
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<Game[]>(initialGames);
+  const [rows, setRows] = useState<GameWithCopiesInfo[]>(initialGames);
 
-  const columns: Column<Game>[] = [
+  const columns: Column<GameWithCopiesInfo>[] = [
     { key: 'title', header: 'Title', sortable: true },
+    {
+      key: 'copies_in_rotation',
+      header: 'Copies',
+      sortable: true,
+      render: (row) => (
+        <span className="font-mono text-sm">{row.copies_in_rotation}</span>
+      ),
+    },
+    {
+      key: 'copies_in_use',
+      header: 'In Use',
+      sortable: true,
+      render: (row) => (
+        <span className={`font-mono text-sm ${row.copies_in_use >= row.copies_in_rotation ? 'text-amber-600 font-semibold' : ''}`}>
+          {row.copies_in_use}
+        </span>
+      ),
+    },
     {
       key: 'vibes',
       header: 'Vibe',
@@ -160,8 +178,9 @@ export function LibraryClient({ initialGames }: LibraryClientProps) {
           const maxPlayers = game.max_players ?? 4;
           const minTime = game.min_time_minutes ?? 30;
           const maxTime = game.max_time_minutes ?? 45;
+          const copiesInRotation = game.copies_in_rotation ?? 1;
 
-          const newGame: Game = {
+          const newGame: GameWithCopiesInfo = {
             id: `game-${rows.length + 1}`,
             venue_id: initialGames[0]?.venue_id ?? '',
             title: game.title ?? 'Untitled',
@@ -180,6 +199,8 @@ export function LibraryClient({ initialGames }: LibraryClientProps) {
             cover_image_url: game.cover_image_url ?? null,
             bgg_rank: game.bgg_rank ?? null,
             bgg_rating: game.bgg_rating ?? null,
+            copies_in_rotation: copiesInRotation,
+            copies_in_use: 0,
             created_at: new Date().toISOString(),
           };
           setRows((prev) => [newGame, ...prev]);
