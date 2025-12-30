@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Palette, Shield } from "lucide-react";
+import { Palette, Shield } from "@/components/icons";
 import { createClient } from "@/utils/supabase/server";
 import { getVenueByOwnerId } from "@/lib/data/venues";
 import { getVenueTables } from "@/lib/data/tables";

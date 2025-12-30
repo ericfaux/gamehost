@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Library, ScanLine, Settings, Sparkle, Wrench, BarChart2, Bell, Search, Menu } from "lucide-react";
+import { ChevronDown, Library, ScanLine, Settings, Sparkle, Wrench, BarChart2, Bell, Search, Menu } from "@/components/icons";
 import { createContext, useContext, useMemo, useState } from "react";
 import { mockGames } from "@/lib/mockData";
 import { Button } from "./ui/button";

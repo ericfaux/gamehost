@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useDensity } from "../AppShell";
 

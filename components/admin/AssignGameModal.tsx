@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Search, Users, Clock, X, Check } from "lucide-react";
+import { Search, Users, Clock, X, Check } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CardTitle } from "@/components/ui/card";
