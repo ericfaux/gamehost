@@ -1,20 +1,47 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, StopCircle, Search, RefreshCcw } from "lucide-react";
+import {
+  Clock3,
+  StopCircle,
+  Search,
+  RefreshCcw,
+  AlertTriangle,
+  Gamepad2,
+  ArrowDownWideNarrow,
+} from "lucide-react";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Session, VenueTable } from "@/lib/db/types";
+import type { Session, VenueTable, Game } from "@/lib/db/types";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import { endSessionAction } from "@/app/admin/sessions/actions";
+import { endSessionAction, assignGameToSessionAction } from "@/app/admin/sessions/actions";
+import { AssignGameModal } from "./AssignGameModal";
+
+// =============================================================================
+// CONSTANTS - Stale session thresholds (easy to adjust)
+// =============================================================================
+const STALE_BROWSING_MINUTES = 20; // Browsing session is stale after 20 minutes
+const LONG_PLAYING_HOURS = 3; // Playing session is "long" after 3 hours
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 // Type for session with joined game and table data
 export interface SessionWithDetails extends Session {
   games: { title: string } | null;
   venue_tables: { label: string } | null;
 }
+
+type FilterMode = "all" | "browsing" | "playing";
+type SortMode = "longest" | "newest";
+
+// =============================================================================
+// HELPERS
+// =============================================================================
 
 function formatDuration(started: string) {
   const diff = Date.now() - new Date(started).getTime();
@@ -23,48 +50,71 @@ function formatDuration(started: string) {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
+function getSessionDurationMinutes(session: SessionWithDetails): number {
+  // Use created_at as the stable timestamp for duration calculation
+  const timestamp = session.created_at;
+  const diff = Date.now() - new Date(timestamp).getTime();
+  return Math.max(1, Math.round(diff / 60000));
+}
+
+function isSessionStale(session: SessionWithDetails): boolean {
+  const isBrowsing = session.game_id === null;
+  const durationMinutes = getSessionDurationMinutes(session);
+
+  if (isBrowsing) {
+    return durationMinutes >= STALE_BROWSING_MINUTES;
+  }
+  return false; // Playing sessions are not "stale", just "long"
+}
+
+function isSessionLong(session: SessionWithDetails): boolean {
+  const isPlaying = session.game_id !== null;
+  const durationMinutes = getSessionDurationMinutes(session);
+
+  if (isPlaying) {
+    return durationMinutes >= LONG_PLAYING_HOURS * 60;
+  }
+  return false;
+}
+
+// =============================================================================
+// COMPONENT
+// =============================================================================
+
 interface SessionsClientProps {
   initialSessions: SessionWithDetails[];
   availableTables: VenueTable[];
+  availableGames: Game[];
 }
 
-export function SessionsClient({ initialSessions, availableTables }: SessionsClientProps) {
+export function SessionsClient({
+  initialSessions,
+  availableTables,
+  availableGames,
+}: SessionsClientProps) {
   const { push } = useToast();
+  const router = useRouter();
+
+  // Session state
   const [sessions, setSessions] = useState<SessionWithDetails[]>(initialSessions);
   const [endingSessionId, setEndingSessionId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const router = useRouter();
 
-  // FIX: Sync local state when initialSessions prop changes (after router.refresh or realtime update).
-  // This ensures the Admin UI reflects the true server state while still allowing optimistic updates.
+  // Filter, sort, and search state
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("longest");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Assign game modal state
+  const [assignModalSession, setAssignModalSession] = useState<SessionWithDetails | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  // Sync local state when initialSessions prop changes
   useEffect(() => {
     setSessions(initialSessions);
   }, [initialSessions]);
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    router.refresh();
-    // Reset after a short delay to show the animation
-    setTimeout(() => setIsRefreshing(false), 1000);
-  };
-
-  const tablesInUse = useMemo(() => new Set(sessions.map((s) => s.table_id)), [sessions]);
-  const availableForSession = useMemo(
-    () => availableTables.filter((t) => !tablesInUse.has(t.id)),
-    [availableTables, tablesInUse],
-  );
-  const [selectedTableId, setSelectedTableId] = useState<string>(availableForSession[0]?.id ?? "");
-
-  // Count browsing vs playing sessions
-  const browsingSessions = useMemo(
-    () => sessions.filter((s) => s.game_id === null),
-    [sessions],
-  );
-  const playingSessions = useMemo(
-    () => sessions.filter((s) => s.game_id !== null),
-    [sessions],
-  );
-
+  // Realtime subscription
   useEffect(() => {
     const supabase = createClient();
 
@@ -75,7 +125,7 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
         { event: "*", schema: "public", table: "sessions" },
         () => {
           router.refresh();
-        },
+        }
       )
       .subscribe();
 
@@ -84,16 +134,81 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
     };
   }, [router]);
 
-  useEffect(() => {
-    if (availableForSession.length === 0) {
-      setSelectedTableId("");
-      return;
+  // =============================================================================
+  // COMPUTED VALUES
+  // =============================================================================
+
+  const tablesInUse = useMemo(
+    () => new Set(sessions.map((s) => s.table_id)),
+    [sessions]
+  );
+
+  const availableForSession = useMemo(
+    () => availableTables.filter((t) => !tablesInUse.has(t.id)),
+    [availableTables, tablesInUse]
+  );
+
+  // Count browsing vs playing sessions
+  const browsingSessions = useMemo(
+    () => sessions.filter((s) => s.game_id === null),
+    [sessions]
+  );
+
+  const playingSessions = useMemo(
+    () => sessions.filter((s) => s.game_id !== null),
+    [sessions]
+  );
+
+  // Filter sessions based on mode and search
+  const filteredSessions = useMemo(() => {
+    let result = sessions;
+
+    // Apply filter mode
+    if (filterMode === "browsing") {
+      result = result.filter((s) => s.game_id === null);
+    } else if (filterMode === "playing") {
+      result = result.filter((s) => s.game_id !== null);
     }
 
-    if (!availableForSession.find((table) => table.id === selectedTableId)) {
-      setSelectedTableId(availableForSession[0].id);
+    // Apply search term (table name or game title)
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter((s) => {
+        const tableMatch = s.venue_tables?.label?.toLowerCase().includes(term);
+        const gameMatch = s.games?.title?.toLowerCase().includes(term);
+        return tableMatch || gameMatch;
+      });
     }
-  }, [availableForSession, selectedTableId]);
+
+    // Apply sorting
+    result = [...result].sort((a, b) => {
+      if (sortMode === "longest") {
+        // Longest first (oldest created_at first)
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else {
+        // Newest first (most recent created_at first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+
+    return result;
+  }, [sessions, filterMode, searchTerm, sortMode]);
+
+  // Count stale browsing sessions for badge
+  const staleBrowsingCount = useMemo(
+    () => browsingSessions.filter(isSessionStale).length,
+    [browsingSessions]
+  );
+
+  // =============================================================================
+  // HANDLERS
+  // =============================================================================
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    router.refresh();
+    setTimeout(() => setIsRefreshing(false), 1000);
+  };
 
   const endSession = async (session: SessionWithDetails) => {
     if (endingSessionId === session.id) return;
@@ -132,11 +247,54 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
     }
   };
 
+  const handleAssignGame = async (gameId: string) => {
+    if (!assignModalSession || isAssigning) return;
+
+    setIsAssigning(true);
+
+    try {
+      const result = await assignGameToSessionAction(assignModalSession.id, gameId);
+
+      if (result.ok) {
+        const selectedGame = availableGames.find((g) => g.id === gameId);
+        push({
+          title: "Game assigned",
+          description: `${selectedGame?.title ?? "Game"} assigned to ${assignModalSession.venue_tables?.label ?? "table"}`,
+          tone: "success",
+        });
+        setAssignModalSession(null);
+        router.refresh();
+      } else {
+        push({
+          title: "Failed to assign game",
+          description: result.error ?? "Something went wrong",
+          tone: "danger",
+        });
+      }
+    } catch (error) {
+      console.error("Error assigning game:", error);
+      push({
+        title: "Failed to assign game",
+        description: "Something went wrong. Please try again.",
+        tone: "danger",
+      });
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // =============================================================================
+  // RENDER
+  // =============================================================================
+
   return (
     <>
+      {/* Page header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Sessions</p>
+          <p className="text-xs uppercase tracking-rulebook text-ink-secondary">
+            Sessions
+          </p>
           <h1 className="text-3xl">Live tables</h1>
         </div>
         <Button
@@ -146,78 +304,113 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
           disabled={isRefreshing}
           title="Refresh sessions"
         >
-          <RefreshCcw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          <RefreshCcw
+            className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+          />
           <span className="ml-1">Refresh</span>
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        <Card className="panel-surface">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Start a session</CardTitle>
-            <TokenChip tone="muted">Beta</TokenChip>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {availableTables.length === 0 ? (
-              <p className="text-sm text-ink-secondary">
-                No tables found. <a href="/admin/settings" className="text-[color:var(--color-accent)] underline">Create one in Settings.</a>
-              </p>
-            ) : availableForSession.length === 0 ? (
-              <p className="text-sm text-ink-secondary">All tables are currently in use.</p>
-            ) : (
-              <form
-                className="flex flex-col gap-3 md:flex-row md:items-end"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!selectedTableId) {
-                    push({
-                      title: "Select a table",
-                      description: "Choose a table before starting a session.",
-                      tone: "danger",
-                    });
-                    return;
-                  }
-
-                  const selectedTable = availableTables.find((table) => table.id === selectedTableId);
-                  push({
-                    title: "Table ready",
-                    description: `${selectedTable?.label ?? "Table"} selected. Continue with your session setup.`,
-                    tone: "neutral",
-                  });
-                }}
+      {/* Triage Controls */}
+      <Card className="panel-surface">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Filter tabs */}
+            <div className="flex items-center rounded-lg border border-structure bg-elevated p-1">
+              <button
+                type="button"
+                onClick={() => setFilterMode("all")}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  filterMode === "all"
+                    ? "bg-surface shadow-card text-ink-primary"
+                    : "text-ink-secondary hover:text-ink-primary"
+                }`}
+                aria-pressed={filterMode === "all"}
               >
-                <div className="flex-1 space-y-2">
-                  <label className="text-xs uppercase tracking-rulebook text-ink-secondary">
-                    Assign table
-                  </label>
-                  <select
-                    value={selectedTableId}
-                    onChange={(event) => setSelectedTableId(event.target.value)}
-                    className="w-full rounded-lg border border-structure bg-surface px-3 py-2 text-sm shadow-token focus:outline-none"
-                  >
-                    {availableForSession.map((table) => (
-                      <option key={table.id} value={table.id}>
-                        {table.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-ink-secondary">Tables currently in use are hidden.</p>
-                </div>
+                All
+                <span className="ml-1.5 text-xs opacity-70">
+                  ({sessions.length})
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode("browsing")}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  filterMode === "browsing"
+                    ? "bg-surface shadow-card text-ink-primary"
+                    : "text-ink-secondary hover:text-ink-primary"
+                }`}
+                aria-pressed={filterMode === "browsing"}
+              >
+                Browsing
+                <span className="ml-1.5 text-xs opacity-70">
+                  ({browsingSessions.length})
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode("playing")}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  filterMode === "playing"
+                    ? "bg-surface shadow-card text-ink-primary"
+                    : "text-ink-secondary hover:text-ink-primary"
+                }`}
+                aria-pressed={filterMode === "playing"}
+              >
+                Playing
+                <span className="ml-1.5 text-xs opacity-70">
+                  ({playingSessions.length})
+                </span>
+              </button>
+            </div>
 
-                <Button type="submit" className="md:w-auto">
-                  Start session
-                </Button>
-              </form>
+            {/* Sort dropdown */}
+            <div className="flex items-center gap-2">
+              <ArrowDownWideNarrow className="h-4 w-4 text-ink-secondary" />
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="rounded-lg border border-structure bg-elevated px-3 py-1.5 text-sm font-medium shadow-card focus:outline-none"
+                aria-label="Sort sessions"
+              >
+                <option value="longest">Longest first</option>
+                <option value="newest">Newest first</option>
+              </select>
+            </div>
+
+            {/* Search input */}
+            <div className="flex-1 min-w-[200px] relative">
+              <Input
+                type="search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by table or game..."
+                className="pl-9 h-9"
+                aria-label="Search sessions"
+              />
+              <Search className="h-4 w-4 absolute left-3 top-2.5 text-ink-secondary" />
+            </div>
+
+            {/* Stale warning badge */}
+            {staleBrowsingCount > 0 && (
+              <TokenChip tone="warn">
+                <AlertTriangle className="h-3 w-3" />
+                {staleBrowsingCount} stale
+              </TokenChip>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
+      <div className="grid gap-4">
         {/* Tables Overview Card */}
         <Card className="panel-surface">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Table Status</CardTitle>
             <div className="flex gap-2">
-              <TokenChip tone="accent">{availableForSession.length} available</TokenChip>
+              <TokenChip tone="accent">
+                {availableForSession.length} available
+              </TokenChip>
               <TokenChip tone="muted">{tablesInUse.size} in use</TokenChip>
             </div>
           </CardHeader>
@@ -225,7 +418,10 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
             {availableTables.length === 0 ? (
               <p className="text-sm text-[color:var(--color-ink-secondary)]">
                 No tables configured. Go to{" "}
-                <a href="/admin/settings" className="text-[color:var(--color-accent)] underline">
+                <a
+                  href="/admin/settings"
+                  className="text-[color:var(--color-accent)] underline"
+                >
                   Settings
                 </a>{" "}
                 to add tables.
@@ -236,6 +432,7 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
                   const inUse = tablesInUse.has(table.id);
                   const session = sessions.find((s) => s.table_id === table.id);
                   const isBrowsing = session && session.game_id === null;
+                  const stale = session && isSessionStale(session);
 
                   return (
                     <div
@@ -243,14 +440,22 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
                       className={`px-3 py-2 rounded-xl border text-sm font-medium ${
                         inUse
                           ? isBrowsing
-                            ? "bg-yellow-100 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700/50 text-yellow-700 dark:text-yellow-400"
+                            ? stale
+                              ? "bg-orange-100 dark:bg-orange-900/20 border-orange-400 dark:border-orange-600/50 text-orange-700 dark:text-orange-400"
+                              : "bg-yellow-100 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700/50 text-yellow-700 dark:text-yellow-400"
                             : "bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700/50 text-green-700 dark:text-green-400"
                           : "bg-[color:var(--color-accent-soft)] border-[color:var(--color-accent)]/30 text-[color:var(--color-accent)]"
                       }`}
                     >
                       {table.label}
                       <span className="ml-2 text-xs opacity-70">
-                        {inUse ? (isBrowsing ? "Browsing" : "Playing") : "Available"}
+                        {inUse
+                          ? isBrowsing
+                            ? stale
+                              ? "Stale"
+                              : "Browsing"
+                            : "Playing"
+                          : "Available"}
                       </span>
                     </div>
                   );
@@ -266,10 +471,14 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
             <CardTitle>Live sessions</CardTitle>
             <div className="flex gap-2">
               {browsingSessions.length > 0 && (
-                <TokenChip tone="warn">{browsingSessions.length} browsing</TokenChip>
+                <TokenChip tone="warn">
+                  {browsingSessions.length} browsing
+                </TokenChip>
               )}
               {playingSessions.length > 0 && (
-                <TokenChip tone="accent">{playingSessions.length} playing</TokenChip>
+                <TokenChip tone="accent">
+                  {playingSessions.length} playing
+                </TokenChip>
               )}
               {sessions.length === 0 && (
                 <TokenChip tone="muted">0 in progress</TokenChip>
@@ -277,31 +486,47 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
             </div>
           </CardHeader>
           <CardContent className="divide-y divide-[color:var(--color-structure)]">
-            {sessions.map((session) => {
+            {filteredSessions.map((session) => {
               const isBrowsing = session.game_id === null;
               const isEnding = endingSessionId === session.id;
+              const stale = isSessionStale(session);
+              const long = isSessionLong(session);
 
               return (
                 <div
                   key={session.id}
                   className="py-3 flex flex-wrap items-center justify-between gap-3"
                 >
-                  <div>
+                  <div className="flex-1 min-w-0">
                     {isBrowsing ? (
                       // Browsing state - no game selected yet
-                      <div className="flex items-center gap-2">
-                        <Search className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Search className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
                         <p className="font-semibold text-yellow-700 dark:text-yellow-400">
                           Browsing...
                         </p>
+                        {stale && (
+                          <TokenChip tone="warn">
+                            <AlertTriangle className="h-3 w-3" />
+                            Stale
+                          </TokenChip>
+                        )}
                       </div>
                     ) : (
                       // Playing state - game selected
-                      <p className="font-semibold text-green-700 dark:text-green-400">
-                        {session.games?.title ?? "Unknown Game"}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-green-700 dark:text-green-400">
+                          {session.games?.title ?? "Unknown Game"}
+                        </p>
+                        {long && (
+                          <TokenChip tone="muted">
+                            <Clock3 className="h-3 w-3" />
+                            Long session
+                          </TokenChip>
+                        )}
+                      </div>
                     )}
-                    <p className="text-sm text-[color:var(--color-ink-secondary)] flex items-center gap-2">
+                    <p className="text-sm text-[color:var(--color-ink-secondary)] flex items-center gap-2 mt-1">
                       <StatusBadge status={isBrowsing ? "pending" : "in_use"} />
                       <span className="font-mono">
                         {session.venue_tables?.label ?? session.table_id}
@@ -314,11 +539,23 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {isBrowsing && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setAssignModalSession(session)}
+                        aria-label={`Assign game to ${session.venue_tables?.label ?? "table"}`}
+                      >
+                        <Gamepad2 className="h-4 w-4" />
+                        <span className="ml-1">Assign game</span>
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => endSession(session)}
                       disabled={isEnding}
+                      aria-label={`End session at ${session.venue_tables?.label ?? "table"}`}
                     >
                       {isEnding ? (
                         <>
@@ -353,14 +590,26 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
                 </div>
               );
             })}
-            {sessions.length === 0 && (
+            {filteredSessions.length === 0 && (
               <p className="py-6 text-center text-sm text-ink-secondary">
-                No active sessions
+                {sessions.length === 0
+                  ? "No active sessions"
+                  : "No sessions match your filters"}
               </p>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Assign Game Modal */}
+      <AssignGameModal
+        isOpen={assignModalSession !== null}
+        onClose={() => setAssignModalSession(null)}
+        onAssign={handleAssignGame}
+        games={availableGames}
+        tableLabel={assignModalSession?.venue_tables?.label ?? "Table"}
+        isAssigning={isAssigning}
+      />
     </>
   );
 }
