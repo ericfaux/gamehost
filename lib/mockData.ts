@@ -21,6 +21,7 @@ const now = new Date().toISOString();
 
 const gameBase = {
   venue_id: mockVenues[0].id,
+  copies_in_rotation: 1,
   pitch: null,
   setup_steps: null,
   rules_bullets: null,
