@@ -10,8 +10,12 @@ import {
   updateSessionGame,
   getSessionById,
   getEndedSessionsForVenue,
+  getGameFeedbackDetail,
+  getVenueExperienceComments,
   type DateRangePreset,
   type EndedSession,
+  type GameFeedbackDetail,
+  type VenueExperienceComment,
 } from '@/lib/data';
 
 export interface EndSessionResult {
@@ -156,6 +160,103 @@ export async function listEndedSessionsAction(
       ok: false,
       sessions: [],
       nextCursor: null,
+      error: message,
+    };
+  }
+}
+
+// =============================================================================
+// FEEDBACK ACTIONS (for drilldown drawers)
+// =============================================================================
+
+export interface GetGameFeedbackParams {
+  venueId: string;
+  gameId: string;
+}
+
+export interface GetGameFeedbackResult {
+  ok: boolean;
+  detail: GameFeedbackDetail | null;
+  error?: string;
+}
+
+/**
+ * Server action to fetch detailed feedback for a specific game.
+ * Used by the feedback drilldown drawer in Library.
+ */
+export async function getGameFeedbackAction(
+  params: GetGameFeedbackParams
+): Promise<GetGameFeedbackResult> {
+  try {
+    const { venueId, gameId } = params;
+
+    if (!venueId || typeof venueId !== 'string') {
+      return { ok: false, detail: null, error: 'Invalid venue ID' };
+    }
+    if (!gameId || typeof gameId !== 'string') {
+      return { ok: false, detail: null, error: 'Invalid game ID' };
+    }
+
+    const detail = await getGameFeedbackDetail(venueId, gameId);
+
+    return {
+      ok: true,
+      detail,
+    };
+  } catch (error) {
+    console.error('Error fetching game feedback:', error);
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to load feedback. Please try again.';
+
+    return {
+      ok: false,
+      detail: null,
+      error: message,
+    };
+  }
+}
+
+export interface GetVenueCommentsParams {
+  venueId: string;
+  limit?: number;
+}
+
+export interface GetVenueCommentsResult {
+  ok: boolean;
+  comments: VenueExperienceComment[];
+  error?: string;
+}
+
+/**
+ * Server action to fetch venue experience comments.
+ * Used by the venue pulse comments drawer.
+ */
+export async function getVenueCommentsAction(
+  params: GetVenueCommentsParams
+): Promise<GetVenueCommentsResult> {
+  try {
+    const { venueId, limit = 10 } = params;
+
+    if (!venueId || typeof venueId !== 'string') {
+      return { ok: false, comments: [], error: 'Invalid venue ID' };
+    }
+
+    const comments = await getVenueExperienceComments(venueId, limit);
+
+    return {
+      ok: true,
+      comments,
+    };
+  } catch (error) {
+    console.error('Error fetching venue comments:', error);
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to load comments. Please try again.';
+
+    return {
+      ok: false,
+      comments: [],
       error: message,
     };
   }

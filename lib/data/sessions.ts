@@ -634,6 +634,369 @@ export interface EndedSessionsResult {
  * @param options - Pagination and filter options
  * @returns Paginated ended sessions with next cursor
  */
+// =============================================================================
+// FEEDBACK AGGREGATION (for Admin Dashboard)
+// =============================================================================
+
+/** Config constant for feedback aggregation timeframe */
+export const FEEDBACK_TIMEFRAME_DAYS = 90;
+
+/** Feedback row for aggregation */
+export interface FeedbackRow {
+  id: string;
+  game_id: string;
+  feedback_rating: number | null;
+  feedback_complexity: FeedbackComplexity | null;
+  feedback_replay: FeedbackReplay | null;
+  feedback_comment: string | null;
+  feedback_submitted_at: string;
+}
+
+/** Per-game feedback summary for Library display */
+export interface GameFeedbackSummary {
+  gameId: string;
+  avgRating: number | null;
+  responseCount: number;
+  positiveCount: number;
+  neutralCount: number;
+  negativeCount: number;
+  playAgainYes: number;
+  playAgainMaybe: number;
+  playAgainNo: number;
+}
+
+/**
+ * Fetches feedback rows for a venue within a timeframe.
+ * Used to compute per-game aggregates for the Library page.
+ *
+ * @param venueId - The venue ID
+ * @param days - Timeframe in days (default: 90)
+ * @returns Map of game_id to GameFeedbackSummary
+ */
+export async function getFeedbackSummariesByGame(
+  venueId: string,
+  days: number = FEEDBACK_TIMEFRAME_DAYS
+): Promise<Record<string, GameFeedbackSummary>> {
+  const supabase = getSupabaseAdmin();
+  const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  // Fetch feedback rows with game_id, within timeframe
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('id, game_id, feedback_rating, feedback_complexity, feedback_replay, feedback_comment, feedback_submitted_at')
+    .eq('venue_id', venueId)
+    .not('ended_at', 'is', null)
+    .not('feedback_submitted_at', 'is', null)
+    .not('game_id', 'is', null)
+    .gte('feedback_submitted_at', cutoffDate);
+
+  if (error) {
+    console.error('Error fetching feedback for venue:', error);
+    return {};
+  }
+
+  // Aggregate by game_id
+  const summaries: Record<string, GameFeedbackSummary> = {};
+
+  for (const row of data ?? []) {
+    const gameId = row.game_id as string;
+    if (!summaries[gameId]) {
+      summaries[gameId] = {
+        gameId,
+        avgRating: null,
+        responseCount: 0,
+        positiveCount: 0,
+        neutralCount: 0,
+        negativeCount: 0,
+        playAgainYes: 0,
+        playAgainMaybe: 0,
+        playAgainNo: 0,
+      };
+    }
+
+    const summary = summaries[gameId];
+    summary.responseCount++;
+
+    // Rating buckets: negative (1,2), neutral (3), positive (4,5)
+    // Also works for 1/3/5 scale
+    const rating = row.feedback_rating;
+    if (rating !== null) {
+      if (rating <= 2) summary.negativeCount++;
+      else if (rating === 3) summary.neutralCount++;
+      else if (rating >= 4) summary.positiveCount++;
+    }
+
+    // Play again breakdown
+    const replay = row.feedback_replay as FeedbackReplay | null;
+    if (replay === 'definitely') summary.playAgainYes++;
+    else if (replay === 'maybe') summary.playAgainMaybe++;
+    else if (replay === 'no') summary.playAgainNo++;
+  }
+
+  // Compute average ratings
+  for (const gameId of Object.keys(summaries)) {
+    const summary = summaries[gameId];
+    const ratedRows = (data ?? []).filter(
+      (r) => r.game_id === gameId && r.feedback_rating !== null
+    );
+    if (ratedRows.length > 0) {
+      const sum = ratedRows.reduce((acc, r) => acc + (r.feedback_rating ?? 0), 0);
+      summary.avgRating = Number((sum / ratedRows.length).toFixed(1));
+    }
+  }
+
+  return summaries;
+}
+
+/** Detailed feedback for a single game (drawer view) */
+export interface GameFeedbackDetail {
+  gameId: string;
+  avgRating: number | null;
+  responseCount: number;
+  positiveCount: number;
+  neutralCount: number;
+  negativeCount: number;
+  playAgainYes: number;
+  playAgainMaybe: number;
+  playAgainNo: number;
+  complexityTooSimple: number;
+  complexityJustRight: number;
+  complexityTooComplex: number;
+  recentComments: Array<{
+    id: string;
+    comment: string;
+    submittedAt: string;
+  }>;
+}
+
+/**
+ * Fetches detailed feedback for a specific game.
+ * Used for the feedback drilldown drawer.
+ *
+ * @param venueId - The venue ID
+ * @param gameId - The game ID
+ * @param days - Timeframe in days (default: 90)
+ * @returns GameFeedbackDetail or null if no feedback
+ */
+export async function getGameFeedbackDetail(
+  venueId: string,
+  gameId: string,
+  days: number = FEEDBACK_TIMEFRAME_DAYS
+): Promise<GameFeedbackDetail | null> {
+  const supabase = getSupabaseAdmin();
+  const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('id, feedback_rating, feedback_complexity, feedback_replay, feedback_comment, feedback_submitted_at')
+    .eq('venue_id', venueId)
+    .eq('game_id', gameId)
+    .not('ended_at', 'is', null)
+    .not('feedback_submitted_at', 'is', null)
+    .gte('feedback_submitted_at', cutoffDate)
+    .order('feedback_submitted_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching game feedback detail:', error);
+    return null;
+  }
+
+  if (!data || data.length === 0) {
+    return null;
+  }
+
+  const detail: GameFeedbackDetail = {
+    gameId,
+    avgRating: null,
+    responseCount: data.length,
+    positiveCount: 0,
+    neutralCount: 0,
+    negativeCount: 0,
+    playAgainYes: 0,
+    playAgainMaybe: 0,
+    playAgainNo: 0,
+    complexityTooSimple: 0,
+    complexityJustRight: 0,
+    complexityTooComplex: 0,
+    recentComments: [],
+  };
+
+  let ratingSum = 0;
+  let ratingCount = 0;
+
+  for (const row of data) {
+    // Rating
+    const rating = row.feedback_rating;
+    if (rating !== null) {
+      ratingSum += rating;
+      ratingCount++;
+      if (rating <= 2) detail.negativeCount++;
+      else if (rating === 3) detail.neutralCount++;
+      else if (rating >= 4) detail.positiveCount++;
+    }
+
+    // Replay
+    const replay = row.feedback_replay as FeedbackReplay | null;
+    if (replay === 'definitely') detail.playAgainYes++;
+    else if (replay === 'maybe') detail.playAgainMaybe++;
+    else if (replay === 'no') detail.playAgainNo++;
+
+    // Complexity
+    const complexity = row.feedback_complexity as FeedbackComplexity | null;
+    if (complexity === 'too_simple') detail.complexityTooSimple++;
+    else if (complexity === 'just_right') detail.complexityJustRight++;
+    else if (complexity === 'too_complex') detail.complexityTooComplex++;
+
+    // Comments (limit to 20)
+    if (row.feedback_comment && detail.recentComments.length < 20) {
+      detail.recentComments.push({
+        id: row.id,
+        comment: row.feedback_comment,
+        submittedAt: row.feedback_submitted_at,
+      });
+    }
+  }
+
+  if (ratingCount > 0) {
+    detail.avgRating = Number((ratingSum / ratingCount).toFixed(1));
+  }
+
+  return detail;
+}
+
+// =============================================================================
+// VENUE EXPERIENCE SUMMARY (for Admin Dashboard)
+// =============================================================================
+
+export interface VenueExperienceSummary {
+  avgRating: number | null;
+  responseCount: number;
+  positiveCount: number;
+  neutralCount: number;
+  negativeCount: number;
+  commentCount: number;
+}
+
+/**
+ * Fetches venue experience summary for the past N days.
+ *
+ * @param venueId - The venue ID
+ * @param days - Timeframe in days (default: 7)
+ * @returns VenueExperienceSummary
+ */
+export async function getVenueExperienceSummary(
+  venueId: string,
+  days: number = 7
+): Promise<VenueExperienceSummary> {
+  const supabase = getSupabaseAdmin();
+  const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('feedback_venue_rating, feedback_venue_comment')
+    .eq('venue_id', venueId)
+    .not('ended_at', 'is', null)
+    .not('feedback_submitted_at', 'is', null)
+    .not('feedback_venue_rating', 'is', null)
+    .gte('feedback_submitted_at', cutoffDate);
+
+  if (error) {
+    console.error('Error fetching venue experience summary:', error);
+    return {
+      avgRating: null,
+      responseCount: 0,
+      positiveCount: 0,
+      neutralCount: 0,
+      negativeCount: 0,
+      commentCount: 0,
+    };
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      avgRating: null,
+      responseCount: 0,
+      positiveCount: 0,
+      neutralCount: 0,
+      negativeCount: 0,
+      commentCount: 0,
+    };
+  }
+
+  let ratingSum = 0;
+  let positiveCount = 0;
+  let neutralCount = 0;
+  let negativeCount = 0;
+  let commentCount = 0;
+
+  for (const row of data) {
+    const rating = row.feedback_venue_rating;
+    if (rating !== null) {
+      ratingSum += rating;
+      if (rating <= 2) negativeCount++;
+      else if (rating === 3) neutralCount++;
+      else if (rating >= 4) positiveCount++;
+    }
+    if (row.feedback_venue_comment) commentCount++;
+  }
+
+  return {
+    avgRating: Number((ratingSum / data.length).toFixed(1)),
+    responseCount: data.length,
+    positiveCount,
+    neutralCount,
+    negativeCount,
+    commentCount,
+  };
+}
+
+export interface VenueExperienceComment {
+  id: string;
+  comment: string;
+  rating: number;
+  submittedAt: string;
+}
+
+/**
+ * Fetches recent venue experience comments (for negative ratings).
+ *
+ * @param venueId - The venue ID
+ * @param limit - Maximum comments to return (default: 10)
+ * @returns Array of comments, sorted by newest first
+ */
+export async function getVenueExperienceComments(
+  venueId: string,
+  limit: number = 10
+): Promise<VenueExperienceComment[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('id, feedback_venue_rating, feedback_venue_comment, feedback_submitted_at')
+    .eq('venue_id', venueId)
+    .not('ended_at', 'is', null)
+    .not('feedback_submitted_at', 'is', null)
+    .not('feedback_venue_comment', 'is', null)
+    .order('feedback_submitted_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching venue experience comments:', error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    comment: row.feedback_venue_comment!,
+    rating: row.feedback_venue_rating ?? 0,
+    submittedAt: row.feedback_submitted_at,
+  }));
+}
+
+// =============================================================================
+// HISTORICAL SESSIONS (for Admin "Recent sessions" view)
+// =============================================================================
+
 export async function getEndedSessionsForVenue(
   venueId: string,
   options: EndedSessionsOptions = {}
