@@ -77,7 +77,7 @@ export function StartSessionButton({
   if (state === 'success') {
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-center gap-2 py-4 px-6 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-xl">
+        <div className="flex items-center justify-center gap-2 py-4 px-6 bg-[#e8f0e9] border border-[color:var(--color-success)]/20 text-[color:var(--color-success)] rounded-xl">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
@@ -88,7 +88,7 @@ export function StartSessionButton({
           </svg>
           <span className="font-medium">Session started!</span>
         </div>
-        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-center text-sm text-[color:var(--color-ink-secondary)]">
           Enjoy <span className="font-medium">{gameTitle}</span> at{' '}
           <span className="font-medium">{tableLabel}</span>. Have fun!
           <br />
@@ -105,7 +105,7 @@ export function StartSessionButton({
         type="button"
         onClick={handleClick}
         disabled={isPending || state === 'loading'}
-        className="w-full py-4 text-lg font-semibold text-white bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-400 disabled:cursor-not-allowed rounded-xl shadow-lg shadow-green-600/25 transition-colors"
+        className="w-full py-4 text-lg font-semibold text-white bg-[color:var(--color-success)] hover:opacity-90 active:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-[var(--shadow-token)] transition-all hover:-translate-y-0.5 focus-ring"
       >
         {isPending || state === 'loading' ? (
           <span className="inline-flex items-center gap-2">
@@ -134,8 +134,8 @@ export function StartSessionButton({
 
       {/* Error message */}
       {state === 'error' && errorMessage && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-600 dark:text-red-400 text-center">{errorMessage}</p>
+        <div className="p-3 bg-[#f5e8e8] border border-[color:var(--color-danger)]/30 rounded-xl">
+          <p className="text-sm text-[color:var(--color-danger)] text-center">{errorMessage}</p>
         </div>
       )}
     </div>

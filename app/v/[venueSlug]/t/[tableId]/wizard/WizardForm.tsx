@@ -114,10 +114,10 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
         {/* Results header */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-xl font-bold text-[color:var(--color-ink-primary)]">
               {games.length > 0 ? 'Recommended for you' : 'No matches found'}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-[color:var(--color-ink-secondary)]">
               {games.length > 0
                 ? `${games.length} game${games.length !== 1 ? 's' : ''} match your preferences`
                 : 'Try loosening your filters'}
@@ -125,7 +125,7 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
           </div>
           <button
             onClick={handleReset}
-            className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+            className="text-sm font-medium text-[color:var(--color-accent)] hover:underline focus-ring rounded"
           >
             Modify
           </button>
@@ -145,10 +145,10 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="w-16 h-16 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+          <div className="text-center py-12 panel-surface">
+            <div className="w-16 h-16 mx-auto bg-[color:var(--color-muted)] rounded-full flex items-center justify-center mb-4">
               <svg
-                className="w-8 h-8 text-gray-400"
+                className="w-8 h-8 text-[color:var(--color-ink-secondary)]"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -161,12 +161,12 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
                 />
               </svg>
             </div>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-[color:var(--color-ink-secondary)] mb-4">
               No games match all your criteria right now.
             </p>
             <button
               onClick={handleReset}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] hover:bg-[color:var(--color-accent)]/10 border border-[color:var(--color-accent)]/20 rounded-lg transition-colors focus-ring"
             >
               Adjust preferences
             </button>
@@ -181,7 +181,7 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
     <div className="space-y-8">
       {/* Player count */}
       <section className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium text-[color:var(--color-ink-primary)]">
           How many players?
         </label>
         <div className="grid grid-cols-4 gap-2">
@@ -190,10 +190,10 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
               key={option.value}
               type="button"
               onClick={() => setPlayerCount(option.value)}
-              className={`py-3 text-center font-medium rounded-lg border-2 transition-colors ${
+              className={`py-3 text-center font-medium rounded-xl border-2 transition-all focus-ring ${
                 playerCount === option.value
-                  ? 'border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600'
+                  ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] text-[color:var(--color-accent)] shadow-sm'
+                  : 'border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] text-[color:var(--color-ink-primary)] hover:border-[color:var(--color-structure-strong)]'
               }`}
             >
               {option.label}
@@ -204,7 +204,7 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
 
       {/* Time bucket */}
       <section className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium text-[color:var(--color-ink-primary)]">
           How much time do you have?
         </label>
         <div className="grid grid-cols-3 gap-2">
@@ -213,10 +213,10 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
               key={option.value}
               type="button"
               onClick={() => setTimeBucket(option.value)}
-              className={`py-3 px-2 text-center text-sm font-medium rounded-lg border-2 transition-colors ${
+              className={`py-3 px-2 text-center text-sm font-medium rounded-xl border-2 transition-all focus-ring ${
                 timeBucket === option.value
-                  ? 'border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/30 dark:text-blue-300'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600'
+                  ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] text-[color:var(--color-accent)] shadow-sm'
+                  : 'border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] text-[color:var(--color-ink-primary)] hover:border-[color:var(--color-structure-strong)]'
               }`}
             >
               {option.label}
@@ -227,7 +227,7 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
 
       {/* Complexity tolerance */}
       <section className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label className="block text-sm font-medium text-[color:var(--color-ink-primary)]">
           How complex can the game be?
         </label>
         <div className="space-y-2">
@@ -236,17 +236,17 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
               key={option.value}
               type="button"
               onClick={() => setComplexityTolerance(option.value)}
-              className={`w-full p-4 text-left rounded-lg border-2 transition-colors ${
+              className={`w-full p-4 text-left rounded-xl border-2 transition-all focus-ring ${
                 complexityTolerance === option.value
-                  ? 'border-blue-600 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/30'
-                  : 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600'
+                  ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent-soft)] shadow-sm'
+                  : 'border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] hover:border-[color:var(--color-structure-strong)]'
               }`}
             >
               <div
                 className={`font-medium ${
                   complexityTolerance === option.value
-                    ? 'text-blue-700 dark:text-blue-300'
-                    : 'text-gray-900 dark:text-white'
+                    ? 'text-[color:var(--color-accent)]'
+                    : 'text-[color:var(--color-ink-primary)]'
                 }`}
               >
                 {option.label}
@@ -254,8 +254,8 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
               <div
                 className={`text-sm ${
                   complexityTolerance === option.value
-                    ? 'text-blue-600 dark:text-blue-400'
-                    : 'text-gray-500 dark:text-gray-400'
+                    ? 'text-[color:var(--color-accent)]'
+                    : 'text-[color:var(--color-ink-secondary)]'
                 }`}
               >
                 {option.desc}
@@ -267,8 +267,8 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
 
       {/* Vibes (multi-select chips) */}
       <section className="space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          What vibe are you going for? <span className="font-normal text-gray-500">(optional)</span>
+        <label className="block text-sm font-medium text-[color:var(--color-ink-primary)]">
+          What vibe are you going for? <span className="font-normal text-[color:var(--color-ink-secondary)]">(optional)</span>
         </label>
         <div className="flex flex-wrap gap-2">
           {VIBE_OPTIONS.map((option) => (
@@ -276,10 +276,10 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
               key={option.value}
               type="button"
               onClick={() => toggleVibe(option.value)}
-              className={`px-4 py-2 text-sm font-medium rounded-full border-2 transition-colors ${
+              className={`px-4 py-2 text-sm font-medium rounded-full border transition-all focus-ring ${
                 selectedVibes.includes(option.value)
-                  ? 'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600'
+                  ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)] text-[color:var(--color-surface)] shadow-[var(--shadow-token)]'
+                  : 'border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] text-[color:var(--color-ink-primary)] hover:border-[color:var(--color-structure-strong)]'
               }`}
             >
               {option.label}
@@ -290,8 +290,8 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
 
       {/* Error message */}
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div className="p-4 bg-[#f5e8e8] border border-[color:var(--color-danger)]/30 rounded-xl">
+          <p className="text-sm text-[color:var(--color-danger)]">{error}</p>
         </div>
       )}
 
@@ -300,7 +300,7 @@ export function WizardForm({ venueId, venueSlug, tableId }: WizardFormProps) {
         type="button"
         onClick={handleSubmit}
         disabled={isPending}
-        className="w-full py-4 text-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-400 disabled:cursor-not-allowed rounded-xl shadow-lg shadow-blue-600/25 transition-colors"
+        className="w-full py-4 text-lg font-semibold text-[color:var(--color-surface)] bg-[color:var(--color-ink-primary)] hover:opacity-90 active:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-[var(--shadow-token)] transition-all hover:-translate-y-0.5 focus-ring"
       >
         {isPending ? (
           <span className="inline-flex items-center gap-2">

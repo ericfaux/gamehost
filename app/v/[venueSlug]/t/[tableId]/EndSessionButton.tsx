@@ -134,15 +134,15 @@ export function EndSessionButton({ venueSlug, tableId }: EndSessionButtonProps) 
 
   const getButtonClasses = () => {
     const baseClasses =
-      'inline-flex items-center justify-center w-full px-6 py-3 text-base font-medium rounded-xl transition-colors';
+      'inline-flex items-center justify-center w-full px-6 py-3 text-base font-medium rounded-xl transition-colors focus-ring';
 
     switch (state) {
       case 'success':
-        return `${baseClasses} text-white bg-green-600`;
+        return `${baseClasses} text-white bg-[color:var(--color-success)]`;
       case 'error':
-        return `${baseClasses} text-white bg-red-600 hover:bg-red-700`;
+        return `${baseClasses} text-white bg-[color:var(--color-danger)] hover:opacity-90`;
       default:
-        return `${baseClasses} text-gray-700 bg-gray-200 hover:bg-gray-300 dark:text-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700`;
+        return `${baseClasses} text-[color:var(--color-ink-primary)] bg-[color:var(--color-muted)] hover:bg-[color:var(--color-structure)] border border-[color:var(--color-structure)]`;
     }
   };
 
@@ -156,7 +156,7 @@ export function EndSessionButton({ venueSlug, tableId }: EndSessionButtonProps) 
         {getButtonContent()}
       </button>
       {errorMessage && (
-        <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
+        <p className="text-sm text-[color:var(--color-danger)]">{errorMessage}</p>
       )}
     </div>
   );

@@ -2,6 +2,7 @@
 
 /**
  * Badge component for displaying game complexity level.
+ * Uses theme tokens for consistent "Tabletop Tactile" styling.
  */
 
 import type { GameComplexity } from '@/lib/db/types';
@@ -14,15 +15,18 @@ interface ComplexityBadgeProps {
 const complexityConfig: Record<GameComplexity, { label: string; classes: string }> = {
   simple: {
     label: 'Simple',
-    classes: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+    classes:
+      'bg-[#e8f0e9] text-[color:var(--color-success)] border border-[color:var(--color-success)]/20',
   },
   medium: {
     label: 'Medium',
-    classes: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+    classes:
+      'bg-[#faf3e6] text-[color:var(--color-warn)] border border-[color:var(--color-warn)]/20',
   },
   complex: {
     label: 'Complex',
-    classes: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+    classes:
+      'bg-[#f5e8e8] text-[color:var(--color-danger)] border border-[color:var(--color-danger)]/20',
   },
 };
 
@@ -31,7 +35,7 @@ export function ComplexityBadge({ complexity, className = '' }: ComplexityBadgeP
 
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${config.classes} ${className}`}
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${config.classes} ${className}`}
     >
       {config.label}
     </span>

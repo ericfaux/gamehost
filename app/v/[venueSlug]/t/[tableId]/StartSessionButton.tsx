@@ -136,15 +136,15 @@ export function StartSessionButton({ venueSlug, tableId }: StartSessionButtonPro
 
   const getButtonClasses = () => {
     const baseClasses =
-      'inline-flex items-center justify-center w-full px-6 py-4 text-lg font-semibold rounded-xl shadow-lg transition-colors';
+      'inline-flex items-center justify-center w-full px-6 py-4 text-lg font-semibold rounded-xl shadow-[var(--shadow-token)] transition-all focus-ring';
 
     switch (state) {
       case 'success':
-        return `${baseClasses} text-white bg-green-600 shadow-green-600/25`;
+        return `${baseClasses} text-white bg-[color:var(--color-success)]`;
       case 'error':
-        return `${baseClasses} text-white bg-red-600 hover:bg-red-700 shadow-red-600/25`;
+        return `${baseClasses} text-white bg-[color:var(--color-danger)] hover:opacity-90`;
       default:
-        return `${baseClasses} text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 shadow-blue-600/25`;
+        return `${baseClasses} text-[color:var(--color-surface)] bg-[color:var(--color-ink-primary)] hover:opacity-90 active:opacity-80 hover:-translate-y-0.5`;
     }
   };
 
@@ -158,7 +158,7 @@ export function StartSessionButton({ venueSlug, tableId }: StartSessionButtonPro
         {getButtonContent()}
       </button>
       {errorMessage && (
-        <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
+        <p className="text-sm text-[color:var(--color-danger)]">{errorMessage}</p>
       )}
     </div>
   );
