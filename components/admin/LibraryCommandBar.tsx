@@ -5,11 +5,12 @@
  *
  * Includes:
  * - Global search input (title substring match)
- * - Quick filter chips (toggleable)
+ * - Quick filter chips (toggleable) with info tooltips
  * - Small stats strip
  */
 
-import { Search, X } from '@/components/icons';
+import { useState, useRef, useEffect } from 'react';
+import { Search, X, Info } from '@/components/icons';
 import { Input } from '@/components/ui/input';
 import { Game } from '@/lib/db/types';
 
@@ -29,6 +30,69 @@ interface FilterChip {
   label: string;
   count: number;
   color: 'warn' | 'danger' | 'muted';
+  tooltip: string;
+}
+
+/**
+ * Tooltip component for filter definitions
+ */
+function FilterTooltip({
+  tooltip,
+  children
+}: {
+  tooltip: string;
+  children: React.ReactNode;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [position, setPosition] = useState<'top' | 'bottom'>('top');
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isVisible && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      // If too close to top of viewport, show tooltip below
+      if (rect.top < 80) {
+        setPosition('bottom');
+      } else {
+        setPosition('top');
+      }
+    }
+  }, [isVisible]);
+
+  return (
+    <div
+      ref={triggerRef}
+      className="relative inline-flex"
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+    >
+      {children}
+      {isVisible && (
+        <div
+          className={`
+            absolute left-1/2 -translate-x-1/2 z-50
+            px-3 py-2 text-xs font-normal text-[color:var(--color-ink-primary)]
+            bg-[color:var(--color-elevated)] border border-[color:var(--color-structure)]
+            rounded-lg shadow-card whitespace-nowrap
+            ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}
+          `}
+        >
+          {tooltip}
+          <div
+            className={`
+              absolute left-1/2 -translate-x-1/2 w-2 h-2
+              bg-[color:var(--color-elevated)] border-[color:var(--color-structure)]
+              transform rotate-45
+              ${position === 'top'
+                ? 'top-full -mt-1 border-r border-b'
+                : 'bottom-full -mb-1 border-l border-t'
+              }
+            `}
+          />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function LibraryCommandBar({
@@ -58,10 +122,34 @@ export function LibraryCommandBar({
   const problematicGames = games.filter((g) => g.condition === 'problematic').length;
 
   const filterChips: FilterChip[] = [
-    { id: 'in_use', label: 'In use now', count: gamesInUse, color: 'warn' },
-    { id: 'bottlenecked', label: 'Bottlenecked', count: bottleneckedGames, color: 'danger' },
-    { id: 'out_for_repair', label: 'Out for repair', count: outForRepairGames, color: 'muted' },
-    { id: 'problematic', label: 'Problematic', count: problematicGames, color: 'danger' },
+    {
+      id: 'in_use',
+      label: 'In use now',
+      count: gamesInUse,
+      color: 'warn',
+      tooltip: 'Games with copies_in_use > 0'
+    },
+    {
+      id: 'bottlenecked',
+      label: 'Bottlenecked',
+      count: bottleneckedGames,
+      color: 'danger',
+      tooltip: 'All copies in use (copies_in_use ≥ copies_in_rotation)'
+    },
+    {
+      id: 'out_for_repair',
+      label: 'Out for repair',
+      count: outForRepairGames,
+      color: 'muted',
+      tooltip: 'Game status set to "out for repair"'
+    },
+    {
+      id: 'problematic',
+      label: 'Problematic',
+      count: problematicGames,
+      color: 'danger',
+      tooltip: 'Game condition set to "problematic"'
+    },
   ];
 
   const colorMap = {
@@ -113,10 +201,13 @@ export function LibraryCommandBar({
             <span className="font-semibold text-[color:var(--color-warn)]">{gamesInUse}</span>
           </div>
           <div className="h-4 w-px bg-[color:var(--color-structure)]" />
-          <div className="flex items-center gap-2">
-            <span className="text-[color:var(--color-ink-secondary)]">Bottlenecked:</span>
-            <span className="font-semibold text-[color:var(--color-danger)]">{bottleneckedGames}</span>
-          </div>
+          <FilterTooltip tooltip="Computed: copies_in_use ≥ copies_in_rotation">
+            <div className="flex items-center gap-2 cursor-help">
+              <span className="text-[color:var(--color-ink-secondary)]">Bottlenecked:</span>
+              <span className="font-semibold text-[color:var(--color-danger)]">{bottleneckedGames}</span>
+              <Info className="h-3 w-3 text-[color:var(--color-ink-secondary)]" />
+            </div>
+          </FilterTooltip>
         </div>
       </div>
 
@@ -126,24 +217,25 @@ export function LibraryCommandBar({
         {filterChips.map((chip) => {
           const isActive = activeFilters.has(chip.id);
           return (
-            <button
-              key={chip.id}
-              onClick={() => onFilterToggle(chip.id)}
-              className={`
-                inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border
-                transition-all duration-150
-                ${isActive ? activeColorMap[chip.color] : colorMap[chip.color]}
-                hover:opacity-90
-              `}
-            >
-              {chip.label}
-              <span className={`
-                px-1.5 py-0.5 rounded-full text-[10px] font-bold
-                ${isActive ? 'bg-white/20' : 'bg-black/5'}
-              `}>
-                {chip.count}
-              </span>
-            </button>
+            <FilterTooltip key={chip.id} tooltip={chip.tooltip}>
+              <button
+                onClick={() => onFilterToggle(chip.id)}
+                className={`
+                  inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border
+                  transition-all duration-150
+                  ${isActive ? activeColorMap[chip.color] : colorMap[chip.color]}
+                  hover:opacity-90
+                `}
+              >
+                {chip.label}
+                <span className={`
+                  px-1.5 py-0.5 rounded-full text-[10px] font-bold
+                  ${isActive ? 'bg-white/20' : 'bg-black/5'}
+                `}>
+                  {chip.count}
+                </span>
+              </button>
+            </FilterTooltip>
           );
         })}
 

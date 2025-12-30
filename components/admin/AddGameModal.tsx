@@ -4,9 +4,10 @@ import { useState, useTransition, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { X } from '@/components/icons';
 import { addGame, updateGame } from '@/app/admin/library/actions';
 import { searchGamesAction, getGameDetailsAction } from '@/app/admin/library/bgg-actions';
-import type { Game } from '@/lib/db/types';
+import type { Game, GameStatus, GameCondition } from '@/lib/db/types';
 import type { BggGameDetails, BggSearchResult } from '@/lib/bgg';
 
 interface GameFormModalProps {
@@ -29,6 +30,11 @@ interface FormState {
   bggRating: string;
   imageUrl: string;
   copiesInRotation: string;
+  status: GameStatus;
+  condition: GameCondition;
+  vibes: string[];
+  setupSteps: string;
+  rulesBullets: string;
 }
 
 const initialFormState: FormState = {
@@ -44,6 +50,11 @@ const initialFormState: FormState = {
   bggRating: '',
   imageUrl: '',
   copiesInRotation: '1',
+  status: 'in_rotation',
+  condition: 'good',
+  vibes: [],
+  setupSteps: '',
+  rulesBullets: '',
 };
 
 function mapGameToFormState(game: Game): FormState {
@@ -60,8 +71,43 @@ function mapGameToFormState(game: Game): FormState {
     bggRating: game.bgg_rating ? String(game.bgg_rating) : '',
     imageUrl: game.cover_image_url || '',
     copiesInRotation: String(game.copies_in_rotation ?? 1),
+    status: game.status,
+    condition: game.condition,
+    vibes: game.vibes ?? [],
+    setupSteps: game.setup_steps || '',
+    rulesBullets: game.rules_bullets || '',
   };
 }
+
+// Status options for the select
+const STATUS_OPTIONS: { value: GameStatus; label: string }[] = [
+  { value: 'in_rotation', label: 'In rotation' },
+  { value: 'out_for_repair', label: 'Out for repair' },
+  { value: 'retired', label: 'Retired' },
+  { value: 'for_sale', label: 'For sale' },
+];
+
+// Condition options for the select
+const CONDITION_OPTIONS: { value: GameCondition; label: string }[] = [
+  { value: 'new', label: 'New' },
+  { value: 'good', label: 'Good' },
+  { value: 'worn', label: 'Worn' },
+  { value: 'problematic', label: 'Problematic' },
+];
+
+// Common vibe tags for quick selection
+const COMMON_VIBES = [
+  'calming',
+  'competitive',
+  'cooperative',
+  'strategic',
+  'party',
+  'social deduction',
+  'word game',
+  'family',
+  'quick',
+  'brain burner',
+];
 
 export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameFormModalProps) {
   const [isPending, startTransition] = useTransition();
@@ -81,6 +127,9 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
   const [formState, setFormState] = useState<FormState>(
     initialData ? mapGameToFormState(initialData) : initialFormState,
   );
+
+  // New vibe input
+  const [newVibe, setNewVibe] = useState('');
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -102,6 +151,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
       setShowResults(false);
       setFormState(initialFormState);
       setError(null);
+      setNewVibe('');
     } else {
       setFormState(initialData ? mapGameToFormState(initialData) : initialFormState);
       setError(null);
@@ -160,7 +210,8 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
 
     if (result.success && result.data) {
       const details: BggGameDetails = result.data;
-      setFormState({
+      setFormState((prev) => ({
+        ...prev,
         title: details.title,
         description: details.pitch || '',
         minPlayers: String(details.min_players),
@@ -168,12 +219,11 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
         minTime: String(details.min_time_minutes),
         maxTime: String(details.max_time_minutes),
         complexity: details.complexity,
-        shelfLocation: '',
         bggRank: details.bgg_rank ? String(details.bgg_rank) : '',
         bggRating: details.bgg_rating ? String(details.bgg_rating) : '',
         imageUrl: details.cover_image_url || '',
-        copiesInRotation: '1',
-      });
+        vibes: details.vibes ?? [],
+      }));
       setShowResults(false);
       setSearchResults([]);
     } else {
@@ -191,11 +241,38 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
     setShowResults(false);
     setSearchError(null);
     setError(null);
+    setNewVibe('');
+  }
+
+  // Handle vibe tag toggle
+  function toggleVibe(vibe: string) {
+    setFormState((prev) => {
+      const vibes = prev.vibes.includes(vibe)
+        ? prev.vibes.filter((v) => v !== vibe)
+        : [...prev.vibes, vibe];
+      return { ...prev, vibes };
+    });
+  }
+
+  // Handle adding custom vibe
+  function addCustomVibe() {
+    const vibe = newVibe.trim().toLowerCase();
+    if (vibe && !formState.vibes.includes(vibe)) {
+      setFormState((prev) => ({ ...prev, vibes: [...prev.vibes, vibe] }));
+    }
+    setNewVibe('');
   }
 
   function handleSubmit(formData: FormData) {
     setError(null);
     startTransition(async () => {
+      // Add status and condition to form data
+      formData.set('status', formState.status);
+      formData.set('condition', formState.condition);
+      formData.set('vibes', JSON.stringify(formState.vibes));
+      formData.set('setupSteps', formState.setupSteps);
+      formData.set('rulesBullets', formState.rulesBullets);
+
       if (initialData) {
         formData.append('id', initialData.id);
       }
@@ -215,6 +292,11 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
           bgg_rating: formState.bggRating ? Number(formState.bggRating) : null,
           cover_image_url: formState.imageUrl,
           copies_in_rotation: Number(formState.copiesInRotation) || 1,
+          status: formState.status,
+          condition: formState.condition,
+          vibes: formState.vibes,
+          setup_steps: formState.setupSteps || null,
+          rules_bullets: formState.rulesBullets || null,
         };
         formRef.current?.reset();
         setFormState(initialFormState);
@@ -227,6 +309,8 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
   }
 
   if (!isOpen) return null;
+
+  const isEditMode = !!initialData;
 
   return (
     <div
@@ -243,7 +327,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-structure">
           <h2 id="modal-title" className="text-lg font-semibold text-ink-primary">
-            {initialData ? 'Edit Game' : 'Add New Game'}
+            {isEditMode ? 'Edit Game' : 'Add New Game'}
           </h2>
           <Button
             type="button"
@@ -252,93 +336,93 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
             size="icon"
             aria-label="Close modal"
           >
-            <svg className="w-5 h-5 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-5 h-5 text-ink-secondary" />
           </Button>
         </div>
 
         {/* Form */}
         <form ref={formRef} action={handleSubmit} className="p-6 space-y-5">
-          {/* BGG Search Section */}
-          <div className="bg-muted rounded-lg p-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-ink-primary">
-              <svg className="w-4 h-4 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              Search BoardGameGeek
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search for a game..."
-                className="flex-1"
-                disabled={isSearching || isFetchingDetails}
-              />
-              <Button
-                type="button"
-                onClick={handleSearch}
-                disabled={isSearching || isFetchingDetails || !searchQuery.trim()}
-                variant="secondary"
-                size="sm"
-                className="whitespace-nowrap"
-              >
-                {isSearching ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Searching...
-                  </>
-                ) : (
-                  'Search'
-                )}
-              </Button>
-            </div>
-
-            {/* Search Results */}
-            {showResults && (
-              <div className="border border-structure rounded-lg bg-[color:var(--color-elevated)] max-h-48 overflow-y-auto">
-                {isSearching ? (
-                  <div className="p-3 text-center text-sm text-ink-secondary">Searching...</div>
-                ) : searchError ? (
-                  <div className="p-3 text-center text-sm text-[color:var(--color-danger)]">{searchError}</div>
-                ) : searchResults.length > 0 ? (
-                  <ul className="divide-y divide-structure">
-                    {searchResults.map((game) => (
-                      <li key={game.id}>
-                        <button
-                          type="button"
-                          onClick={() => handleSelectGame(game.id)}
-                          disabled={isFetchingDetails}
-                          className="w-full px-3 py-2 text-left hover:bg-muted transition-colors disabled:opacity-50 flex items-center justify-between gap-2"
-                        >
-                          <span className="text-sm text-ink-primary truncate">{game.title}</span>
-                          {game.year && (
-                            <span className="text-xs text-ink-secondary shrink-0">({game.year})</span>
-                          )}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            )}
-
-            {/* Loading overlay for fetching details */}
-            {isFetchingDetails && (
-              <div className="flex items-center justify-center gap-2 py-2 text-sm text-ink-secondary">
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          {/* BGG Search Section - Only show for new games */}
+          {!isEditMode && (
+            <div className="bg-muted rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-ink-primary">
+                <svg className="w-4 h-4 text-ink-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                Loading game details...
+                Search BoardGameGeek
               </div>
-            )}
-          </div>
+              <div className="flex gap-2">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search for a game..."
+                  className="flex-1"
+                  disabled={isSearching || isFetchingDetails}
+                />
+                <Button
+                  type="button"
+                  onClick={handleSearch}
+                  disabled={isSearching || isFetchingDetails || !searchQuery.trim()}
+                  variant="secondary"
+                  size="sm"
+                  className="whitespace-nowrap"
+                >
+                  {isSearching ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Searching...
+                    </>
+                  ) : (
+                    'Search'
+                  )}
+                </Button>
+              </div>
+
+              {/* Search Results */}
+              {showResults && (
+                <div className="border border-structure rounded-lg bg-[color:var(--color-elevated)] max-h-48 overflow-y-auto">
+                  {isSearching ? (
+                    <div className="p-3 text-center text-sm text-ink-secondary">Searching...</div>
+                  ) : searchError ? (
+                    <div className="p-3 text-center text-sm text-[color:var(--color-danger)]">{searchError}</div>
+                  ) : searchResults.length > 0 ? (
+                    <ul className="divide-y divide-structure">
+                      {searchResults.map((game) => (
+                        <li key={game.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectGame(game.id)}
+                            disabled={isFetchingDetails}
+                            className="w-full px-3 py-2 text-left hover:bg-muted transition-colors disabled:opacity-50 flex items-center justify-between gap-2"
+                          >
+                            <span className="text-sm text-ink-primary truncate">{game.title}</span>
+                            {game.year && (
+                              <span className="text-xs text-ink-secondary shrink-0">({game.year})</span>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Loading overlay for fetching details */}
+              {isFetchingDetails && (
+                <div className="flex items-center justify-center gap-2 py-2 text-sm text-ink-secondary">
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Loading game details...
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Image Preview */}
           {formState.imageUrl && (
@@ -383,10 +467,10 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
             />
           </div>
 
-          {/* Description */}
+          {/* Description / Pitch */}
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-ink-primary mb-1">
-              Description
+              Description / Pitch
             </label>
             <textarea
               id="description"
@@ -491,6 +575,123 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
             </select>
           </div>
 
+          {/* Status and Condition - Side by side */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-ink-primary mb-1">
+                Status
+              </label>
+              <select
+                id="status"
+                name="status"
+                value={formState.status}
+                onChange={(e) => updateFormField('status', e.target.value as GameStatus)}
+                className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm text-ink-primary shadow-card focus-ring"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="condition" className="block text-sm font-medium text-ink-primary mb-1">
+                Condition
+              </label>
+              <select
+                id="condition"
+                name="condition"
+                value={formState.condition}
+                onChange={(e) => updateFormField('condition', e.target.value as GameCondition)}
+                className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm text-ink-primary shadow-card focus-ring"
+              >
+                {CONDITION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {formState.condition === 'problematic' && (
+                <p className="text-xs text-[color:var(--color-warn)] mt-1">
+                  This game will be excluded from guest recommendations.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Vibes / Tags */}
+          <div>
+            <label className="block text-sm font-medium text-ink-primary mb-1">
+              Vibes / Tags
+            </label>
+            <div className="flex flex-wrap gap-2 mb-2">
+              {COMMON_VIBES.map((vibe) => (
+                <button
+                  key={vibe}
+                  type="button"
+                  onClick={() => toggleVibe(vibe)}
+                  className={`
+                    px-2.5 py-1 text-xs rounded-full border transition-colors
+                    ${formState.vibes.includes(vibe)
+                      ? 'bg-[color:var(--color-accent-soft)] border-[color:var(--color-accent)] text-[color:var(--color-accent)]'
+                      : 'bg-[color:var(--color-elevated)] border-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)] hover:border-[color:var(--color-accent)]'
+                    }
+                  `}
+                >
+                  {vibe}
+                </button>
+              ))}
+            </div>
+            {/* Custom vibes display */}
+            {formState.vibes.filter((v) => !COMMON_VIBES.includes(v)).length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formState.vibes
+                  .filter((v) => !COMMON_VIBES.includes(v))
+                  .map((vibe) => (
+                    <span
+                      key={vibe}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full bg-[color:var(--color-accent-soft)] border border-[color:var(--color-accent)] text-[color:var(--color-accent)]"
+                    >
+                      {vibe}
+                      <button
+                        type="button"
+                        onClick={() => toggleVibe(vibe)}
+                        className="hover:text-[color:var(--color-danger)]"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+              </div>
+            )}
+            {/* Add custom vibe */}
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={newVibe}
+                onChange={(e) => setNewVibe(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addCustomVibe();
+                  }
+                }}
+                placeholder="Add custom vibe..."
+                className="flex-1 text-sm"
+              />
+              <Button
+                type="button"
+                onClick={addCustomVibe}
+                variant="ghost"
+                size="sm"
+                disabled={!newVibe.trim()}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+
           {/* Shelf Location */}
           <div>
             <label htmlFor="shelfLocation" className="block text-sm font-medium text-ink-primary mb-1">
@@ -520,6 +721,38 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
               placeholder="1"
             />
             <p className="text-xs text-ink-secondary mt-1">Set to 0 to hide from guest recommendations</p>
+          </div>
+
+          {/* Setup Steps */}
+          <div>
+            <label htmlFor="setupSteps" className="block text-sm font-medium text-ink-primary mb-1">
+              Setup Steps
+            </label>
+            <textarea
+              id="setupSteps"
+              name="setupSteps"
+              rows={3}
+              value={formState.setupSteps}
+              onChange={(e) => updateFormField('setupSteps', e.target.value)}
+              className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm text-ink-primary shadow-card focus-ring placeholder:text-ink-secondary resize-none"
+              placeholder="Quick setup instructions for staff..."
+            />
+          </div>
+
+          {/* Rules Bullets */}
+          <div>
+            <label htmlFor="rulesBullets" className="block text-sm font-medium text-ink-primary mb-1">
+              Rules Overview
+            </label>
+            <textarea
+              id="rulesBullets"
+              name="rulesBullets"
+              rows={3}
+              value={formState.rulesBullets}
+              onChange={(e) => updateFormField('rulesBullets', e.target.value)}
+              className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm text-ink-primary shadow-card focus-ring placeholder:text-ink-secondary resize-none"
+              placeholder="Key rules to teach guests..."
+            />
           </div>
 
           {/* BGG Fields */}
@@ -582,9 +815,9 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    {initialData ? 'Saving...' : 'Adding...'}
+                    {isEditMode ? 'Saving...' : 'Adding...'}
                   </>
-                ) : initialData ? (
+                ) : isEditMode ? (
                   'Save Changes'
                 ) : (
                   'Add Game'

@@ -4,7 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
-import type { GameComplexity } from '@/lib/db/types';
+import type { GameComplexity, GameStatus, GameCondition } from '@/lib/db/types';
+
+// Valid enum values for validation
+const VALID_STATUSES: GameStatus[] = ['in_rotation', 'out_for_repair', 'retired', 'for_sale'];
+const VALID_CONDITIONS: GameCondition[] = ['new', 'good', 'worn', 'problematic'];
 
 interface CSVGameImport {
   Title?: string | number;
@@ -333,6 +337,11 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
   const bggRankStr = formData.get('bggRank') as string | null;
   const bggRatingStr = formData.get('bggRating') as string | null;
   const copiesInRotationStr = formData.get('copiesInRotation') as string | null;
+  const statusStr = formData.get('status') as string | null;
+  const conditionStr = formData.get('condition') as string | null;
+  const vibesJson = formData.get('vibes') as string | null;
+  const setupSteps = formData.get('setupSteps') as string | null;
+  const rulesBullets = formData.get('rulesBullets') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -378,6 +387,25 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
     return { success: false, error: 'Invalid complexity value' };
   }
 
+  // Validate status and condition
+  const status: GameStatus = statusStr && VALID_STATUSES.includes(statusStr as GameStatus)
+    ? (statusStr as GameStatus)
+    : 'in_rotation';
+
+  const condition: GameCondition = conditionStr && VALID_CONDITIONS.includes(conditionStr as GameCondition)
+    ? (conditionStr as GameCondition)
+    : 'good';
+
+  // Parse vibes array
+  let vibes: string[] = [];
+  if (vibesJson) {
+    try {
+      vibes = JSON.parse(vibesJson);
+    } catch {
+      // If parsing fails, keep empty array
+    }
+  }
+
   // Parse optional BGG fields
   let bggRank: number | null = null;
   let bggRating: number | null = null;
@@ -420,12 +448,112 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
       bgg_rank: bggRank,
       bgg_rating: bggRating,
       copies_in_rotation: copiesInRotation,
+      status,
+      condition,
+      vibes,
+      setup_steps: setupSteps?.trim() || null,
+      rules_bullets: rulesBullets?.trim() || null,
     })
     .eq('id', id);
 
   if (updateError) {
     console.error('Failed to update game:', updateError);
     return { success: false, error: 'Failed to update game. Please try again.' };
+  }
+
+  revalidatePath('/admin/library');
+
+  return { success: true };
+}
+
+/**
+ * Inline field update - for quick edits directly in the table.
+ * Supports: status, condition, shelf_location, copies_in_rotation
+ */
+export interface InlineUpdateResult {
+  success: boolean;
+  error?: string;
+}
+
+type InlineUpdateField = 'status' | 'condition' | 'shelf_location' | 'copies_in_rotation';
+
+export async function updateGameField(
+  gameId: string,
+  field: InlineUpdateField,
+  value: string | number
+): Promise<InlineUpdateResult> {
+  // Get current user
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'You must be logged in to update a game' };
+  }
+
+  // Get user's venue
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    return { success: false, error: 'No venue found for your account' };
+  }
+
+  // Validate the game exists and belongs to this venue
+  const { data: existingGame, error: fetchError } = await getSupabaseAdmin()
+    .from('games')
+    .select('id, venue_id')
+    .eq('id', gameId)
+    .single();
+
+  if (fetchError || !existingGame) {
+    return { success: false, error: 'Game not found' };
+  }
+
+  if (existingGame.venue_id !== venue.id) {
+    return { success: false, error: 'Game does not belong to your venue' };
+  }
+
+  // Validate and prepare the update
+  let updateData: Record<string, unknown> = {};
+
+  switch (field) {
+    case 'status':
+      if (!VALID_STATUSES.includes(value as GameStatus)) {
+        return { success: false, error: 'Invalid status value' };
+      }
+      updateData = { status: value };
+      break;
+
+    case 'condition':
+      if (!VALID_CONDITIONS.includes(value as GameCondition)) {
+        return { success: false, error: 'Invalid condition value' };
+      }
+      updateData = { condition: value };
+      break;
+
+    case 'shelf_location':
+      updateData = { shelf_location: String(value).trim() || null };
+      break;
+
+    case 'copies_in_rotation':
+      const copies = typeof value === 'number' ? value : parseInt(String(value), 10);
+      if (isNaN(copies) || copies < 0) {
+        return { success: false, error: 'Copies must be 0 or greater' };
+      }
+      updateData = { copies_in_rotation: copies };
+      break;
+
+    default:
+      return { success: false, error: 'Invalid field' };
+  }
+
+  // Perform the update
+  const { error: updateError } = await getSupabaseAdmin()
+    .from('games')
+    .update(updateData)
+    .eq('id', gameId);
+
+  if (updateError) {
+    console.error('Failed to update game field:', updateError);
+    return { success: false, error: 'Failed to update. Please try again.' };
   }
 
   revalidatePath('/admin/library');
