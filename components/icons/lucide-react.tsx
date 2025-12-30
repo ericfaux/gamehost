@@ -1,11 +1,22 @@
 import * as React from "react";
 
-export type IconProps = React.SVGProps<SVGSVGElement>;
+/**
+ * Icon props extending SVG props with first-class title support.
+ * When `title` is provided, it renders as an SVG <title> element for accessibility.
+ */
+export interface IconProps extends Omit<React.SVGProps<SVGSVGElement>, 'title'> {
+  /** Accessible title rendered as SVG <title> element. When present, icon becomes accessible. */
+  title?: string;
+}
 
-function IconBase({ children, ...props }: IconProps & { children: React.ReactNode }) {
+function IconBase({ children, title, ...props }: IconProps & { children: React.ReactNode }) {
+  // When title is present, the icon should be accessible (not hidden)
+  // When title is absent, keep aria-hidden for decorative icons
+  const hasTitle = Boolean(title);
+
   return (
     <svg
-      aria-hidden="true"
+      aria-hidden={hasTitle ? undefined : true}
       focusable="false"
       role="img"
       viewBox="0 0 24 24"
@@ -16,6 +27,7 @@ function IconBase({ children, ...props }: IconProps & { children: React.ReactNod
       strokeLinejoin="round"
       {...props}
     >
+      {title ? <title>{title}</title> : null}
       {children}
     </svg>
   );
