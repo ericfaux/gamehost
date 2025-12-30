@@ -5,7 +5,14 @@
  */
 
 import { revalidatePath } from 'next/cache';
-import { endSession, updateSessionGame, getSessionById } from '@/lib/data';
+import {
+  endSession,
+  updateSessionGame,
+  getSessionById,
+  getEndedSessionsForVenue,
+  type DateRangePreset,
+  type EndedSession,
+} from '@/lib/data';
 
 export interface EndSessionResult {
   success: boolean;
@@ -89,6 +96,66 @@ export async function assignGameToSessionAction(
 
     return {
       ok: false,
+      error: message,
+    };
+  }
+}
+
+// =============================================================================
+// HISTORICAL SESSIONS (Recent sessions list)
+// =============================================================================
+
+export interface ListEndedSessionsParams {
+  venueId: string;
+  rangePreset?: DateRangePreset;
+  search?: string;
+  beforeCursor?: { endedAt: string; id: string };
+  limit?: number;
+}
+
+export interface ListEndedSessionsResult {
+  ok: boolean;
+  sessions: EndedSession[];
+  nextCursor: { endedAt: string; id: string } | null;
+  error?: string;
+}
+
+/**
+ * Server action to list ended (historical) sessions with pagination and filters.
+ * Used by the "Recent sessions" section in the Admin UI.
+ */
+export async function listEndedSessionsAction(
+  params: ListEndedSessionsParams
+): Promise<ListEndedSessionsResult> {
+  try {
+    const { venueId, rangePreset, search, beforeCursor, limit = 50 } = params;
+
+    if (!venueId || typeof venueId !== 'string') {
+      return { ok: false, sessions: [], nextCursor: null, error: 'Invalid venue ID' };
+    }
+
+    const result = await getEndedSessionsForVenue(venueId, {
+      limit,
+      before: beforeCursor,
+      dateRangePreset: rangePreset,
+      search,
+    });
+
+    return {
+      ok: true,
+      sessions: result.sessions,
+      nextCursor: result.nextCursor,
+    };
+  } catch (error) {
+    console.error('Error listing ended sessions:', error);
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to load sessions. Please try again.';
+
+    return {
+      ok: false,
+      sessions: [],
+      nextCursor: null,
       error: message,
     };
   }

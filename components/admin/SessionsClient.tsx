@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Clock3,
   StopCircle,
@@ -9,15 +9,24 @@ import {
   AlertTriangle,
   Gamepad2,
   ArrowDownWideNarrow,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
 } from "@/components/icons";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Session, VenueTable, Game } from "@/lib/db/types";
+import type { EndedSession, DateRangePreset } from "@/lib/data";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import { endSessionAction, assignGameToSessionAction } from "@/app/admin/sessions/actions";
+import {
+  endSessionAction,
+  assignGameToSessionAction,
+  listEndedSessionsAction,
+} from "@/app/admin/sessions/actions";
 import { AssignGameModal } from "./AssignGameModal";
 
 // =============================================================================
@@ -77,6 +86,41 @@ function isSessionLong(session: SessionWithDetails): boolean {
   return false;
 }
 
+// Helpers for ended sessions
+function formatEndedTimestamp(timestamp: string): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  if (isToday) {
+    return `Today ${timeStr}`;
+  } else if (isYesterday) {
+    return `Yesterday ${timeStr}`;
+  } else {
+    return date.toLocaleDateString([], { month: "short", day: "numeric" }) + ` ${timeStr}`;
+  }
+}
+
+function formatSessionDuration(startedAt: string, createdAt: string, endedAt: string): string {
+  // Prefer started_at if it exists and is different from created_at
+  const start = new Date(startedAt || createdAt);
+  const end = new Date(endedAt);
+  const diffMs = end.getTime() - start.getTime();
+
+  if (diffMs < 0) return "—";
+
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  return remainingMins > 0 ? `${hours}h ${remainingMins}m` : `${hours}h`;
+}
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -85,12 +129,18 @@ interface SessionsClientProps {
   initialSessions: SessionWithDetails[];
   availableTables: VenueTable[];
   availableGames: Game[];
+  venueId: string;
+  initialEndedSessions: EndedSession[];
+  initialEndedCursor: { endedAt: string; id: string } | null;
 }
 
 export function SessionsClient({
   initialSessions,
   availableTables,
   availableGames,
+  venueId,
+  initialEndedSessions,
+  initialEndedCursor,
 }: SessionsClientProps) {
   const { push } = useToast();
   const router = useRouter();
@@ -109,10 +159,27 @@ export function SessionsClient({
   const [assignModalSession, setAssignModalSession] = useState<SessionWithDetails | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
 
+  // =============================================================================
+  // ENDED SESSIONS STATE (Recent sessions)
+  // =============================================================================
+  const [endedSessions, setEndedSessions] = useState<EndedSession[]>(initialEndedSessions);
+  const [endedCursor, setEndedCursor] = useState<{ endedAt: string; id: string } | null>(initialEndedCursor);
+  const [endedRangePreset, setEndedRangePreset] = useState<DateRangePreset>("7d");
+  const [endedSearchTerm, setEndedSearchTerm] = useState("");
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isRecentExpanded, setIsRecentExpanded] = useState(true);
+  const [isFilteringEnded, setIsFilteringEnded] = useState(false);
+
   // Sync local state when initialSessions prop changes
   useEffect(() => {
     setSessions(initialSessions);
   }, [initialSessions]);
+
+  // Sync ended sessions when initial data changes
+  useEffect(() => {
+    setEndedSessions(initialEndedSessions);
+    setEndedCursor(initialEndedCursor);
+  }, [initialEndedSessions, initialEndedCursor]);
 
   // Realtime subscription
   useEffect(() => {
@@ -282,6 +349,106 @@ export function SessionsClient({
       setIsAssigning(false);
     }
   };
+
+  // =============================================================================
+  // ENDED SESSIONS HANDLERS
+  // =============================================================================
+
+  // Fetch ended sessions with current filters (used for filter changes)
+  const fetchEndedSessions = useCallback(async (
+    rangePreset: DateRangePreset,
+    search: string,
+    append: boolean = false,
+    cursor?: { endedAt: string; id: string }
+  ) => {
+    if (append) {
+      setIsLoadingMore(true);
+    } else {
+      setIsFilteringEnded(true);
+    }
+
+    try {
+      const result = await listEndedSessionsAction({
+        venueId,
+        rangePreset,
+        search: search.trim() || undefined,
+        beforeCursor: cursor,
+        limit: 50,
+      });
+
+      if (result.ok) {
+        if (append) {
+          // Append to existing list, avoiding duplicates
+          setEndedSessions((prev) => {
+            const existingIds = new Set(prev.map((s) => s.id));
+            const newSessions = result.sessions.filter((s) => !existingIds.has(s.id));
+            return [...prev, ...newSessions];
+          });
+        } else {
+          setEndedSessions(result.sessions);
+        }
+        setEndedCursor(result.nextCursor);
+      } else {
+        push({
+          title: "Failed to load sessions",
+          description: result.error ?? "Something went wrong",
+          tone: "danger",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching ended sessions:", error);
+      push({
+        title: "Failed to load sessions",
+        description: "Something went wrong. Please try again.",
+        tone: "danger",
+      });
+    } finally {
+      setIsLoadingMore(false);
+      setIsFilteringEnded(false);
+    }
+  }, [venueId, push]);
+
+  // Handle range preset change
+  const handleRangePresetChange = useCallback((preset: DateRangePreset) => {
+    setEndedRangePreset(preset);
+    setEndedCursor(null);
+    fetchEndedSessions(preset, endedSearchTerm);
+  }, [endedSearchTerm, fetchEndedSessions]);
+
+  // Handle search change (debounced effect)
+  useEffect(() => {
+    // Skip on initial mount or when search is cleared
+    const timer = setTimeout(() => {
+      // Only fetch if search has actually been used (not initial state)
+      if (endedSearchTerm !== "" || endedSessions.length > 0) {
+        setEndedCursor(null);
+        fetchEndedSessions(endedRangePreset, endedSearchTerm);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+    // Only re-run when endedSearchTerm changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endedSearchTerm]);
+
+  // Handle load more
+  const handleLoadMore = useCallback(() => {
+    if (endedCursor && !isLoadingMore) {
+      fetchEndedSessions(endedRangePreset, endedSearchTerm, true, endedCursor);
+    }
+  }, [endedCursor, isLoadingMore, endedRangePreset, endedSearchTerm, fetchEndedSessions]);
+
+  // Filter ended sessions by search term (client-side for already-loaded data)
+  const filteredEndedSessions = useMemo(() => {
+    if (!endedSearchTerm.trim()) return endedSessions;
+
+    const term = endedSearchTerm.toLowerCase().trim();
+    return endedSessions.filter((s) => {
+      const tableMatch = s.venue_tables?.label?.toLowerCase().includes(term);
+      const gameMatch = s.games?.title?.toLowerCase().includes(term);
+      return tableMatch || gameMatch;
+    });
+  }, [endedSessions, endedSearchTerm]);
 
   // =============================================================================
   // RENDER
@@ -598,6 +765,181 @@ export function SessionsClient({
               </p>
             )}
           </CardContent>
+        </Card>
+
+        {/* Recent Sessions Card (Historical / Ended) */}
+        <Card className="panel-surface">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setIsRecentExpanded(!isRecentExpanded)}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              aria-expanded={isRecentExpanded}
+            >
+              <Clock className="h-5 w-5 text-ink-secondary" />
+              <CardTitle>Recent sessions</CardTitle>
+              {isRecentExpanded ? (
+                <ChevronUp className="h-4 w-4 text-ink-secondary" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-ink-secondary" />
+              )}
+            </button>
+            {!isRecentExpanded && (
+              <TokenChip tone="muted">
+                {filteredEndedSessions.length} ended
+              </TokenChip>
+            )}
+          </CardHeader>
+
+          {isRecentExpanded && (
+            <CardContent>
+              {/* Filters row */}
+              <div className="flex flex-wrap items-center gap-3 mb-4 pb-4 border-b border-structure">
+                {/* Time range tabs */}
+                <div className="flex items-center rounded-lg border border-structure bg-elevated p-1">
+                  <button
+                    type="button"
+                    onClick={() => handleRangePresetChange("today")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      endedRangePreset === "today"
+                        ? "bg-surface shadow-card text-ink-primary"
+                        : "text-ink-secondary hover:text-ink-primary"
+                    }`}
+                    aria-pressed={endedRangePreset === "today"}
+                    disabled={isFilteringEnded}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRangePresetChange("7d")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      endedRangePreset === "7d"
+                        ? "bg-surface shadow-card text-ink-primary"
+                        : "text-ink-secondary hover:text-ink-primary"
+                    }`}
+                    aria-pressed={endedRangePreset === "7d"}
+                    disabled={isFilteringEnded}
+                  >
+                    Last 7 days
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRangePresetChange("30d")}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                      endedRangePreset === "30d"
+                        ? "bg-surface shadow-card text-ink-primary"
+                        : "text-ink-secondary hover:text-ink-primary"
+                    }`}
+                    aria-pressed={endedRangePreset === "30d"}
+                    disabled={isFilteringEnded}
+                  >
+                    Last 30 days
+                  </button>
+                </div>
+
+                {/* Search input */}
+                <div className="flex-1 min-w-[180px] relative">
+                  <Input
+                    type="search"
+                    value={endedSearchTerm}
+                    onChange={(e) => setEndedSearchTerm(e.target.value)}
+                    placeholder="Search table or game..."
+                    className="pl-9 h-8 text-sm"
+                    aria-label="Search recent sessions"
+                  />
+                  <Search className="h-4 w-4 absolute left-3 top-2 text-ink-secondary" />
+                </div>
+
+                {/* Loading indicator */}
+                {isFilteringEnded && (
+                  <Loader2 className="h-4 w-4 animate-spin text-ink-secondary" />
+                )}
+              </div>
+
+              {/* Sessions list - compact ledger style */}
+              {filteredEndedSessions.length > 0 ? (
+                <div className="space-y-0">
+                  {/* Header row */}
+                  <div className="hidden sm:grid grid-cols-[1fr_100px_1fr_80px] gap-2 px-2 py-1.5 text-xs font-medium text-ink-secondary uppercase tracking-wide border-b border-structure">
+                    <span>Ended</span>
+                    <span>Table</span>
+                    <span>Game</span>
+                    <span className="text-right">Duration</span>
+                  </div>
+
+                  {/* Data rows */}
+                  {filteredEndedSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      className="grid grid-cols-1 sm:grid-cols-[1fr_100px_1fr_80px] gap-1 sm:gap-2 px-2 py-2 text-sm border-b border-structure/50 hover:bg-elevated/50 transition-colors"
+                    >
+                      {/* Ended timestamp */}
+                      <span className="text-ink-secondary text-xs sm:text-sm">
+                        <span className="sm:hidden font-medium text-ink-primary">Ended: </span>
+                        {session.feedback_submitted_at
+                          ? formatEndedTimestamp(session.feedback_submitted_at)
+                          : "—"}
+                      </span>
+
+                      {/* Table */}
+                      <span className="font-mono text-xs sm:text-sm">
+                        <span className="sm:hidden font-medium text-ink-primary font-sans">Table: </span>
+                        {session.venue_tables?.label ?? "—"}
+                      </span>
+
+                      {/* Game */}
+                      <span className={`text-xs sm:text-sm truncate ${session.game_id ? "" : "text-ink-secondary italic"}`}>
+                        <span className="sm:hidden font-medium text-ink-primary">Game: </span>
+                        {session.games?.title ?? "No game selected"}
+                      </span>
+
+                      {/* Duration */}
+                      <span className="text-xs sm:text-sm text-right tabular-nums">
+                        <span className="sm:hidden font-medium text-ink-primary">Duration: </span>
+                        {session.feedback_submitted_at
+                          ? formatSessionDuration(
+                              session.started_at,
+                              session.created_at,
+                              session.feedback_submitted_at
+                            )
+                          : "—"}
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Load more button */}
+                  {endedCursor && (
+                    <div className="pt-4 text-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleLoadMore}
+                        disabled={isLoadingMore}
+                      >
+                        {isLoadingMore ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                            Loading...
+                          </>
+                        ) : (
+                          "Load more"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="py-6 text-center text-sm text-ink-secondary">
+                  {isFilteringEnded
+                    ? "Loading..."
+                    : endedSearchTerm.trim()
+                    ? "No sessions match your search"
+                    : "No sessions yet. Ended sessions will appear here."}
+                </p>
+              )}
+            </CardContent>
+          )}
         </Card>
       </div>
 
