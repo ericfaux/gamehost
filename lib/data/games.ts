@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Game, RecommendationParams, GameComplexity, TimeBucket } from '@/lib/db/types';
+import { getCopiesInUseByGame } from './sessions';
 
 /**
  * Fetches a single game by its ID.
@@ -75,8 +76,28 @@ function getAllowedComplexities(tolerance: string): GameComplexity[] {
 }
 
 /**
+ * Filters games by availability (copies_in_rotation > 0 and available copies > 0).
+ *
+ * @param games - Array of games to filter
+ * @param copiesInUse - Map of game_id -> number of active sessions
+ * @returns Filtered array of available games
+ */
+function filterByAvailability(games: Game[], copiesInUse: Record<string, number>): Game[] {
+  return games.filter((game) => {
+    const copies = game.copies_in_rotation ?? 1;
+    // Hide games with 0 copies
+    if (copies <= 0) return false;
+    // Hide games where all copies are in use
+    const inUse = copiesInUse[game.id] ?? 0;
+    if (copies - inUse <= 0) return false;
+    return true;
+  });
+}
+
+/**
  * Fetches recommended games based on wizard parameters.
  * Applies filters progressively and relaxes them if no results are found.
+ * Excludes games with copies_in_rotation <= 0 or all copies in use.
  *
  * @param params - Recommendation parameters from the wizard
  * @returns Array of up to 5 recommended games
@@ -91,6 +112,9 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
   // Effective player count: for 5+ groups, treat as 5 but still check max_players
   const effectivePlayerCount = Math.min(playerCount, 5);
 
+  // Fetch copies in use for availability filtering
+  const copiesInUse = await getCopiesInUseByGame(venueId);
+
   // Attempt 1: Full filters including vibes
   let games = await queryGames({
     venueId,
@@ -103,6 +127,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     includeVibesFilter: true,
   });
 
+  games = filterByAvailability(games, copiesInUse);
   if (games.length > 0) {
     return games.slice(0, 5);
   }
@@ -119,6 +144,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     includeVibesFilter: false,
   });
 
+  games = filterByAvailability(games, copiesInUse);
   if (games.length > 0) {
     return games.slice(0, 5);
   }
@@ -135,6 +161,7 @@ export async function getRecommendedGames(params: RecommendationParams): Promise
     includeVibesFilter: false,
   });
 
+  games = filterByAvailability(games, copiesInUse);
   return games.slice(0, 5);
 }
 

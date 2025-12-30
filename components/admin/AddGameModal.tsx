@@ -28,6 +28,7 @@ interface FormState {
   bggRank: string;
   bggRating: string;
   imageUrl: string;
+  copiesInRotation: string;
 }
 
 const initialFormState: FormState = {
@@ -42,6 +43,7 @@ const initialFormState: FormState = {
   bggRank: '',
   bggRating: '',
   imageUrl: '',
+  copiesInRotation: '1',
 };
 
 function mapGameToFormState(game: Game): FormState {
@@ -57,6 +59,7 @@ function mapGameToFormState(game: Game): FormState {
     bggRank: game.bgg_rank ? String(game.bgg_rank) : '',
     bggRating: game.bgg_rating ? String(game.bgg_rating) : '',
     imageUrl: game.cover_image_url || '',
+    copiesInRotation: String(game.copies_in_rotation ?? 1),
   };
 }
 
@@ -169,6 +172,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
         bggRank: details.bgg_rank ? String(details.bgg_rank) : '',
         bggRating: details.bgg_rating ? String(details.bgg_rating) : '',
         imageUrl: details.cover_image_url || '',
+        copiesInRotation: '1',
       });
       setShowResults(false);
       setSearchResults([]);
@@ -210,6 +214,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
           bgg_rank: formState.bggRank ? Number(formState.bggRank) : null,
           bgg_rating: formState.bggRating ? Number(formState.bggRating) : null,
           cover_image_url: formState.imageUrl,
+          copies_in_rotation: Number(formState.copiesInRotation) || 1,
         };
         formRef.current?.reset();
         setFormState(initialFormState);
@@ -498,6 +503,23 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
               onChange={(e) => updateFormField('shelfLocation', e.target.value)}
               placeholder="e.g., Shelf A3"
             />
+          </div>
+
+          {/* Number of Copies */}
+          <div>
+            <label htmlFor="copiesInRotation" className="block text-sm font-medium text-ink-primary mb-1">
+              Number of copies
+            </label>
+            <Input
+              type="number"
+              id="copiesInRotation"
+              name="copiesInRotation"
+              min={0}
+              value={formState.copiesInRotation}
+              onChange={(e) => updateFormField('copiesInRotation', e.target.value)}
+              placeholder="1"
+            />
+            <p className="text-xs text-ink-secondary mt-1">Set to 0 to hide from guest recommendations</p>
           </div>
 
           {/* BGG Fields */}

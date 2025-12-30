@@ -23,6 +23,10 @@ interface CSVGameImport {
   MaxTime?: string | number;
   maxTime?: string | number;
   max_time_minutes?: string | number;
+  copies_in_rotation?: string | number;
+  CopiesInRotation?: string | number;
+  Copies?: string | number;
+  copies?: string | number;
   // Allow other columns to exist but ignore them
   [key: string]: unknown;
 }
@@ -33,6 +37,21 @@ interface AddGameResult {
 }
 
 const VALID_COMPLEXITIES: GameComplexity[] = ['simple', 'medium', 'complex'];
+
+/**
+ * Normalizes a game title for comparison:
+ * - Lowercase
+ * - Trim whitespace
+ * - Collapse internal spaces
+ * - Remove punctuation
+ */
+function normalizeTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/[^\w\s]/g, '');
+}
 
 export async function importGames(games: CSVGameImport[]) {
   const supabase = await createClient();
@@ -53,29 +72,100 @@ export async function importGames(games: CSVGameImport[]) {
     return Number.isNaN(parsed) ? null : parsed;
   }
 
-  const mappedGames = games.map((game) => {
+  function parseCopies(value: string | number | null | undefined): number {
+    const parsed = parseInt(String(value || ''), 10);
+    return Number.isNaN(parsed) || parsed < 0 ? 1 : parsed;
+  }
+
+  // Fetch existing games for this venue to check for duplicates
+  const { data: existingGames } = await getSupabaseAdmin()
+    .from('games')
+    .select('id, title, copies_in_rotation')
+    .eq('venue_id', venue.id);
+
+  // Build a map of normalized title -> existing game
+  const existingGameMap = new Map<string, { id: string; title: string; copies_in_rotation: number }>();
+  for (const game of existingGames ?? []) {
+    const normalizedTitle = normalizeTitle(game.title);
+    existingGameMap.set(normalizedTitle, {
+      id: game.id,
+      title: game.title,
+      copies_in_rotation: game.copies_in_rotation ?? 1,
+    });
+  }
+
+  const newGames: Array<{
+    venue_id: string;
+    title: string;
+    min_players: number | null;
+    max_players: number | null;
+    min_time_minutes: number | null;
+    max_time_minutes: number | null;
+    complexity: GameComplexity;
+    copies_in_rotation: number;
+    status: string;
+    condition: string;
+    vibes: string[];
+  }> = [];
+
+  const updates: Array<{ id: string; copies_in_rotation: number }> = [];
+
+  for (const game of games) {
+    const title = (game.Title || game.title || 'Untitled Game').toString().trim();
+    const normalizedTitle = normalizeTitle(title);
     const complexity = (game.Complexity || game.complexity || '').toString().toLowerCase();
     const normalizedComplexity: GameComplexity = VALID_COMPLEXITIES.includes(complexity as GameComplexity)
       ? (complexity as GameComplexity)
       : 'medium';
+    const copies = parseCopies(
+      game.copies_in_rotation || game.CopiesInRotation || game.Copies || game.copies
+    );
 
-    return {
-      venue_id: venue.id,
-      title: (game.Title || game.title || 'Untitled Game').toString().trim(),
-      min_players: parseNumber(game.MinPlayers || game.minPlayers || game.min_players),
-      max_players: parseNumber(game.MaxPlayers || game.maxPlayers || game.max_players),
-      min_time_minutes: parseNumber(game.MinTime || game.minTime || game.min_time_minutes),
-      max_time_minutes: parseNumber(game.MaxTime || game.maxTime || game.max_time_minutes),
-      complexity: normalizedComplexity,
-      status: 'in_rotation',
-      condition: 'good',
-      vibes: [],
-    };
-  });
+    const existing = existingGameMap.get(normalizedTitle);
+    if (existing) {
+      // Duplicate found: increment copies_in_rotation
+      const newCopiesCount = existing.copies_in_rotation + copies;
+      updates.push({ id: existing.id, copies_in_rotation: newCopiesCount });
+      // Update the map in case there are multiple rows for the same game in CSV
+      existing.copies_in_rotation = newCopiesCount;
+    } else {
+      // New game: add to insert list
+      newGames.push({
+        venue_id: venue.id,
+        title,
+        min_players: parseNumber(game.MinPlayers || game.minPlayers || game.min_players),
+        max_players: parseNumber(game.MaxPlayers || game.maxPlayers || game.max_players),
+        min_time_minutes: parseNumber(game.MinTime || game.minTime || game.min_time_minutes),
+        max_time_minutes: parseNumber(game.MaxTime || game.maxTime || game.max_time_minutes),
+        complexity: normalizedComplexity,
+        copies_in_rotation: copies,
+        status: 'in_rotation',
+        condition: 'good',
+        vibes: [],
+      });
+      // Add to map to handle duplicates within the same CSV
+      existingGameMap.set(normalizedTitle, {
+        id: '', // Will be set after insert, but not needed for duplicate detection
+        title,
+        copies_in_rotation: copies,
+      });
+    }
+  }
 
-  await getSupabaseAdmin()
-    .from('games')
-    .insert(mappedGames);
+  // Perform batch insert for new games
+  if (newGames.length > 0) {
+    await getSupabaseAdmin()
+      .from('games')
+      .insert(newGames);
+  }
+
+  // Perform updates for existing games
+  for (const update of updates) {
+    await getSupabaseAdmin()
+      .from('games')
+      .update({ copies_in_rotation: update.copies_in_rotation })
+      .eq('id', update.id);
+  }
 
   revalidatePath('/admin/library');
 }
@@ -106,6 +196,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
   const shelfLocation = formData.get('shelfLocation') as string | null;
   const bggRankStr = formData.get('bggRank') as string | null;
   const bggRatingStr = formData.get('bggRating') as string | null;
+  const copiesInRotationStr = formData.get('copiesInRotation') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -169,6 +260,15 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
     }
   }
 
+  // Parse copies in rotation (default to 1)
+  let copiesInRotation = 1;
+  if (copiesInRotationStr && copiesInRotationStr.trim() !== '') {
+    copiesInRotation = parseInt(copiesInRotationStr, 10);
+    if (isNaN(copiesInRotation) || copiesInRotation < 0) {
+      return { success: false, error: 'Number of copies must be 0 or greater' };
+    }
+  }
+
   // Insert the new game
   const { error: insertError } = await getSupabaseAdmin()
     .from('games')
@@ -184,6 +284,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
       shelf_location: shelfLocation?.trim() || null,
       bgg_rank: bggRank,
       bgg_rating: bggRating,
+      copies_in_rotation: copiesInRotation,
       status: 'in_rotation',
       condition: 'good',
       vibes: [],
@@ -231,6 +332,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
   const shelfLocation = formData.get('shelfLocation') as string | null;
   const bggRankStr = formData.get('bggRank') as string | null;
   const bggRatingStr = formData.get('bggRating') as string | null;
+  const copiesInRotationStr = formData.get('copiesInRotation') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -294,6 +396,15 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
     }
   }
 
+  // Parse copies in rotation (default to 1)
+  let copiesInRotation = 1;
+  if (copiesInRotationStr && copiesInRotationStr.trim() !== '') {
+    copiesInRotation = parseInt(copiesInRotationStr, 10);
+    if (isNaN(copiesInRotation) || copiesInRotation < 0) {
+      return { success: false, error: 'Number of copies must be 0 or greater' };
+    }
+  }
+
   const { error: updateError } = await getSupabaseAdmin()
     .from('games')
     .update({
@@ -308,6 +419,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
       shelf_location: shelfLocation?.trim() || null,
       bgg_rank: bggRank,
       bgg_rating: bggRating,
+      copies_in_rotation: copiesInRotation,
     })
     .eq('id', id);
 

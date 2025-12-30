@@ -67,6 +67,7 @@ export interface Game {
   cover_image_url: string | null;
   bgg_rank: number | null;
   bgg_rating: number | null;
+  copies_in_rotation: number;
   created_at: string;
 }
 

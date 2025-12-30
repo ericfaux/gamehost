@@ -15,9 +15,10 @@ const statusOptions: GameStatus[] = ['in_rotation', 'out_for_repair', 'retired',
 
 interface LibraryClientProps {
   initialGames: Game[];
+  copiesInUse: Record<string, number>;
 }
 
-export function LibraryClient({ initialGames }: LibraryClientProps) {
+export function LibraryClient({ initialGames, copiesInUse }: LibraryClientProps) {
   const { push } = useToast();
   const [selectedVibe, setSelectedVibe] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<GameStatus | ''>('');
@@ -52,6 +53,16 @@ export function LibraryClient({ initialGames }: LibraryClientProps) {
       render: (row) => `${row.min_time_minutes}-${row.max_time_minutes}m`,
     },
     { key: 'shelf_location', header: 'Location', render: (row) => <span className="font-mono text-xs">{row.shelf_location}</span> },
+    {
+      key: 'copies_in_rotation',
+      header: 'Copies',
+      render: (row) => <span className="text-center">{row.copies_in_rotation ?? 1}</span>,
+    },
+    {
+      key: 'in_use',
+      header: 'In use',
+      render: (row) => <span className="text-center">{copiesInUse[row.id] ?? 0}</span>,
+    },
     {
       key: 'status',
       header: 'Status',
@@ -180,6 +191,7 @@ export function LibraryClient({ initialGames }: LibraryClientProps) {
             cover_image_url: game.cover_image_url ?? null,
             bgg_rank: game.bgg_rank ?? null,
             bgg_rating: game.bgg_rating ?? null,
+            copies_in_rotation: game.copies_in_rotation ?? 1,
             created_at: new Date().toISOString(),
           };
           setRows((prev) => [newGame, ...prev]);
