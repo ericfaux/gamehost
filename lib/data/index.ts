@@ -29,6 +29,7 @@ export {
   getActiveSessionId,
   getActiveSession,
   getSessionById,
+  validateSessionForTable,
   endSession,
   type CreateSessionParams,
 } from './sessions';

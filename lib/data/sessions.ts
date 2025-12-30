@@ -1,3 +1,68 @@
+/**
+ * Session Data Layer
+ *
+ * This module manages session CRUD operations with a key invariant:
+ * The table's active session (feedback_submitted_at IS NULL) is the source of truth.
+ *
+ * Session State Invariants:
+ * - At most one active session per table at any time
+ * - If multiple active sessions exist, the most recent (by created_at) wins
+ * - Cookies are convenience pointers; they must be validated against the table
+ * - An "ended" session has feedback_submitted_at set (non-null)
+ *
+ * =============================================================================
+ * MANUAL QA CHECKLIST - Session State Consistency
+ * =============================================================================
+ *
+ * Test 1: Admin UI reflects guest check-in in realtime
+ *   1. Open Admin /admin/sessions page
+ *   2. In another browser/incognito, scan QR for Table 1 and click "Start Session"
+ *   3. Verify: Admin shows Table 1 as "Browsing" (yellow), Live sessions count increments
+ *
+ * Test 2: Admin UI reflects game selection in realtime
+ *   1. From browsing session (Test 1), select a game
+ *   2. Verify: Admin shows Table 1 as "Playing [Game Name]" (green)
+ *
+ * Test 3: Admin UI reflects session end in realtime
+ *   1. Guest clicks "End Session & Check Out"
+ *   2. Verify: Admin shows Table 1 as "Available", Live sessions count decrements
+ *
+ * Test 4: Guest landing shows table's active session (not stale cookie)
+ *   1. Start session at Table 1, select a game (shows "Now Playing Game A")
+ *   2. Admin ends the session from Admin UI
+ *   3. Refresh Guest page for Table 1
+ *   4. Verify: Guest sees "Start Session" (not the old "Now Playing Game A")
+ *
+ * Test 5: New session after checkout has no previous game
+ *   1. Start session, select Game A, confirm "Now Playing"
+ *   2. Click "End Session & Check Out"
+ *   3. Verify: Landing shows "Start Session" button
+ *   4. Click "Start Session"
+ *   5. Verify: Shows "Session Active" with "Find a game" (not Game A)
+ *
+ * Test 6: Cookie from Table A doesn't affect Table B
+ *   1. Start session at Table 1, select Game A
+ *   2. Navigate to Table 2's QR page (/v/venue/t/table2)
+ *   3. Verify: Table 2 shows "Start Session" (ignores Table 1 cookie)
+ *   4. Click "Start Session" at Table 2
+ *   5. Verify: Table 2 has its own browsing session, Table 1 still shows Game A
+ *
+ * Test 7: Selecting game for Table A doesn't update Table B's session
+ *   1. Open two incognito windows: one at Table 1, one at Table 2
+ *   2. Start sessions on both tables (both in browsing state)
+ *   3. In Table 1 window, select Game A
+ *   4. Verify: Table 1 shows "Now Playing Game A"
+ *   5. Refresh Table 2 window
+ *   6. Verify: Table 2 still shows "Session Active" / browsing (not Game A)
+ *
+ * Test 8: End session ends correct table (not cookie table)
+ *   1. Start session at Table 1, start session at Table 2
+ *   2. On Table 2 page, click "End Session"
+ *   3. Verify: Only Table 2's session ends; Table 1 still active
+ *
+ * =============================================================================
+ */
+
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Session } from '@/lib/db/types';
 import { getVenueBySlug } from './venues';
@@ -194,6 +259,32 @@ export async function getSessionById(sessionId: string): Promise<Session | null>
   }
 
   return data as Session | null;
+}
+
+/**
+ * Validates that a session belongs to a specific table and is active.
+ * Use this before updating a session from a cookie to prevent cross-table contamination.
+ *
+ * @param sessionId - The session ID to validate
+ * @param tableId - The expected table ID
+ * @returns The session if valid, null otherwise
+ */
+export async function validateSessionForTable(
+  sessionId: string,
+  tableId: string
+): Promise<Session | null> {
+  const session = await getSessionById(sessionId);
+
+  // Session must exist, be active (no feedback), and belong to the correct table
+  if (
+    session &&
+    !session.feedback_submitted_at &&
+    session.table_id === tableId
+  ) {
+    return session;
+  }
+
+  return null;
 }
 
 /**

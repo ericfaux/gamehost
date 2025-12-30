@@ -16,6 +16,7 @@ import {
   getVenueAndTableBySlugAndTableId,
   getSessionById,
   getGameById,
+  getActiveSession,
 } from '@/lib/data';
 import { StartSessionButton } from './StartSessionButton';
 import { EndSessionButton } from './EndSessionButton';
@@ -86,26 +87,47 @@ export default async function TableLandingPage({ params }: PageProps) {
 
   const { venue, table } = result;
 
-  // Read the session cookie to check user's session state
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get('gamehost_session_id')?.value;
+  // FIX: Use the table's active session as the source of truth.
+  // The cookie is a convenience pointer but must be validated against the table.
+  // This ensures:
+  // 1. After ending a session, a new session starts fresh (no stale "Now Playing").
+  // 2. A cookie pointing to a different table doesn't affect this table's UI.
+  // 3. The UI always reflects the actual table state.
 
-  // Fetch the user's session if they have a cookie
-  let userSession = null;
+  // First, get the table's active session (source of truth)
+  let userSession = await getActiveSession(table.id);
   let currentGame = null;
 
-  if (sessionId) {
-    userSession = await getSessionById(sessionId);
+  // Read cookie to check if user has a session pointer
+  const cookieStore = await cookies();
+  const cookieSessionId = cookieStore.get('gamehost_session_id')?.value;
 
-    // Only use session if it's not ended (feedback_submitted_at is null)
-    if (userSession && userSession.feedback_submitted_at) {
-      userSession = null; // Session has ended, treat as no session
-    }
-
-    // If session has a game, fetch the game details
-    if (userSession?.game_id) {
+  // If there's an active session for this table, use it
+  if (userSession) {
+    // Verify cookie points to this session, if not, it will be corrected on next action
+    // (The user is still shown the table's active session regardless of cookie mismatch)
+    if (userSession.game_id) {
       currentGame = await getGameById(userSession.game_id);
     }
+  } else if (cookieSessionId) {
+    // No active session for table, but cookie exists - check if it's stale/ended/mismatched
+    const cookieSession = await getSessionById(cookieSessionId);
+
+    // Only use cookie session if it:
+    // 1. Exists
+    // 2. Is not ended (feedback_submitted_at is null)
+    // 3. Belongs to THIS table
+    if (
+      cookieSession &&
+      !cookieSession.feedback_submitted_at &&
+      cookieSession.table_id === table.id
+    ) {
+      userSession = cookieSession;
+      if (userSession.game_id) {
+        currentGame = await getGameById(userSession.game_id);
+      }
+    }
+    // If cookie is invalid/mismatched/ended, userSession remains null (no session UI)
   }
 
   // Determine session state
