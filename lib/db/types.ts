@@ -17,6 +17,8 @@ export type FeedbackComplexity = 'too_simple' | 'just_right' | 'too_complex';
 
 export type FeedbackReplay = 'definitely' | 'maybe' | 'no';
 
+export type FeedbackSource = 'end_sheet' | 'staff_prompt' | 'timer_prompt';
+
 // -----------------------------------------------------------------------------
 // Table Row Types
 // -----------------------------------------------------------------------------
@@ -82,11 +84,20 @@ export interface Session {
   started_at: string;
   wizard_params: unknown;
   created_at: string;
+  // Session end marker (true session end)
+  ended_at: string | null;
+  // Game feedback fields
   feedback_rating: number | null;
   feedback_complexity: FeedbackComplexity | null;
   feedback_replay: FeedbackReplay | null;
   feedback_comment: string | null;
-  feedback_submitted_at: string | null;
+  feedback_submitted_at: string | null; // When feedback was submitted (not session end)
+  // Venue feedback fields
+  feedback_venue_rating: number | null;
+  feedback_venue_comment: string | null;
+  // Feedback metadata
+  feedback_skipped: boolean;
+  feedback_source: FeedbackSource | null;
 }
 
 // -----------------------------------------------------------------------------

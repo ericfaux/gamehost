@@ -877,8 +877,8 @@ export function SessionsClient({
                       {/* Ended timestamp */}
                       <span className="text-ink-secondary text-xs sm:text-sm">
                         <span className="sm:hidden font-medium text-ink-primary">Ended: </span>
-                        {session.feedback_submitted_at
-                          ? formatEndedTimestamp(session.feedback_submitted_at)
+                        {session.ended_at
+                          ? formatEndedTimestamp(session.ended_at)
                           : "—"}
                       </span>
 
@@ -897,11 +897,11 @@ export function SessionsClient({
                       {/* Duration */}
                       <span className="text-xs sm:text-sm text-right tabular-nums">
                         <span className="sm:hidden font-medium text-ink-primary">Duration: </span>
-                        {session.feedback_submitted_at
+                        {session.ended_at
                           ? formatSessionDuration(
                               session.started_at,
                               session.created_at,
-                              session.feedback_submitted_at
+                              session.ended_at
                             )
                           : "—"}
                       </span>

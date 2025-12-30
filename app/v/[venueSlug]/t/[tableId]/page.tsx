@@ -117,11 +117,11 @@ export default async function TableLandingPage({ params }: PageProps) {
 
     // Only use cookie session if it:
     // 1. Exists
-    // 2. Is not ended (feedback_submitted_at is null)
+    // 2. Is not ended (ended_at is null)
     // 3. Belongs to THIS table
     if (
       cookieSession &&
-      !cookieSession.feedback_submitted_at &&
+      !cookieSession.ended_at &&
       cookieSession.table_id === table.id
     ) {
       userSession = cookieSession;
@@ -262,7 +262,12 @@ export default async function TableLandingPage({ params }: PageProps) {
                 </svg>
               </Link>
 
-              <EndSessionButton venueSlug={venueSlug} tableId={tableId} />
+              <EndSessionButton
+                venueSlug={venueSlug}
+                tableId={tableId}
+                sessionId={userSession?.id ?? null}
+                hasGame={true}
+              />
             </div>
           </>
         ) : hasValidSession ? (
@@ -344,7 +349,12 @@ export default async function TableLandingPage({ params }: PageProps) {
                 Browse full library
               </Link>
 
-              <EndSessionButton venueSlug={venueSlug} tableId={tableId} />
+              <EndSessionButton
+                venueSlug={venueSlug}
+                tableId={tableId}
+                sessionId={userSession?.id ?? null}
+                hasGame={false}
+              />
             </div>
           </>
         ) : (
