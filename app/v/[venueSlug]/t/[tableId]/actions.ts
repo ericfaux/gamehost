@@ -98,30 +98,55 @@ export async function startCheckIn(
 }
 
 /**
- * Server action to end the current session.
- * Deletes the gamehost_session_id cookie and revalidates the page.
+ * Server action to end the current session for the table.
+ *
+ * FIX: Uses the table's active session as the source of truth, not the cookie.
+ * This ensures:
+ * 1. Ending a session always ends the correct table's session.
+ * 2. A stale/mismatched cookie doesn't prevent ending the table's real session.
+ * 3. The cookie is deleted robustly with the correct path.
  */
 export async function endSession(
   venueSlug: string,
   tableId: string
 ): Promise<EndSessionResult> {
   try {
-    // Retrieve the session ID from cookies
     const cookieStore = await cookies();
-    const sessionId = cookieStore.get('gamehost_session_id')?.value;
+    const cookieSessionId = cookieStore.get('gamehost_session_id')?.value;
 
-    if (!sessionId) {
+    // FIX: Prefer ending the table's active session (source of truth)
+    const activeSession = await getActiveSession(tableId);
+
+    if (activeSession) {
+      // End the table's active session
+      await endSessionById(activeSession.id);
+      console.log(`Ended active session ${activeSession.id} for table ${tableId}`);
+    } else if (cookieSessionId) {
+      // Fallback: No active session for table, but cookie exists.
+      // Only end it if it belongs to this table (safety check).
+      const { getSessionById } = await import('@/lib/data');
+      const cookieSession = await getSessionById(cookieSessionId);
+
+      if (cookieSession && cookieSession.table_id === tableId && !cookieSession.feedback_submitted_at) {
+        await endSessionById(cookieSessionId);
+        console.log(`Ended cookie session ${cookieSessionId} for table ${tableId} (fallback)`);
+      } else {
+        // Cookie points to wrong table or already ended session
+        console.log(`No active session to end for table ${tableId}`);
+      }
+    } else {
       return {
         success: false,
         error: 'No active session',
       };
     }
 
-    // End the session in the database
-    await endSessionById(sessionId);
-
-    // Delete the session cookie
-    cookieStore.delete('gamehost_session_id');
+    // Delete the session cookie (always, to clean up stale cookies)
+    // Use explicit path to ensure deletion works regardless of current route
+    cookieStore.delete({
+      name: 'gamehost_session_id',
+      path: '/',
+    });
 
     // Revalidate the page to reflect the new state
     revalidatePath(`/v/${venueSlug}/t/${tableId}`);

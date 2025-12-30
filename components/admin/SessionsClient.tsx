@@ -35,6 +35,12 @@ export function SessionsClient({ initialSessions, availableTables }: SessionsCli
   const [isRefreshing, setIsRefreshing] = useState(false);
   const router = useRouter();
 
+  // FIX: Sync local state when initialSessions prop changes (after router.refresh or realtime update).
+  // This ensures the Admin UI reflects the true server state while still allowing optimistic updates.
+  useEffect(() => {
+    setSessions(initialSessions);
+  }, [initialSessions]);
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     router.refresh();
