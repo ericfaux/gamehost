@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { getVenueByOwnerId } from "@/lib/data/venues";
 import { getVenueTables } from "@/lib/data/tables";
+import { getActiveSessionsForVenue } from "@/lib/data/sessions";
 import { SessionsClient, type SessionWithDetails } from "@/components/admin/SessionsClient";
 
 export const dynamic = 'force-dynamic';
@@ -27,23 +28,14 @@ export default async function AdminSessionsPage() {
     );
   }
 
-  // Fetch all active sessions for this venue (where feedback has not been submitted yet)
-  // Join with games and venue_tables to get related data
-  const { data: sessions, error } = await supabase
-    .from("sessions")
-    .select("*, games(title), venue_tables(label)")
-    .eq("venue_id", venue.id)
-    .is("feedback_submitted_at", null)
-    .order("started_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching sessions:", error);
-  }
+  // FIX: Use data layer function with admin client (bypasses RLS)
+  // This ensures Admin UI can see all guest-created sessions
+  const sessions = await getActiveSessionsForVenue(venue.id);
 
   // Fetch available tables for the venue
   const tables = await getVenueTables(venue.id);
 
-  const sessionsData: SessionWithDetails[] = (sessions ?? []) as SessionWithDetails[];
+  const sessionsData: SessionWithDetails[] = sessions as SessionWithDetails[];
 
   return (
     <SessionsClient

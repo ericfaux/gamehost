@@ -60,6 +60,31 @@
  *   2. On Table 2 page, click "End Session"
  *   3. Verify: Only Table 2's session ends; Table 1 still active
  *
+ * Test 9: No duplicate active sessions can exist for the same table (INVARIANT)
+ *   1. Attempt to create conditions where multiple active sessions might exist
+ *   2. Verify: sanitizeActiveSessionsForTable always leaves at most one active
+ *   3. Verify: Console logs show "[sanitize] Closing X duplicate sessions" if any
+ *
+ * Test 10: Ending session cannot reveal an older session ("random game" bug)
+ *   1. Start session, select Game A
+ *   2. (Simulate bug) If somehow two active sessions exist, end the newest
+ *   3. Verify: endAllActiveSessionsForTable ends ALL of them
+ *   4. Verify: Guest sees "Start Session" (not Game A or any old game)
+ *
+ * Test 11: New session after checkout starts browsing (no game inheritance)
+ *   1. Start session, select Game A, confirm "Now Playing"
+ *   2. End session via "End Session & Check Out"
+ *   3. Click "Start Session" again
+ *   4. Verify: Shows "Session Active" / browsing mode
+ *   5. Verify: game_id is NULL in the new session (no inherited game)
+ *
+ * Test 12: Admin UI reflects guest start/select/end (RLS fix)
+ *   1. Open Admin /admin/sessions (should use admin client, bypassing RLS)
+ *   2. In incognito, start a guest session at Table 1
+ *   3. Verify: Admin shows Table 1 as "Browsing" immediately
+ *   4. Guest selects a game -> Admin shows "Playing"
+ *   5. Guest ends session -> Admin shows Table 1 as "Available"
+ *
  * =============================================================================
  */
 
@@ -285,6 +310,114 @@ export async function validateSessionForTable(
   }
 
   return null;
+}
+
+/**
+ * Sanitizes active sessions for a table by ending all but the newest.
+ * This enforces the "at most one active session per table" invariant.
+ *
+ * @param tableId - The table ID to sanitize
+ * @returns The single canonical active session (newest), or null if none exist
+ */
+export async function sanitizeActiveSessionsForTable(tableId: string): Promise<Session | null> {
+  const supabase = getSupabaseAdmin();
+
+  // Get ALL active sessions for this table, ordered by created_at desc
+  const { data: activeSessions, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('table_id', tableId)
+    .is('feedback_submitted_at', null)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching active sessions for sanitization:', error);
+    return null;
+  }
+
+  if (!activeSessions || activeSessions.length === 0) {
+    return null;
+  }
+
+  // The newest session is the canonical one
+  const [canonical, ...duplicates] = activeSessions as Session[];
+
+  // End all duplicate sessions (older ones)
+  if (duplicates.length > 0) {
+    const duplicateIds = duplicates.map((s) => s.id);
+    console.log(`[sanitize] Closing ${duplicates.length} duplicate active sessions for table ${tableId}: ${duplicateIds.join(', ')}`);
+
+    const { error: endError } = await supabase
+      .from('sessions')
+      .update({ feedback_submitted_at: new Date().toISOString() })
+      .in('id', duplicateIds);
+
+    if (endError) {
+      console.error('Error ending duplicate sessions:', endError);
+    }
+  }
+
+  return canonical;
+}
+
+/**
+ * Ends ALL active sessions for a table.
+ * Use this when completely clearing the table (e.g., guest checkout).
+ *
+ * @param tableId - The table ID to clear
+ * @returns Number of sessions ended
+ */
+export async function endAllActiveSessionsForTable(tableId: string): Promise<number> {
+  const supabase = getSupabaseAdmin();
+
+  // Get all active sessions for this table
+  const { data: activeSessions, error: fetchError } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('table_id', tableId)
+    .is('feedback_submitted_at', null);
+
+  if (fetchError || !activeSessions || activeSessions.length === 0) {
+    return 0;
+  }
+
+  const sessionIds = activeSessions.map((s: { id: string }) => s.id);
+  console.log(`[endAll] Ending ${sessionIds.length} active sessions for table ${tableId}: ${sessionIds.join(', ')}`);
+
+  const { error: updateError } = await supabase
+    .from('sessions')
+    .update({ feedback_submitted_at: new Date().toISOString() })
+    .in('id', sessionIds);
+
+  if (updateError) {
+    console.error('Error ending sessions:', updateError);
+    return 0;
+  }
+
+  return sessionIds.length;
+}
+
+/**
+ * Gets all active sessions for a venue.
+ * Used by Admin UI to display session status using admin client (bypasses RLS).
+ *
+ * @param venueId - The venue ID
+ * @returns Array of active sessions with game and table details
+ */
+export async function getActiveSessionsForVenue(venueId: string): Promise<Session[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('sessions')
+    .select('*, games(title), venue_tables(label)')
+    .eq('venue_id', venueId)
+    .is('feedback_submitted_at', null)
+    .order('started_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching active sessions for venue:', error);
+    return [];
+  }
+
+  return (data ?? []) as Session[];
 }
 
 /**

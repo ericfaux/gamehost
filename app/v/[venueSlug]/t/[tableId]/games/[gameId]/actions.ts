@@ -12,7 +12,7 @@
  */
 
 import { cookies } from 'next/headers';
-import { createSession, updateSessionGame, getSessionById, getActiveSession } from '@/lib/data';
+import { createSession, updateSessionGame, getSessionById, sanitizeActiveSessionsForTable, endAllActiveSessionsForTable } from '@/lib/data';
 
 export interface SelectGameInput {
   venueSlug: string;
@@ -68,12 +68,12 @@ export async function selectGameForSession(input: SelectGameInput): Promise<Sele
       }
     }
 
-    // Step 2: If no valid cookie session, try table's active session
+    // Step 2: If no valid cookie session, sanitize and get the canonical active session
     if (!targetSessionId) {
-      const activeSession = await getActiveSession(tableId);
+      const activeSession = await sanitizeActiveSessionsForTable(tableId);
       if (activeSession) {
         targetSessionId = activeSession.id;
-        console.log(`Using table's active session ${targetSessionId}`);
+        console.log(`Using table's canonical active session ${targetSessionId}`);
       }
     }
 
@@ -102,6 +102,8 @@ export async function selectGameForSession(input: SelectGameInput): Promise<Sele
     }
 
     // Step 4: Fallback - Create a new session with the game
+    // First, ensure no orphan sessions remain (defensive cleanup)
+    await endAllActiveSessionsForTable(tableId);
     console.log(`Creating new session for Table: ${tableId}, Game: ${gameId}`);
 
     const session = await createSession({
