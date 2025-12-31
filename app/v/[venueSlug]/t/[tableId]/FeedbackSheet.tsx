@@ -34,7 +34,7 @@ export interface FeedbackData {
 }
 
 function SentimentButton({
-  value,
+  value: _value,
   selected,
   onClick,
   icon: Icon,
