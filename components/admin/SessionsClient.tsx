@@ -22,8 +22,7 @@ import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FloorPlanCard } from "@/components/admin/floorplan";
-import type { Session, VenueTable, VenueTableWithLayout, VenueZone, Game } from "@/lib/db/types";
+import type { Session, VenueTable, Game } from "@/lib/db/types";
 import type { EndedSession, DateRangePreset, VenueExperienceSummary } from "@/lib/data";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
@@ -148,8 +147,6 @@ function prioritizeSessions(a: SessionWithDetails, b: SessionWithDetails) {
 interface SessionsClientProps {
   initialSessions: SessionWithDetails[];
   availableTables: VenueTable[];
-  tablesWithLayout: VenueTableWithLayout[];
-  zones: VenueZone[];
   availableGames: Game[];
   venueId: string;
   initialEndedSessions: EndedSession[];
@@ -160,8 +157,6 @@ interface SessionsClientProps {
 export function SessionsClient({
   initialSessions,
   availableTables,
-  tablesWithLayout,
-  zones,
   availableGames,
   venueId,
   initialEndedSessions,
@@ -496,48 +491,6 @@ export function SessionsClient({
     }
   }, [endedCursor, isLoadingMore, endedRangePreset, endedSearchTerm, fetchEndedSessions]);
 
-  // Floor plan handlers
-  const handleFloorPlanEndSession = useCallback(async (sessionId: string) => {
-    const session = sessions.find((s) => s.id === sessionId);
-    if (!session) return;
-
-    setEndingSessionId(sessionId);
-    try {
-      const result = await endSessionAction(sessionId);
-      if (result.success) {
-        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-        push({
-          title: "Session ended",
-          description: session.games?.title
-            ? `${session.games.title} closed`
-            : "Browsing session closed",
-          tone: "neutral",
-        });
-      } else {
-        push({
-          title: "Failed to end session",
-          description: result.error ?? "Something went wrong",
-          tone: "danger",
-        });
-      }
-    } catch {
-      push({
-        title: "Failed to end session",
-        description: "Something went wrong. Please try again.",
-        tone: "danger",
-      });
-    } finally {
-      setEndingSessionId(null);
-    }
-  }, [sessions, push]);
-
-  const handleFloorPlanAssignGame = useCallback((sessionId: string) => {
-    const session = sessions.find((s) => s.id === sessionId);
-    if (session) {
-      setAssignModalSession(session);
-    }
-  }, [sessions]);
-
   // Filter ended sessions by search term and feedback filters (client-side for already-loaded data)
   const filteredEndedSessions = useMemo(() => {
     let result = endedSessions;
@@ -688,15 +641,67 @@ export function SessionsClient({
       </Card>
 
       <div className="grid gap-4">
-        {/* Floor Plan Card (replaces Table Status) */}
-        <FloorPlanCard
-          venueId={venueId}
-          zones={zones}
-          tables={tablesWithLayout}
-          sessions={sessions}
-          onEndSession={handleFloorPlanEndSession}
-          onAssignGame={handleFloorPlanAssignGame}
-        />
+        {/* Tables Overview Card */}
+        <Card className="panel-surface">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Table Status</CardTitle>
+            <div className="flex gap-2">
+              <TokenChip tone="accent">
+                {availableForSession.length} available
+              </TokenChip>
+              <TokenChip tone="muted">{tablesInUse.size} in use</TokenChip>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {availableTables.length === 0 ? (
+              <p className="text-sm text-[color:var(--color-ink-secondary)]">
+                No tables configured. Go to{" "}
+                <a
+                  href="/admin/settings"
+                  className="text-[color:var(--color-accent)] underline"
+                >
+                  Settings
+                </a>{" "}
+                to add tables.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {availableTables.map((table) => {
+                  const inUse = tablesInUse.has(table.id);
+                  const session = dedupedSessions.find((s) => s.table_id === table.id);
+                  const isBrowsing = session && session.game_id === null;
+                  const stale = session && isSessionStale(session);
+
+                  return (
+                    <div
+                      key={table.id}
+                      className={`px-3 py-2 rounded-xl border text-sm font-medium ${
+                        inUse
+                          ? isBrowsing
+                            ? stale
+                              ? "bg-orange-100 dark:bg-orange-900/20 border-orange-400 dark:border-orange-600/50 text-orange-700 dark:text-orange-400"
+                              : "bg-yellow-100 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700/50 text-yellow-700 dark:text-yellow-400"
+                            : "bg-green-100 dark:bg-green-900/20 border-green-300 dark:border-green-700/50 text-green-700 dark:text-green-400"
+                          : "bg-[color:var(--color-accent-soft)] border-[color:var(--color-accent)]/30 text-[color:var(--color-accent)]"
+                      }`}
+                    >
+                      {table.label}
+                      <span className="ml-2 text-xs opacity-70">
+                        {inUse
+                          ? isBrowsing
+                            ? stale
+                              ? "Stale"
+                              : "Browsing"
+                            : "Playing"
+                          : "Available"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Live Sessions Card */}
         <Card className="panel-surface">
