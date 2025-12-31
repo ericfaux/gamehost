@@ -62,11 +62,11 @@ function getStatusStyles(status: TableStatus) {
       };
     default:
       return {
-        bg: 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/50 dark:to-slate-800/40',
-        border: 'border-slate-300/80 dark:border-slate-600/60',
-        text: 'text-slate-600 dark:text-slate-400',
-        accent: 'bg-slate-400/90 dark:bg-slate-600/90',
-        pill: 'bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-300/50 dark:border-slate-600/50',
+        bg: 'bg-white dark:bg-slate-950',
+        border: 'border-slate-300 dark:border-slate-700',
+        text: 'text-slate-900 dark:text-slate-100',
+        accent: 'bg-slate-700 dark:bg-slate-500',
+        pill: 'bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800',
       };
   }
 }
@@ -155,7 +155,7 @@ export function TableNode({
       }}
     >
       {/* Table label - always visible, prominent */}
-      <div className={`font-bold text-[11px] leading-none ${styles.text} truncate max-w-full tracking-tight`}>
+      <div className={`font-semibold text-[12px] leading-none ${styles.text} truncate max-w-full tracking-tight`}>
         {table.label}
       </div>
 
@@ -201,7 +201,7 @@ export function TableNode({
               ) : (
                 <>
                   <Search className="h-2 w-2 flex-shrink-0" />
-                  <span className="text-[9px] font-medium leading-none">Deciding</span>
+                  <span className="text-[9px] font-semibold leading-none">Deciding</span>
                 </>
               )}
             </div>
@@ -217,8 +217,8 @@ export function TableNode({
 
       {/* Available state - minimal */}
       {!session && !isCompact && (
-        <div className="mt-1 text-[8px] leading-none opacity-50 font-medium">
-          Available
+        <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 text-[9px] font-semibold text-slate-800 dark:text-slate-100 shadow-sm">
+          <span>Available</span>
         </div>
       )}
 
