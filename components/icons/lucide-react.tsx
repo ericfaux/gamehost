@@ -193,6 +193,16 @@ export function Hammer(props: IconProps) {
   );
 }
 
+export function Map(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m1 6 8-3 6 3 8-3v15l-8 3-6-3-8 3z" />
+      <path d="M9 3v15" />
+      <path d="M15 6v15" />
+    </IconBase>
+  );
+}
+
 export function Sparkle(props: IconProps) {
   return (
     <IconBase {...props}>
