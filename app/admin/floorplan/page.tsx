@@ -1,20 +1,13 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { getVenueByOwnerId } from "@/lib/data/venues";
 import { getVenueTables } from "@/lib/data/tables";
 import { getVenueZones, getVenueTablesWithLayout } from "@/lib/data/zones";
 import { getActiveSessionsForVenue } from "@/lib/data/sessions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TablesManager } from "@/components/admin/TablesManager";
-import { FloorPlanCanvas } from "@/components/admin/floorplan/FloorPlanCanvas";
+import { Card, CardContent } from "@/components/ui/card";
+import { FloorPlanPageClient } from "@/components/admin/floorplan/FloorPlanPageClient";
 import type { TableSessionInfo } from "@/components/admin/floorplan/TableNode";
 import type { Session, VenueZone, VenueTableWithLayout } from "@/lib/db/types";
-import { AlertTriangle, List, Map as MapIcon } from "@/components/icons";
-
-interface FloorPlanPageProps {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
 
 // Type for session with joined details
 interface SessionWithDetails extends Session {
@@ -23,12 +16,14 @@ interface SessionWithDetails extends Session {
 }
 
 /**
- * Transform active sessions into the Map format expected by FloorPlanCanvas.
+ * Transform active sessions into an array of [tableId, sessionInfo] entries.
  * Deduplicates sessions per table, picking the winner based on:
  * 1. Sessions with a game selected (playing) take priority
  * 2. Most recent started_at/created_at wins ties
+ *
+ * Returns an array instead of Map for Server -> Client serialization.
  */
-function buildSessionsMap(sessions: SessionWithDetails[]): Map<string, TableSessionInfo> {
+function buildSessionsArray(sessions: SessionWithDetails[]): [string, TableSessionInfo][] {
   const grouped = new Map<string, SessionWithDetails[]>();
 
   // Group sessions by table_id
@@ -37,7 +32,7 @@ function buildSessionsMap(sessions: SessionWithDetails[]): Map<string, TableSess
     grouped.set(session.table_id, [...existing, session]);
   });
 
-  const sessionsMap = new Map<string, TableSessionInfo>();
+  const result: [string, TableSessionInfo][] = [];
 
   grouped.forEach((sessionList, tableId) => {
     // Sort to pick winner: prefer game_id not null, then newest started_at
@@ -52,21 +47,23 @@ function buildSessionsMap(sessions: SessionWithDetails[]): Map<string, TableSess
 
     const winner = sorted[0];
     if (winner) {
-      sessionsMap.set(tableId, {
-        sessionId: winner.id,
-        status: winner.game_id ? "playing" : "browsing",
-        gameTitle: winner.games?.title ?? undefined,
-        startedAt: winner.started_at ?? winner.created_at,
-        hasDuplicates: sessionList.length > 1,
-      });
+      result.push([
+        tableId,
+        {
+          sessionId: winner.id,
+          status: winner.game_id ? "playing" : "browsing",
+          gameTitle: winner.games?.title ?? undefined,
+          startedAt: winner.started_at ?? winner.created_at,
+          hasDuplicates: sessionList.length > 1,
+        },
+      ]);
     }
   });
 
-  return sessionsMap;
+  return result;
 }
 
-export default async function FloorPlanPage({ searchParams }: FloorPlanPageProps) {
-  const { view } = await searchParams;
+export default async function FloorPlanPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -107,12 +104,8 @@ export default async function FloorPlanPage({ searchParams }: FloorPlanPageProps
     getActiveSessionsForVenue(venue.id),
   ]);
 
-  // Transform sessions into the Map format expected by FloorPlanCanvas
-  const sessionsMap = buildSessionsMap(activeSessions as SessionWithDetails[]);
-
-  const viewParam = Array.isArray(view) ? view[0] : view;
-  const activeView = viewParam === "table-list" ? "table-list" : "visual-map";
-  const activeZone: VenueZone | null = zones[0] ?? null;
+  // Transform sessions into serializable array format for Client Component
+  const sessionsArray = buildSessionsArray(activeSessions as SessionWithDetails[]);
 
   return (
     <>
@@ -123,87 +116,15 @@ export default async function FloorPlanPage({ searchParams }: FloorPlanPageProps
         </div>
       </div>
 
-      {tables.length === 0 && (
-        <Card className="panel-surface border-2 border-dashed border-structure">
-          <CardContent className="py-5 sm:py-6">
-            <div className="flex flex-col gap-2 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-2 text-amber-600 dark:text-amber-400">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm font-semibold">Welcome to your Floor Plan!</span>
-              </div>
-              <p className="text-sm text-ink-secondary">
-                It looks like you haven&apos;t set up any tables yet.
-              </p>
-              <p className="text-sm font-medium">
-                Switch to the Table List tab to create your first table.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-structure bg-elevated p-1 w-fit">
-        {[{ id: "visual-map", label: "Visual Map", icon: MapIcon }, { id: "table-list", label: "Table List", icon: List }].map(
-          (tab) => {
-            const isActive = activeView === tab.id;
-            const Icon = tab.icon;
-            return (
-              <Link
-                key={tab.id}
-                href={`?view=${tab.id}`}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-surface shadow-card text-ink-primary"
-                    : "text-ink-secondary hover:text-ink-primary hover:bg-muted/60"
-                }`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </Link>
-            );
-          }
-        )}
-      </div>
-
-      {activeView === "visual-map" ? (
-        <Card className="panel-surface">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <MapIcon className="h-5 w-5 text-ink-secondary" />
-              Visual map
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activeZone ? (
-              <FloorPlanCanvas
-                zone={activeZone}
-                tables={tablesWithLayout as VenueTableWithLayout[]}
-                sessions={sessionsMap}
-                isEditMode={true}
-                selectedTableId={null}
-                showGrid={true}
-                onTableClick={() => {}}
-                onTableMove={() => {}}
-                onTableResize={() => {}}
-              />
-            ) : (
-              <p className="text-sm text-ink-secondary">Add a zone to start placing tables on the map.</p>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="panel-surface">
-          <CardContent className="p-0">
-            <TablesManager
-              initialTables={tables}
-              venueId={venue.id}
-              venueName={venue.name}
-              venueSlug={venue.slug}
-            />
-          </CardContent>
-        </Card>
-      )}
+      <FloorPlanPageClient
+        venueId={venue.id}
+        venueName={venue.name}
+        venueSlug={venue.slug}
+        initialZones={zones}
+        initialTables={tables}
+        initialTablesWithLayout={tablesWithLayout as VenueTableWithLayout[]}
+        initialSessions={sessionsArray}
+      />
     </>
   );
 }
