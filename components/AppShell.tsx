@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Library, ScanLine, Settings, Sparkle, Wrench, BarChart2, Bell, Search, Menu } from "@/components/icons";
+import { ChevronDown, Library, Map, ScanLine, Settings, Sparkle, Wrench, BarChart2, Bell, Search, Menu } from "@/components/icons";
 import { createContext, useContext, useMemo, useState } from "react";
 import { mockGames } from "@/lib/mockData";
 import { Button } from "./ui/button";
@@ -11,6 +11,7 @@ import { Input } from "./ui/input";
 
 const navItems = [
   { href: "/admin/library", label: "Library", icon: Library },
+  { href: "/admin/floorplan", label: "Floor Plan", icon: Map },
   { href: "/admin/sessions", label: "Sessions", icon: ScanLine },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/admin/maintenance", label: "Maintenance", icon: Wrench },

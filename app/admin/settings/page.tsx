@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { Palette, Shield } from "@/components/icons";
 import { createClient } from "@/utils/supabase/server";
 import { getVenueByOwnerId } from "@/lib/data/venues";
-import { getVenueTables } from "@/lib/data/tables";
-import { TablesManager } from "@/components/admin/TablesManager";
 import { Callout } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,9 +38,6 @@ export default async function AdminSettingsPage() {
     );
   }
 
-  // Fetch tables for the venue
-  const tables = await getVenueTables(venue.id);
-
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -53,14 +48,6 @@ export default async function AdminSettingsPage() {
       </div>
 
       <div className="grid gap-4">
-        {/* Tables Manager */}
-        <TablesManager
-          initialTables={tables}
-          venueId={venue.id}
-          venueName={venue.name}
-          venueSlug={venue.slug}
-        />
-
         {/* Venue Profile */}
         <div className="grid md:grid-cols-2 gap-4">
           <Card className="panel-surface">
