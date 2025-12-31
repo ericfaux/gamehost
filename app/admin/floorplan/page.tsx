@@ -13,7 +13,7 @@ import type { Session, VenueZone, VenueTableWithLayout } from "@/lib/db/types";
 import { AlertTriangle, List, Map as MapIcon } from "@/components/icons";
 
 interface FloorPlanPageProps {
-  searchParams?: { view?: string };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
 // Type for session with joined details
@@ -66,6 +66,7 @@ function buildSessionsMap(sessions: SessionWithDetails[]): Map<string, TableSess
 }
 
 export default async function FloorPlanPage({ searchParams }: FloorPlanPageProps) {
+  const { view } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -109,7 +110,8 @@ export default async function FloorPlanPage({ searchParams }: FloorPlanPageProps
   // Transform sessions into the Map format expected by FloorPlanCanvas
   const sessionsMap = buildSessionsMap(activeSessions as SessionWithDetails[]);
 
-  const activeView = searchParams?.view === "table-list" ? "table-list" : "visual-map";
+  const viewParam = Array.isArray(view) ? view[0] : view;
+  const activeView = viewParam === "table-list" ? "table-list" : "visual-map";
   const activeZone: VenueZone | null = zones[0] ?? null;
 
   return (
