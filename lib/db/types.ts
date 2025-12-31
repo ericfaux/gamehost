@@ -47,35 +47,6 @@ export interface VenueTable {
   created_at: string;
 }
 
-export type TableShape = 'rectangle' | 'circle' | string;
-
-/**
- * Represents a venue table with floor plan layout metadata.
- */
-export interface VenueTableWithLayout extends VenueTable {
-  zone_id: string | null;
-  layout_x: number | null;
-  layout_y: number | null;
-  layout_w: number | null;
-  layout_h: number | null;
-  layout_shape: TableShape | null;
-  rotation_deg: number | null;
-}
-
-/**
- * Represents a zone/area in a venue's floor plan.
- */
-export interface VenueZone {
-  id: string;
-  venue_id: string;
-  name: string;
-  sort_order: number;
-  background_image_url: string | null;
-  canvas_width: number | null;
-  canvas_height: number | null;
-  created_at: string;
-}
-
 /**
  * Represents a row in the `games` table.
  */
@@ -146,4 +117,41 @@ export interface RecommendationParams {
   timeBucket: TimeBucket;
   complexityTolerance: ComplexityTolerance;
   vibes: string[];
+}
+
+// -----------------------------------------------------------------------------
+// Venue Zones (Floor Plan)
+// -----------------------------------------------------------------------------
+
+/**
+ * Represents a row in the `venue_zones` table.
+ * Zones are spatial areas in a venue's floor plan (e.g., "Main", "Patio", "Booths").
+ */
+export interface VenueZone {
+  id: string;
+  venue_id: string;
+  name: string;
+  sort_order: number;
+  background_image_url: string | null;
+  canvas_width: number;
+  canvas_height: number;
+  created_at: string;
+}
+
+/**
+ * Table shape for floor plan rendering.
+ */
+export type TableShape = 'rect' | 'round' | 'booth';
+
+/**
+ * Extended VenueTable with layout fields for floor plan positioning.
+ */
+export interface VenueTableWithLayout extends VenueTable {
+  zone_id: string | null;
+  layout_x: number | null;
+  layout_y: number | null;
+  layout_w: number | null;
+  layout_h: number | null;
+  rotation_deg: number;
+  layout_shape: TableShape;
 }
