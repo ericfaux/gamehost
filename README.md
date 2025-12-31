@@ -36,3 +36,17 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Branch Protection (Recommended)
+
+To prevent broken code from being merged to `main`, enable branch protection rules in your GitHub repository settings:
+
+1. Go to **Settings > Branches > Add branch protection rule**
+2. Set **Branch name pattern** to `main`
+3. Enable **Require status checks to pass before merging**
+4. Add **Vercel** as a required status check
+5. Optionally enable **Require branches to be up to date before merging**
+
+This ensures all PRs must pass Vercel build checks before they can be merged, preventing deployment failures.
+
+See [docs/release-notes.md](docs/release-notes.md) for historical context on why this is important.
