@@ -24,8 +24,8 @@ interface TableDrawerProps {
   session: TableSessionInfo | null;
   isOpen: boolean;
   onClose: () => void;
-  onEndSession: (sessionId: string) => Promise<void>;
-  onAssignGame: (sessionId: string) => void;
+  onEndSession?: (sessionId: string) => Promise<void>;
+  onAssignGame?: (sessionId: string) => void;
 }
 
 function formatDuration(started: string): string {
@@ -72,7 +72,7 @@ export function TableDrawer({
   const status = session?.status ?? 'available';
 
   const handleEndSession = async () => {
-    if (!session || isEnding) return;
+    if (!session || isEnding || !onEndSession) return;
     setIsEnding(true);
     try {
       await onEndSession(session.sessionId);
@@ -83,7 +83,7 @@ export function TableDrawer({
   };
 
   const handleAssignGame = () => {
-    if (!session) return;
+    if (!session || !onAssignGame) return;
     onAssignGame(session.sessionId);
     onClose();
   };
@@ -195,7 +195,7 @@ export function TableDrawer({
 
         {/* Footer actions */}
         <div className="p-4 border-t border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] space-y-2">
-          {session && status === 'browsing' && (
+          {session && status === 'browsing' && onAssignGame && (
             <Button
               variant="secondary"
               className="w-full"
@@ -206,7 +206,7 @@ export function TableDrawer({
             </Button>
           )}
 
-          {session && (
+          {session && onEndSession && (
             <Button
               variant="ghost"
               className="w-full"

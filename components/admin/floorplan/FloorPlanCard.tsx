@@ -3,6 +3,7 @@
 /**
  * FloorPlanCard - Main container component for the floor plan UI.
  * Integrates zones, canvas, tables, and edit mode functionality.
+ * Now displays live session data passed from the server component.
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -24,72 +25,22 @@ import {
   deleteZoneAction,
   uploadZoneBackgroundAction,
 } from '@/app/admin/sessions/floor-plan-actions';
-import type { VenueZone, VenueTableWithLayout, TableShape, Session } from '@/lib/db/types';
-
-// Type for session with joined details
-interface SessionWithDetails extends Session {
-  games: { title: string } | null;
-  venue_tables: { label: string } | null;
-}
+import type { VenueZone, VenueTableWithLayout, TableShape } from '@/lib/db/types';
 
 interface FloorPlanCardProps {
   venueId: string;
   zones: VenueZone[];
   tables: VenueTableWithLayout[];
-  sessions: SessionWithDetails[];
-  onEndSession: (sessionId: string) => Promise<void>;
-  onAssignGame: (sessionId: string) => void;
-}
-
-// Deduplicate sessions per table, picking winner
-function deduplicateSessions(
-  sessions: SessionWithDetails[]
-): { sessionsMap: Map<string, TableSessionInfo>; duplicateTableIds: Set<string> } {
-  const grouped = new Map<string, SessionWithDetails[]>();
-  const duplicateTableIds = new Set<string>();
-
-  sessions.forEach((session) => {
-    const existing = grouped.get(session.table_id) ?? [];
-    grouped.set(session.table_id, [...existing, session]);
-  });
-
-  const sessionsMap = new Map<string, TableSessionInfo>();
-
-  grouped.forEach((sessionList, tableId) => {
-    if (sessionList.length > 1) {
-      duplicateTableIds.add(tableId);
-    }
-
-    // Pick winner: prefer game_id not null, then newest started_at
-    const sorted = [...sessionList].sort((a, b) => {
-      const aHasGame = a.game_id !== null;
-      const bHasGame = b.game_id !== null;
-      if (aHasGame !== bHasGame) return aHasGame ? -1 : 1;
-      const aTime = new Date(a.started_at ?? a.created_at).getTime();
-      const bTime = new Date(b.started_at ?? b.created_at).getTime();
-      return bTime - aTime;
-    });
-
-    const winner = sorted[0];
-    if (winner) {
-      sessionsMap.set(tableId, {
-        sessionId: winner.id,
-        status: winner.game_id ? 'playing' : 'browsing',
-        gameTitle: winner.games?.title ?? undefined,
-        startedAt: winner.started_at,
-        hasDuplicates: sessionList.length > 1,
-      });
-    }
-  });
-
-  return { sessionsMap, duplicateTableIds };
+  sessionsMap: Map<string, TableSessionInfo>;
+  onEndSession?: (sessionId: string) => Promise<void>;
+  onAssignGame?: (sessionId: string) => void;
 }
 
 export function FloorPlanCard({
   venueId,
   zones: initialZones,
   tables: initialTables,
-  sessions,
+  sessionsMap: initialSessionsMap,
   onEndSession,
   onAssignGame,
 }: FloorPlanCardProps) {
@@ -124,11 +75,16 @@ export function FloorPlanCard({
     }
   }, [initialZones, initialTables, hasChanges, activeZoneId]);
 
-  // Compute session info per table
-  const { sessionsMap, duplicateTableIds } = useMemo(
-    () => deduplicateSessions(sessions),
-    [sessions]
-  );
+  // Use the sessionsMap passed from server, track duplicates
+  const { sessionsMap, duplicateTableIds } = useMemo(() => {
+    const duplicates = new Set<string>();
+    initialSessionsMap.forEach((session, tableId) => {
+      if (session.hasDuplicates) {
+        duplicates.add(tableId);
+      }
+    });
+    return { sessionsMap: initialSessionsMap, duplicateTableIds: duplicates };
+  }, [initialSessionsMap]);
 
   // Get active zone
   const activeZone = useMemo(
@@ -490,12 +446,12 @@ export function FloorPlanCard({
         isOpen={drawerTableId !== null}
         onClose={() => setDrawerTableId(null)}
         onEndSession={onEndSession}
-        onAssignGame={() => {
+        onAssignGame={onAssignGame ? () => {
           const session = sessionsMap.get(drawerTableId ?? '');
-          if (session) {
+          if (session && onAssignGame) {
             onAssignGame(session.sessionId);
           }
-        }}
+        } : undefined}
       />
 
       {/* Zone manager modal */}

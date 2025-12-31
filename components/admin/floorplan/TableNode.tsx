@@ -3,10 +3,16 @@
 /**
  * TableNode - Individual table rendering for the floor plan.
  * Displays table shape, label, capacity, and session status overlay.
+ *
+ * Design Focus:
+ * - Tight typography with good legibility at small sizes
+ * - Status pills/badges for clear visual hierarchy
+ * - Shape-aware content centering
+ * - Rich visual distinction between browsing/playing/available states
  */
 
 import { useMemo } from 'react';
-import { Clock3, AlertTriangle, Users } from '@/components/icons';
+import { Clock3, Search, Loader2, Gamepad2, AlertTriangle, Users } from '@/components/icons';
 import type { VenueTableWithLayout, TableShape } from '@/lib/db/types';
 
 export type TableStatus = 'available' | 'browsing' | 'playing';
@@ -36,37 +42,52 @@ function formatDuration(started: string): string {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-function getStatusColor(status: TableStatus): { bg: string; border: string; text: string } {
+function getStatusStyles(status: TableStatus) {
   switch (status) {
     case 'playing':
       return {
-        bg: 'bg-green-100 dark:bg-green-900/30',
-        border: 'border-green-400 dark:border-green-600',
-        text: 'text-green-700 dark:text-green-400',
+        bg: 'bg-gradient-to-br from-emerald-50 to-green-100 dark:from-emerald-950/50 dark:to-green-900/40',
+        border: 'border-emerald-400/80 dark:border-emerald-500/60',
+        text: 'text-emerald-800 dark:text-emerald-300',
+        accent: 'bg-emerald-500/90 dark:bg-emerald-600/90',
+        pill: 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border-emerald-300/50 dark:border-emerald-600/50',
       };
     case 'browsing':
       return {
-        bg: 'bg-yellow-100 dark:bg-yellow-900/30',
-        border: 'border-yellow-400 dark:border-yellow-600',
-        text: 'text-yellow-700 dark:text-yellow-400',
+        bg: 'bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950/50 dark:to-yellow-900/40',
+        border: 'border-amber-400/80 dark:border-amber-500/60',
+        text: 'text-amber-800 dark:text-amber-300',
+        accent: 'bg-amber-500/90 dark:bg-amber-600/90',
+        pill: 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 border-amber-300/50 dark:border-amber-600/50',
       };
     default:
       return {
-        bg: 'bg-[color:var(--color-accent-soft)]',
-        border: 'border-[color:var(--color-accent)]/40',
-        text: 'text-[color:var(--color-accent)]',
+        bg: 'bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/50 dark:to-slate-800/40',
+        border: 'border-slate-300/80 dark:border-slate-600/60',
+        text: 'text-slate-600 dark:text-slate-400',
+        accent: 'bg-slate-400/90 dark:bg-slate-600/90',
+        pill: 'bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-300/50 dark:border-slate-600/50',
       };
   }
 }
 
-function getShapeClass(shape: TableShape): string {
+function getShapeStyles(shape: TableShape): { borderRadius: string; padding: string } {
   switch (shape) {
     case 'round':
-      return 'rounded-full';
+      return {
+        borderRadius: 'rounded-full',
+        padding: 'p-1.5',
+      };
     case 'booth':
-      return 'rounded-t-2xl rounded-b-md';
+      return {
+        borderRadius: 'rounded-t-3xl rounded-b-lg',
+        padding: 'p-1.5 pt-2',
+      };
     default:
-      return 'rounded-xl';
+      return {
+        borderRadius: 'rounded-xl',
+        padding: 'p-1.5',
+      };
   }
 }
 
@@ -80,8 +101,8 @@ export function TableNode({
   containerHeight,
 }: TableNodeProps) {
   const status = session?.status ?? 'available';
-  const colors = getStatusColor(status);
-  const shapeClass = getShapeClass(table.layout_shape);
+  const styles = getStatusStyles(status);
+  const shapeStyles = getShapeStyles(table.layout_shape);
 
   // Calculate pixel dimensions from normalized layout values
   const style = useMemo(() => {
@@ -100,20 +121,27 @@ export function TableNode({
     };
   }, [table, containerWidth, containerHeight]);
 
+  // Determine if we have enough space for detailed content
+  const nodeWidth = (table.layout_w ?? 0.12) * containerWidth;
+  const nodeHeight = (table.layout_h ?? 0.10) * containerHeight;
+  const isCompact = nodeWidth < 70 || nodeHeight < 60;
+
   return (
     <div
       style={style}
       className={`
-        ${shapeClass}
-        ${colors.bg}
-        border-2 ${colors.border}
-        ${isSelected ? 'ring-2 ring-[color:var(--color-accent)] ring-offset-2' : ''}
+        ${shapeStyles.borderRadius}
+        ${shapeStyles.padding}
+        ${styles.bg}
+        border-2 ${styles.border}
+        ${isSelected ? 'ring-2 ring-[color:var(--color-accent)] ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}
         ${isEditMode ? 'cursor-move' : 'cursor-pointer'}
-        transition-shadow duration-150
-        hover:shadow-lg
+        transition-all duration-150 ease-out
+        hover:shadow-lg hover:scale-[1.02]
         flex flex-col items-center justify-center
-        p-1 overflow-hidden
+        overflow-hidden
         select-none
+        backdrop-blur-sm
       `}
       onClick={onClick}
       role="button"
@@ -126,43 +154,78 @@ export function TableNode({
         }
       }}
     >
-      {/* Table label */}
-      <div className={`font-bold text-xs ${colors.text} truncate max-w-full`}>
+      {/* Table label - always visible, prominent */}
+      <div className={`font-bold text-[11px] leading-none ${styles.text} truncate max-w-full tracking-tight`}>
         {table.label}
       </div>
 
-      {/* Capacity */}
-      {table.capacity && (
-        <div className="flex items-center gap-0.5 text-[10px] text-[color:var(--color-ink-secondary)]">
-          <Users className="h-2.5 w-2.5" />
+      {/* Capacity badge - subtle, only when there's space */}
+      {!isCompact && table.capacity && (
+        <div className="flex items-center gap-0.5 mt-0.5 text-[9px] leading-none text-slate-500 dark:text-slate-400 opacity-80">
+          <Users className="h-2 w-2" />
           <span>{table.capacity}</span>
         </div>
       )}
 
-      {/* Session status */}
+      {/* Session status content */}
       {session && (
-        <div className="mt-0.5 text-center max-w-full">
+        <div className="mt-1 flex flex-col items-center gap-0.5 max-w-full">
+          {/* Playing state - Game title in pill */}
           {status === 'playing' && session.gameTitle && (
-            <div className={`text-[10px] font-medium ${colors.text} truncate`}>
-              {session.gameTitle}
+            <div className={`
+              inline-flex items-center gap-1
+              px-1.5 py-0.5
+              ${styles.pill}
+              rounded-full
+              border
+              max-w-full
+            `}>
+              <Gamepad2 className="h-2 w-2 flex-shrink-0" />
+              <span className="text-[9px] font-semibold leading-none truncate">
+                {isCompact ? session.gameTitle.slice(0, 8) + (session.gameTitle.length > 8 ? '…' : '') : session.gameTitle}
+              </span>
             </div>
           )}
+
+          {/* Browsing state - Deciding badge */}
           {status === 'browsing' && (
-            <div className={`text-[10px] font-medium ${colors.text}`}>
-              Deciding
+            <div className={`
+              inline-flex items-center gap-1
+              px-1.5 py-0.5
+              ${styles.pill}
+              rounded-full
+              border
+            `}>
+              {isCompact ? (
+                <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              ) : (
+                <>
+                  <Search className="h-2 w-2 flex-shrink-0" />
+                  <span className="text-[9px] font-medium leading-none">Deciding</span>
+                </>
+              )}
             </div>
           )}
-          <div className="flex items-center justify-center gap-0.5 text-[9px] text-[color:var(--color-ink-secondary)]">
-            <Clock3 className="h-2.5 w-2.5" />
-            <span>{formatDuration(session.startedAt)}</span>
+
+          {/* Duration - subtle timer */}
+          <div className="flex items-center gap-0.5 text-[8px] leading-none opacity-60">
+            <Clock3 className="h-2 w-2" />
+            <span className="tabular-nums font-medium">{formatDuration(session.startedAt)}</span>
           </div>
         </div>
       )}
 
-      {/* Duplicate warning */}
+      {/* Available state - minimal */}
+      {!session && !isCompact && (
+        <div className="mt-1 text-[8px] leading-none opacity-50 font-medium">
+          Available
+        </div>
+      )}
+
+      {/* Duplicate warning indicator */}
       {session?.hasDuplicates && (
         <div
-          className="absolute -top-1 -right-1 h-4 w-4 bg-orange-500 rounded-full flex items-center justify-center"
+          className="absolute -top-1.5 -right-1.5 h-4 w-4 bg-orange-500 dark:bg-orange-600 rounded-full flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-slate-900"
           title="Duplicate active sessions detected"
         >
           <AlertTriangle className="h-2.5 w-2.5 text-white" />
