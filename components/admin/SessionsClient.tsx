@@ -22,8 +22,7 @@ import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FloorPlanCard } from "@/components/admin/floorplan";
-import type { Session, VenueTableWithLayout, VenueZone, Game } from "@/lib/db/types";
+import type { Session, Game } from "@/lib/db/types";
 import type { EndedSession, DateRangePreset, VenueExperienceSummary } from "@/lib/data";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
@@ -147,8 +146,6 @@ function prioritizeSessions(a: SessionWithDetails, b: SessionWithDetails) {
 
 interface SessionsClientProps {
   initialSessions: SessionWithDetails[];
-  tablesWithLayout: VenueTableWithLayout[];
-  zones: VenueZone[];
   availableGames: Game[];
   venueId: string;
   initialEndedSessions: EndedSession[];
@@ -158,8 +155,6 @@ interface SessionsClientProps {
 
 export function SessionsClient({
   initialSessions,
-  tablesWithLayout,
-  zones,
   availableGames,
   venueId,
   initialEndedSessions,
@@ -484,48 +479,6 @@ export function SessionsClient({
     }
   }, [endedCursor, isLoadingMore, endedRangePreset, endedSearchTerm, fetchEndedSessions]);
 
-  // Floor plan handlers
-  const handleFloorPlanEndSession = useCallback(async (sessionId: string) => {
-    const session = sessions.find((s) => s.id === sessionId);
-    if (!session) return;
-
-    setEndingSessionId(sessionId);
-    try {
-      const result = await endSessionAction(sessionId);
-      if (result.success) {
-        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-        push({
-          title: "Session ended",
-          description: session.games?.title
-            ? `${session.games.title} closed`
-            : "Browsing session closed",
-          tone: "neutral",
-        });
-      } else {
-        push({
-          title: "Failed to end session",
-          description: result.error ?? "Something went wrong",
-          tone: "danger",
-        });
-      }
-    } catch {
-      push({
-        title: "Failed to end session",
-        description: "Something went wrong. Please try again.",
-        tone: "danger",
-      });
-    } finally {
-      setEndingSessionId(null);
-    }
-  }, [sessions, push]);
-
-  const handleFloorPlanAssignGame = useCallback((sessionId: string) => {
-    const session = sessions.find((s) => s.id === sessionId);
-    if (session) {
-      setAssignModalSession(session);
-    }
-  }, [sessions]);
-
   // Filter ended sessions by search term and feedback filters (client-side for already-loaded data)
   const filteredEndedSessions = useMemo(() => {
     let result = endedSessions;
@@ -676,16 +629,6 @@ export function SessionsClient({
       </Card>
 
       <div className="grid gap-4">
-        {/* Floor Plan Card (replaces Table Status) */}
-        <FloorPlanCard
-          venueId={venueId}
-          zones={zones}
-          tables={tablesWithLayout}
-          sessions={sessions}
-          onEndSession={handleFloorPlanEndSession}
-          onAssignGame={handleFloorPlanAssignGame}
-        />
-
         {/* Live Sessions Card */}
         <Card className="panel-surface">
           <CardHeader className="flex flex-row items-center justify-between">

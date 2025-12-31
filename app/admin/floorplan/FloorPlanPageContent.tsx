@@ -5,6 +5,7 @@ import { Map, List } from '@/components/icons';
 import { TablesManager } from '@/components/admin/TablesManager';
 import { FloorPlanCard } from '@/components/admin/floorplan/FloorPlanCard';
 import type { VenueTable, VenueZone, VenueTableWithLayout } from '@/lib/db/types';
+import type { TableSessionInfo } from '@/components/admin/floorplan/TableNode';
 
 type TabId = 'visual-map' | 'table-list';
 
@@ -26,6 +27,7 @@ interface FloorPlanPageContentProps {
   initialTables: VenueTable[];
   zones: VenueZone[];
   tablesWithLayout: VenueTableWithLayout[];
+  sessionsMap: Map<string, TableSessionInfo>;
 }
 
 export function FloorPlanPageContent({
@@ -35,6 +37,7 @@ export function FloorPlanPageContent({
   initialTables,
   zones,
   tablesWithLayout,
+  sessionsMap,
 }: FloorPlanPageContentProps) {
   const [activeTab, setActiveTab] = useState<TabId>('visual-map');
 
@@ -83,9 +86,7 @@ export function FloorPlanPageContent({
             venueId={venueId}
             zones={zones}
             tables={tablesWithLayout}
-            sessions={[]}
-            onEndSession={async () => {}}
-            onAssignGame={() => {}}
+            sessionsMap={sessionsMap}
           />
         )}
       </div>
