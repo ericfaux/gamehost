@@ -59,6 +59,8 @@ export {
 export type {
   Venue,
   VenueTable,
+  VenueTableWithLayout,
+  VenueZone,
   Game,
   Session,
   RecommendationParams,

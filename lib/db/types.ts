@@ -47,6 +47,35 @@ export interface VenueTable {
   created_at: string;
 }
 
+export type TableShape = 'rectangle' | 'circle' | string;
+
+/**
+ * Represents a venue table with floor plan layout metadata.
+ */
+export interface VenueTableWithLayout extends VenueTable {
+  zone_id: string | null;
+  layout_x: number | null;
+  layout_y: number | null;
+  layout_w: number | null;
+  layout_h: number | null;
+  layout_shape: TableShape | null;
+  rotation_deg: number | null;
+}
+
+/**
+ * Represents a zone/area in a venue's floor plan.
+ */
+export interface VenueZone {
+  id: string;
+  venue_id: string;
+  name: string;
+  sort_order: number;
+  background_image_url: string | null;
+  canvas_width: number | null;
+  canvas_height: number | null;
+  created_at: string;
+}
+
 /**
  * Represents a row in the `games` table.
  */
