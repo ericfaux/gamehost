@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Map } from '@/components/icons';
+import { Map as MapIcon } from '@/components/icons';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TokenChip, useToast } from '@/components/AppShell';
 import { FloorPlanCanvas } from './FloorPlanCanvas';
@@ -400,7 +400,7 @@ export function FloorPlanCard({
       <Card className="panel-surface">
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <Map className="h-5 w-5 text-[color:var(--color-ink-secondary)]" />
+            <MapIcon className="h-5 w-5 text-[color:var(--color-ink-secondary)]" />
             <CardTitle>Floor Plan</CardTitle>
           </div>
           <div className="flex items-center gap-2">

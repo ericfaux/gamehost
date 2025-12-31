@@ -112,9 +112,6 @@ export function FeedbackSheet({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
 
-  // Check if we have at least one rating selected
-  const hasAnyRating = (hasGame && gameRating !== null) || venueRating !== null;
-
   const handleSubmit = async () => {
     if (isSubmitting || isSkipping) return;
     setIsSubmitting(true);

@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FloorPlanCard } from "@/components/admin/floorplan";
-import type { Session, VenueTable, VenueTableWithLayout, VenueZone, Game } from "@/lib/db/types";
+import type { Session, VenueTableWithLayout, VenueZone, Game } from "@/lib/db/types";
 import type { EndedSession, DateRangePreset, VenueExperienceSummary } from "@/lib/data";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
@@ -147,7 +147,6 @@ function prioritizeSessions(a: SessionWithDetails, b: SessionWithDetails) {
 
 interface SessionsClientProps {
   initialSessions: SessionWithDetails[];
-  availableTables: VenueTable[];
   tablesWithLayout: VenueTableWithLayout[];
   zones: VenueZone[];
   availableGames: Game[];
@@ -159,7 +158,6 @@ interface SessionsClientProps {
 
 export function SessionsClient({
   initialSessions,
-  availableTables,
   tablesWithLayout,
   zones,
   availableGames,
@@ -262,16 +260,6 @@ export function SessionsClient({
 
     return { dedupedSessions: winners, hasDuplicateTables: duplicatesDetected };
   }, [sessions]);
-
-  const tablesInUse = useMemo(
-    () => new Set(dedupedSessions.map((s) => s.table_id)),
-    [dedupedSessions]
-  );
-
-  const availableForSession = useMemo(
-    () => availableTables.filter((t) => !tablesInUse.has(t.id)),
-    [availableTables, tablesInUse]
-  );
 
   // Count browsing vs playing sessions
   const browsingSessions = useMemo(
