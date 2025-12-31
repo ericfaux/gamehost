@@ -11,7 +11,7 @@
  */
 
 import { useState, useRef, useEffect, useTransition } from 'react';
-import { Plus, Minus, Check, X, Loader2, AlertCircle } from '@/components/icons';
+import { Plus, Minus, Check, Loader2, AlertCircle } from '@/components/icons';
 import { useToast } from '@/components/AppShell';
 import { updateGameField } from '@/app/admin/library/actions';
 import type { GameStatus, GameCondition } from '@/lib/db/types';
