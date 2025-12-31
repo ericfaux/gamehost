@@ -19,6 +19,20 @@ export { getVenueBySlug, getVenueByOwnerId, getVenueAndTableBySlugAndTableId } f
 // Table queries
 export { getVenueTables, getVenueTableById } from './tables';
 
+// Zone queries (floor plan)
+export {
+  getVenueZones,
+  getZoneById,
+  createZone,
+  updateZone,
+  deleteZone,
+  saveVenueZones,
+  getVenueTablesWithLayout,
+  updateTableLayout,
+  saveTableLayouts,
+  uploadZoneBackground,
+} from './zones';
+
 // Game queries
 export { getGameById, getGamesForVenue, getRecommendedGames, getQuickPickGames } from './games';
 
@@ -59,8 +73,6 @@ export {
 export type {
   Venue,
   VenueTable,
-  VenueTableWithLayout,
-  VenueZone,
   Game,
   Session,
   RecommendationParams,
@@ -72,4 +84,7 @@ export type {
   FeedbackComplexity,
   FeedbackReplay,
   FeedbackSource,
+  VenueZone,
+  VenueTableWithLayout,
+  TableShape,
 } from '@/lib/db/types';
