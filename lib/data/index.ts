@@ -69,6 +69,15 @@ export {
   type VenueExperienceComment,
 } from './sessions';
 
+// Analytics queries
+export {
+  getAnalyticsDashboardData,
+  type AnalyticsSummary,
+  type GamePlayStats,
+  type GraveyardGame,
+  type HiddenGemGame,
+} from './analytics';
+
 // Re-export types for convenience
 export type {
   Venue,
