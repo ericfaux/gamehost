@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Library, Map, ScanLine, Settings, Sparkle, Wrench, BarChart2, Bell, Search, Menu } from "@/components/icons";
-import { createContext, useContext, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { mockGames } from "@/lib/mockData";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "./ui/input";
+import { DensityProvider, useDensity } from "./providers/DensityProvider";
+import { ToastProvider, useToast, type ToastMessage } from "./providers/ToastProvider";
+
+// Re-export for backward compatibility
+export { useDensity, useToast };
+export type { ToastMessage };
 
 const navItems = [
   { href: "/admin/library", label: "Library", icon: Library },
@@ -18,36 +24,7 @@ const navItems = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
-export type Density = "cozy" | "compact";
-
-const DensityContext = createContext<{ density: Density; toggle: () => void } | undefined>(undefined);
-
-export function useDensity() {
-  const ctx = useContext(DensityContext);
-  if (!ctx) throw new Error("useDensity must be used within AppShell");
-  return ctx;
-}
-
-export type ToastMessage = {
-  id: string;
-  title: string;
-  description?: string;
-  tone?: "neutral" | "success" | "danger";
-};
-
-const ToastContext = createContext<{
-  toasts: ToastMessage[];
-  push: (toast: Omit<ToastMessage, "id">) => void;
-  dismiss: (id: string) => void;
-} | null>(null);
-
-export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error("useToast must be used within AppShell");
-  return ctx;
-}
-
-export function AppShell({
+function AppShellInner({
   children,
   userVenues = []
 }: {
@@ -55,21 +32,10 @@ export function AppShell({
   userVenues?: { id: string; name: string }[];
 }) {
   const pathname = usePathname();
-  const [density, setDensity] = useState<Density>("cozy");
+  const { density, toggle: toggleDensity } = useDensity();
   const [openMobile, setOpenMobile] = useState(false);
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [venueId, setVenueId] = useState(userVenues[0]?.id ?? "");
-
-  const toggleDensity = () => setDensity((prev) => (prev === "cozy" ? "compact" : "cozy"));
-
-  const push = (toast: Omit<ToastMessage, "id">) => {
-    const id = crypto.randomUUID();
-    setToasts((prev) => [...prev, { id, ...toast }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3400);
-  };
-
-  const dismiss = (id: string) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const filteredGames = useMemo(() => {
     if (!searchTerm) return [];
@@ -79,8 +45,6 @@ export function AppShell({
   }, [searchTerm]);
 
   return (
-    <DensityContext.Provider value={{ density, toggle: toggleDensity }}>
-      <ToastContext.Provider value={{ toasts, push, dismiss }}>
         <div className="min-h-screen grid lg:grid-cols-[260px_1fr] bg-noise">
           <aside
             className={cn(
@@ -239,9 +203,22 @@ export function AppShell({
             </main>
           </div>
         </div>
-        <ToastStack toasts={toasts} onDismiss={dismiss} />
-      </ToastContext.Provider>
-    </DensityContext.Provider>
+  );
+}
+
+export function AppShell({
+  children,
+  userVenues = []
+}: {
+  children: React.ReactNode;
+  userVenues?: { id: string; name: string }[];
+}) {
+  return (
+    <DensityProvider>
+      <ToastProvider>
+        <AppShellInner userVenues={userVenues}>{children}</AppShellInner>
+      </ToastProvider>
+    </DensityProvider>
   );
 }
 
@@ -284,34 +261,6 @@ export function Callout({ title, children }: { title: string; children: React.Re
     <div className="border border-dashed border-[color:var(--color-structure-strong)] rounded-xl bg-[color:var(--color-muted)]/70 p-4 shadow-inner">
       <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)] mb-1">{title}</p>
       <p className="text-sm text-[color:var(--color-ink-primary)]">{children}</p>
-    </div>
-  );
-}
-
-function ToastStack({ toasts, onDismiss }: { toasts: ToastMessage[]; onDismiss: (id: string) => void }) {
-  return (
-    <div className="fixed bottom-4 right-4 space-y-3 z-50 w-80">
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className={cn(
-            "panel-surface px-4 py-3 border-l-4",
-            toast.tone === "success" && "border-l-[color:var(--color-success)]",
-            toast.tone === "danger" && "border-l-[color:var(--color-danger)]",
-            (!toast.tone || toast.tone === "neutral") && "border-l-[color:var(--color-accent)]",
-          )}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-semibold text-sm">{toast.title}</p>
-              {toast.description && <p className="text-xs text-[color:var(--color-ink-secondary)] mt-1">{toast.description}</p>}
-            </div>
-            <button onClick={() => onDismiss(toast.id)} aria-label="Dismiss" className="text-sm text-[color:var(--color-ink-secondary)]">
-              ✕
-            </button>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
