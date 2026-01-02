@@ -739,3 +739,25 @@ export function Percent(props: IconProps) {
     </IconBase>
   );
 }
+
+export function LayoutGrid(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect width="7" height="7" x="3" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="14" rx="1" />
+      <rect width="7" height="7" x="3" y="14" rx="1" />
+    </IconBase>
+  );
+}
+
+export function BarChart3(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M3 3v18h18" />
+      <path d="M18 17V9" />
+      <path d="M13 17V5" />
+      <path d="M8 17v-3" />
+    </IconBase>
+  );
+}

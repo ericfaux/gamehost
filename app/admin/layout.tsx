@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
-import { AppShell } from '@/components/AppShell';
+import { AdminShell } from '@/components/admin/AdminShell';
 import { getVenueByOwnerId } from '@/lib/data/venues';
+import { DensityProvider } from '@/components/providers/DensityProvider';
+import { ToastProvider } from '@/components/providers/ToastProvider';
 
 export default async function AdminLayout({
   children,
@@ -19,5 +21,11 @@ export default async function AdminLayout({
   const venue = await getVenueByOwnerId(user.id);
   const userVenues = venue ? [{ id: venue.id, name: venue.name }] : [];
 
-  return <AppShell userVenues={userVenues}>{children}</AppShell>;
+  return (
+    <DensityProvider>
+      <ToastProvider>
+        <AdminShell userVenues={userVenues}>{children}</AdminShell>
+      </ToastProvider>
+    </DensityProvider>
+  );
 }
