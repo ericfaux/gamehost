@@ -2,10 +2,11 @@
 
 import { useState, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { RotateCcw } from '@/components/icons';
+import { RotateCcw, Gamepad2, LayoutGrid, QrCode } from '@/components/icons';
 import {
   PulseTile,
   AlertQueue,
@@ -24,6 +25,97 @@ export interface DashboardClientProps {
   data: OpsHudData;
   availableGames: Game[];
   browsingSessions: BrowsingSession[];
+  isNewVenue?: boolean;
+}
+
+/**
+ * Onboarding card for new venues with no data
+ */
+function OnboardingCard({
+  icon,
+  title,
+  description,
+  href,
+  primary = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  href: string;
+  primary?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        'flex items-start gap-4 p-5 rounded-xl border transition-all duration-150',
+        'shadow-card hover:shadow-token hover:scale-[1.01] active:scale-[0.99]',
+        'focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/50 focus:ring-offset-2',
+        primary
+          ? 'bg-[color:var(--color-accent)] border-[color:var(--color-accent)] text-white'
+          : 'bg-[color:var(--color-elevated)] border-[color:var(--color-structure)] hover:border-[color:var(--color-structure-strong)]',
+      )}
+    >
+      <span
+        className={cn(
+          'flex-shrink-0 p-2 rounded-lg',
+          primary
+            ? 'bg-white/20'
+            : 'bg-[color:var(--color-accent-soft)]',
+        )}
+      >
+        {icon}
+      </span>
+      <div className="flex flex-col gap-1">
+        <span className={cn('font-semibold', primary ? 'text-white' : 'text-[color:var(--color-ink-primary)]')}>
+          {title}
+        </span>
+        <span className={cn('text-sm', primary ? 'text-white/80' : 'text-[color:var(--color-ink-secondary)]')}>
+          {description}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+/**
+ * Onboarding empty state for new venues
+ */
+function NewVenueOnboarding() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12">
+      <div className="max-w-xl w-full text-center mb-8">
+        <span className="text-5xl mb-4 block" role="img" aria-label="Sparkles">✨</span>
+        <h2 className="text-2xl font-bold text-[color:var(--color-ink-primary)] mb-2">
+          Welcome to your dashboard!
+        </h2>
+        <p className="text-[color:var(--color-ink-secondary)]">
+          Let&apos;s get your venue set up. Complete these steps to start tracking sessions and feedback.
+        </p>
+      </div>
+      <div className="max-w-lg w-full flex flex-col gap-4">
+        <OnboardingCard
+          icon={<Gamepad2 className="w-5 h-5 text-white" />}
+          title="Add your first game"
+          description="Build your library with games guests can play"
+          href="/admin/library?action=add"
+          primary
+        />
+        <OnboardingCard
+          icon={<LayoutGrid className="w-5 h-5 text-[color:var(--color-accent)]" />}
+          title="Set up tables"
+          description="Configure your venue's table layout"
+          href="/admin/settings"
+        />
+        <OnboardingCard
+          icon={<QrCode className="w-5 h-5 text-[color:var(--color-accent)]" />}
+          title="Print QR codes"
+          description="Generate codes for guests to check in"
+          href="/admin/settings"
+        />
+      </div>
+    </div>
+  );
 }
 
 function formatLastUpdated(isoString: string): string {
@@ -43,11 +135,13 @@ function formatLastUpdated(isoString: string): string {
  * - Alert actions (navigation and modals)
  * - Control deck actions
  * - Assign game to session modal
+ * - New venue onboarding state
  */
 export function DashboardClient({
   data,
   availableGames,
   browsingSessions,
+  isNewVenue = false,
 }: DashboardClientProps) {
   const router = useRouter();
   const [isRefreshing, startRefresh] = useTransition();
@@ -175,6 +269,21 @@ export function DashboardClient({
 
   const hasBrowsingSessions = data.pulse.waitingTables > 0;
 
+  // Show onboarding for new venues
+  if (isNewVenue) {
+    return (
+      <div className="flex flex-col gap-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-[color:var(--color-ink-primary)]">
+            Dashboard
+          </h1>
+        </div>
+        <NewVenueOnboarding />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -191,42 +300,57 @@ export function DashboardClient({
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
+            aria-label={isRefreshing ? 'Refreshing dashboard...' : 'Refresh dashboard'}
           >
             <RotateCcw
               className={cn(
-                'w-4 h-4',
+                'w-4 h-4 transition-transform',
                 isRefreshing && 'animate-spin'
               )}
+              aria-hidden="true"
             />
-            Refresh
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
       </div>
 
+      {/* Screen reader announcement for refresh */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {isRefreshing ? 'Refreshing dashboard data...' : ''}
+      </div>
+
       {/* Pulse Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        role="region"
+        aria-label="Dashboard metrics"
+      >
         <PulseTile
           value={data.pulse.activeTables}
           label="Active Tables"
           tone="accent"
           badge={data.pulse.activeTables > 0 ? 'Live' : undefined}
+          loading={isRefreshing}
         />
         <PulseTile
           value={data.pulse.waitingTables}
           label="Waiting"
           tone={waitingTone}
           badge={data.pulse.waitingTables > 0 ? 'Needs help' : undefined}
+          loading={isRefreshing}
         />
         <PulseTile
           value={data.pulse.openIssues}
           label="Open Issues"
           tone={issuesTone}
+          loading={isRefreshing}
         />
         <PulseTile
           value={venuePulseValue}
           label="Venue Pulse"
           tone={venuePulseTone}
           badge={data.pulse.venuePulse.count > 0 ? `${data.pulse.venuePulse.count} today` : undefined}
+          loading={isRefreshing}
         />
       </div>
 
@@ -237,6 +361,7 @@ export function DashboardClient({
           <AlertQueue
             alerts={data.alerts}
             onAction={handleAlertAction}
+            loading={isRefreshing}
           />
         </div>
 

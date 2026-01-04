@@ -60,23 +60,32 @@ function isNegativeFeedback(feedback: RecentFeedback): boolean {
  */
 export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps) {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col" role="region" aria-label="Recent activity">
       {/* Recently Ended Section */}
-      <div className="flex flex-col">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-[color:var(--color-ink-secondary)] px-1 pb-2">
-          <Clock className="w-4 h-4" />
+      <section className="flex flex-col" aria-labelledby="recently-ended-heading">
+        <h3
+          id="recently-ended-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-[color:var(--color-ink-secondary)] px-1 pb-2"
+        >
+          <Clock className="w-4 h-4" aria-hidden="true" />
           Recently Ended
         </h3>
         <div className="flex flex-col divide-y divide-[color:var(--color-structure)]">
           {recentEnded.length === 0 ? (
-            <div className="py-3 text-sm text-[color:var(--color-ink-secondary)]">
-              No recent sessions
+            <div className="py-4 text-center">
+              <p className="text-sm text-[color:var(--color-ink-secondary)]">
+                No sessions yet today
+              </p>
+              <p className="text-xs text-[color:var(--color-ink-secondary)]/70 mt-1">
+                Sessions will appear here as tables check out
+              </p>
             </div>
           ) : (
             recentEnded.map((session) => (
-              <div
+              <article
                 key={session.id}
-                className="flex items-center justify-between py-2.5 gap-3"
+                className="flex items-center justify-between py-2.5 gap-3 transition-colors duration-150 hover:bg-[color:var(--color-muted)]/30"
+                aria-label={`${session.tableLabel}: ${session.gameTitle || 'No game'}, ${formatDuration(session.durationMinutes)}, ${formatTimeAgo(session.endedAt)}`}
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs font-medium text-[color:var(--color-ink-secondary)] bg-[color:var(--color-muted)] px-1.5 py-0.5 rounded shrink-0">
@@ -87,28 +96,40 @@ export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps)
                   </span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0 text-xs text-[color:var(--color-ink-secondary)]">
-                  <span>{formatDuration(session.durationMinutes)}</span>
-                  <span>{formatTimeAgo(session.endedAt)}</span>
+                  <span aria-label={`Duration: ${formatDuration(session.durationMinutes)}`}>
+                    {formatDuration(session.durationMinutes)}
+                  </span>
+                  <time dateTime={session.endedAt} aria-label={`Ended ${formatTimeAgo(session.endedAt)}`}>
+                    {formatTimeAgo(session.endedAt)}
+                  </time>
                 </div>
-              </div>
+              </article>
             ))
           )}
         </div>
-      </div>
+      </section>
 
       {/* Divider */}
-      <div className="h-px bg-[color:var(--color-structure)] my-4" />
+      <div className="h-px bg-[color:var(--color-structure)] my-4" role="separator" />
 
       {/* Recent Feedback Section */}
-      <div className="flex flex-col">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-[color:var(--color-ink-secondary)] px-1 pb-2">
-          <MessageSquare className="w-4 h-4" />
+      <section className="flex flex-col" aria-labelledby="recent-feedback-heading">
+        <h3
+          id="recent-feedback-heading"
+          className="flex items-center gap-2 text-sm font-semibold text-[color:var(--color-ink-secondary)] px-1 pb-2"
+        >
+          <MessageSquare className="w-4 h-4" aria-hidden="true" />
           Recent Feedback
         </h3>
         <div className="flex flex-col divide-y divide-[color:var(--color-structure)]">
           {recentFeedback.length === 0 ? (
-            <div className="py-3 text-sm text-[color:var(--color-ink-secondary)]">
-              No recent feedback
+            <div className="py-4 text-center">
+              <p className="text-sm text-[color:var(--color-ink-secondary)]">
+                No feedback yet
+              </p>
+              <p className="text-xs text-[color:var(--color-ink-secondary)]/70 mt-1">
+                Feedback from guests will appear here
+              </p>
             </div>
           ) : (
             recentFeedback.map((feedback) => {
@@ -116,12 +137,13 @@ export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps)
               const displayRating = feedback.gameRating ?? feedback.venueRating ?? 0;
 
               return (
-                <div
+                <article
                   key={feedback.id}
                   className={cn(
-                    'flex flex-col gap-1.5 py-2.5 px-2 -mx-2 rounded-lg',
-                    negative && 'bg-[color:var(--color-warn)]/10',
+                    'flex flex-col gap-1.5 py-2.5 px-2 -mx-2 rounded-lg transition-colors duration-150',
+                    negative ? 'bg-[color:var(--color-warn)]/10' : 'hover:bg-[color:var(--color-muted)]/30',
                   )}
+                  aria-label={`${feedback.tableLabel}: ${displayRating} star${displayRating !== 1 ? 's' : ''}, ${formatTimeAgo(feedback.submittedAt)}${feedback.comment ? `, "${feedback.comment}"` : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -130,9 +152,12 @@ export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps)
                       </span>
                       <StarRating rating={displayRating} />
                     </div>
-                    <span className="text-xs text-[color:var(--color-ink-secondary)]">
+                    <time
+                      dateTime={feedback.submittedAt}
+                      className="text-xs text-[color:var(--color-ink-secondary)]"
+                    >
                       {formatTimeAgo(feedback.submittedAt)}
-                    </span>
+                    </time>
                   </div>
                   {feedback.comment && (
                     <p
@@ -143,15 +168,15 @@ export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps)
                           : 'text-[color:var(--color-ink-secondary)]',
                       )}
                     >
-                      {feedback.comment}
+                      &ldquo;{feedback.comment}&rdquo;
                     </p>
                   )}
-                </div>
+                </article>
               );
             })
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }

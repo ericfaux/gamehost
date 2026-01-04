@@ -19,21 +19,25 @@ const severityStyles: Record<AlertSeverity, {
   dot: string;
   border: string;
   bg: string;
+  label: string;
 }> = {
   low: {
     dot: 'bg-[color:var(--color-ink-secondary)]',
-    border: '',
+    border: 'border-l-2 border-l-[color:var(--color-structure-strong)]',
     bg: 'hover:bg-[color:var(--color-muted)]/50',
+    label: 'Low priority',
   },
   medium: {
     dot: 'bg-[color:var(--color-warn)]',
-    border: '',
+    border: 'border-l-2 border-l-[color:var(--color-warn)]',
     bg: 'hover:bg-[color:var(--color-warn)]/5',
+    label: 'Medium priority',
   },
   high: {
     dot: 'bg-[color:var(--color-danger)]',
     border: 'border-l-2 border-l-[color:var(--color-danger)]',
     bg: 'hover:bg-[color:var(--color-danger)]/5',
+    label: 'High priority',
   },
 };
 
@@ -59,6 +63,7 @@ function mapChipTone(tone: ChipTone): 'default' | 'accent' | 'muted' | 'warn' {
 export function AlertRow({ alert, onAction }: AlertRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const styles = severityStyles[alert.severity];
 
   // Close menu on click outside
@@ -71,26 +76,37 @@ export function AlertRow({ alert, onAction }: AlertRowProps) {
       }
     }
 
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    }
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, [menuOpen]);
 
   return (
-    <div
+    <article
       className={cn(
-        'relative flex items-start gap-3 px-4 py-3 transition-colors',
+        'relative flex items-start gap-3 px-4 py-3 transition-colors duration-150',
         styles.bg,
         styles.border,
       )}
+      aria-label={`${styles.label}: ${alert.title}`}
     >
       {/* Severity indicator dot */}
-      <div className="flex-shrink-0 pt-1.5">
+      <div className="flex-shrink-0 pt-1.5" aria-hidden="true">
         <div
           className={cn(
-            'h-2.5 w-2.5 rounded-full',
+            'h-2.5 w-2.5 rounded-full transition-transform duration-150',
             styles.dot,
           )}
-          title={`${alert.severity} severity`}
         />
       </div>
 
@@ -110,38 +126,43 @@ export function AlertRow({ alert, onAction }: AlertRowProps) {
 
         {/* Context chips */}
         {alert.contextChips.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+          <div className="flex flex-wrap items-center gap-1.5 mt-2" role="list" aria-label="Alert context">
             {alert.contextChips.map((chip, index) => (
-              <TokenChip key={index} tone={mapChipTone(chip.tone)}>
-                {chip.label}
-              </TokenChip>
+              <span key={index} role="listitem">
+                <TokenChip tone={mapChipTone(chip.tone)}>
+                  {chip.label}
+                </TokenChip>
+              </span>
             ))}
           </div>
         )}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className="flex items-center gap-1 flex-shrink-0" role="group" aria-label="Alert actions">
         {/* Primary action */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onAction('primary')}
-          className="text-[color:var(--color-accent)]"
+          className="text-[color:var(--color-accent)] transition-all duration-150 hover:gap-1"
+          aria-label={`${alert.primaryAction.label} for ${alert.title}`}
         >
           {alert.primaryAction.label}
-          <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+          <ChevronRight className="h-3.5 w-3.5 ml-0.5 transition-transform group-hover:translate-x-0.5" />
         </Button>
 
         {/* Secondary action (overflow menu) */}
         {alert.secondaryAction && (
           <div className="relative" ref={menuRef}>
             <Button
+              ref={menuButtonRef}
               variant="ghost"
               size="icon"
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label="More actions"
               aria-expanded={menuOpen}
+              aria-haspopup="menu"
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
@@ -153,17 +174,21 @@ export function AlertRow({ alert, onAction }: AlertRowProps) {
                   'min-w-[140px] rounded-lg border border-[color:var(--color-structure)]',
                   'bg-[color:var(--color-elevated)] shadow-card',
                 )}
+                role="menu"
+                aria-label="Additional actions"
               >
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={() => {
                     onAction('secondary');
                     setMenuOpen(false);
                   }}
                   className={cn(
-                    'w-full px-3 py-2 text-left text-sm',
+                    'w-full px-3 py-2 text-left text-sm rounded-lg',
                     'hover:bg-[color:var(--color-muted)] transition-colors',
                     'text-[color:var(--color-ink-primary)]',
+                    'focus:outline-none focus:bg-[color:var(--color-muted)]',
                   )}
                 >
                   {alert.secondaryAction.label}
@@ -173,6 +198,6 @@ export function AlertRow({ alert, onAction }: AlertRowProps) {
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 }
