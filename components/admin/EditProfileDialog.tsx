@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useTransition, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { X, Loader2 } from '@/components/icons';
 import { updateProfile } from '@/app/admin/profile-actions';
 import { useToast } from '@/components/providers/ToastProvider';
+import { cn } from '@/lib/utils';
 
 // =============================================================================
 // TYPES
@@ -28,9 +30,16 @@ export function EditProfileDialog({ isOpen, onClose, user }: EditProfileDialogPr
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState(user.name ?? '');
+  const [mounted, setMounted] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const { push: pushToast } = useToast();
+
+  // Handle client-side mounting for portal
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   // Handle escape key to close dialog
   useEffect(() => {
@@ -42,6 +51,17 @@ export function EditProfileDialog({ isOpen, onClose, user }: EditProfileDialogPr
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Scroll lock when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -75,16 +95,25 @@ export function EditProfileDialog({ isOpen, onClose, user }: EditProfileDialogPr
     });
   }
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  const dialogContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className={cn(
+        "fixed inset-0 z-[9999] flex items-center justify-center p-4",
+        "bg-[color:var(--color-ink-primary)]/20 backdrop-blur-sm",
+        "animate-in fade-in duration-200"
+      )}
       onClick={handleBackdropClick}
     >
       <div
         ref={modalRef}
-        className="panel-surface w-full max-w-md"
+        className={cn(
+          "w-full max-w-md",
+          "bg-[color:var(--color-surface)] border border-[color:var(--color-structure)]",
+          "rounded-2xl shadow-2xl",
+          "animate-in fade-in zoom-in-95 duration-200"
+        )}
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-dialog-title"
@@ -100,6 +129,7 @@ export function EditProfileDialog({ isOpen, onClose, user }: EditProfileDialogPr
             variant="ghost"
             size="icon"
             aria-label="Close dialog"
+            className="hover:bg-[color:var(--color-muted)]"
           >
             <X className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
           </Button>
@@ -171,4 +201,7 @@ export function EditProfileDialog({ isOpen, onClose, user }: EditProfileDialogPr
       </div>
     </div>
   );
+
+  // Portal to document.body to escape sticky header stacking context
+  return createPortal(dialogContent, document.body);
 }

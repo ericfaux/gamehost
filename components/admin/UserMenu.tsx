@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useTransition } from 'react';
 import Link from 'next/link';
-import { User, Settings, LogOut, Building } from '@/components/icons';
+import { User, Building, LogOut } from '@/components/icons';
 import { signOut } from '@/app/admin/profile-actions';
 import { EditProfileDialog } from './EditProfileDialog';
 import { cn } from '@/lib/utils';
@@ -88,9 +88,11 @@ export function UserMenu({ user }: UserMenuProps) {
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
             "h-10 w-10 rounded-xl flex items-center justify-center font-semibold text-sm",
-            "bg-orange-100 text-orange-700 border border-orange-200",
-            "cursor-pointer hover:shadow-md transition-all duration-150",
-            "focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2"
+            "cursor-pointer transition-all duration-150",
+            "focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] focus:ring-offset-2",
+            isOpen
+              ? "bg-[color:var(--color-surface)] border border-[color:var(--color-structure)] shadow-sm"
+              : "bg-[color:var(--color-accent)] text-white hover:shadow-md"
           )}
           aria-label="User menu"
           aria-haspopup="true"
@@ -104,14 +106,15 @@ export function UserMenu({ user }: UserMenuProps) {
           <div
             className={cn(
               "absolute right-0 mt-2 w-64 z-50",
-              "panel-surface border border-[color:var(--color-structure)] rounded-xl shadow-card",
+              "bg-[color:var(--color-elevated)] border border-[color:var(--color-structure)]",
+              "rounded-xl shadow-elevation overflow-hidden",
               "animate-in fade-in-0 zoom-in-95 duration-150"
             )}
             role="menu"
             aria-orientation="vertical"
           >
-            {/* User Info Header */}
-            <div className="px-4 py-3 border-b border-[color:var(--color-structure)]">
+            {/* User Info Header Strip */}
+            <div className="px-4 py-3 bg-[color:var(--color-muted)]/30 border-b border-[color:var(--color-structure)]">
               <p className="font-semibold text-sm text-[color:var(--color-ink-primary)] truncate">
                 {displayName}
               </p>
