@@ -404,6 +404,14 @@ export function FloorPlanPageClient({
     [isEditMode]
   );
 
+  /**
+   * handleListTableSelect - Handle table selection in list view
+   * This syncs selection between map and list views
+   */
+  const handleListTableSelect = useCallback((tableId: string | null) => {
+    setSelectedTableId(tableId);
+  }, []);
+
   // ---------------------------------------------------------------------------
   // PERSISTENCE: "Save Game"
   // ---------------------------------------------------------------------------
@@ -544,6 +552,8 @@ export function FloorPlanPageClient({
             venueSlug={venueSlug}
             tablesWithLayout={initialTablesWithLayout}
             zones={initialZones}
+            selectedTableId={selectedTableId}
+            onSelectTable={handleListTableSelect}
           />
         )}
       </>
@@ -696,6 +706,8 @@ export function FloorPlanPageClient({
           venueSlug={venueSlug}
           tablesWithLayout={layoutState}
           zones={zones}
+          selectedTableId={selectedTableId}
+          onSelectTable={handleListTableSelect}
         />
       )}
 
