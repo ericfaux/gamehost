@@ -14,8 +14,9 @@
  * - "Save Game" persists the layout to the server
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TokenChip, useToast } from '@/components/AppShell';
 import { TablesManager } from '@/components/admin/TablesManager';
@@ -78,12 +79,37 @@ export function FloorPlanPageClient({
   // Get view from URL (default to 'map' if not specified)
   const view = (searchParams.get('view') as 'map' | 'list') ?? 'map';
 
-  // Function to update view via URL
+  // View transition state
+  const [isViewTransitioning, setIsViewTransitioning] = useState(false);
+  const pendingViewRef = useRef<'map' | 'list' | null>(null);
+
+  // Function to update view via URL with smooth transition
   const setView = (newView: 'map' | 'list') => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('view', newView);
-    router.replace(`${pathname}?${params.toString()}`);
+    if (newView === view) return;
+
+    // Start fade out
+    setIsViewTransitioning(true);
+    pendingViewRef.current = newView;
+
+    // After fade out completes, change the view
+    setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('view', pendingViewRef.current!);
+      router.replace(`${pathname}?${params.toString()}`);
+      pendingViewRef.current = null;
+    }, 150); // Match the CSS transition duration
   };
+
+  // Reset transitioning state when view changes
+  useEffect(() => {
+    if (isViewTransitioning) {
+      // Small delay to allow DOM to update before fade in
+      const timer = setTimeout(() => {
+        setIsViewTransitioning(false);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [view, isViewTransitioning]);
 
   // ---------------------------------------------------------------------------
   // STATE: The "Draft State" (mutable local copy for optimistic updates)
@@ -519,43 +545,50 @@ export function FloorPlanPageClient({
           </button>
         </div>
 
-        {view === 'map' ? (
-          <Card className="panel-surface border-2 border-dashed border-structure">
-            <CardContent className="py-12">
-              <div className="flex flex-col items-center gap-4 text-center max-w-md mx-auto">
-                <div className="h-16 w-16 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                  <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+        <div
+          className={cn(
+            'transition-opacity duration-150',
+            isViewTransitioning ? 'opacity-0' : 'opacity-100'
+          )}
+        >
+          {view === 'map' ? (
+            <Card className="panel-surface border-2 border-dashed border-structure">
+              <CardContent className="py-12">
+                <div className="flex flex-col items-center gap-4 text-center max-w-md mx-auto">
+                  <div className="h-16 w-16 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <AlertTriangle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold">Welcome to your Floor Plan!</h3>
+                    <p className="text-sm text-ink-secondary">
+                      It looks like you haven&apos;t set up any tables yet.
+                      Create your first table to start building your floor plan.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setView('list')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white font-medium hover:bg-accent/90 transition-colors"
+                  >
+                    <List className="h-4 w-4" />
+                    Go to Table List
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">Welcome to your Floor Plan!</h3>
-                  <p className="text-sm text-ink-secondary">
-                    It looks like you haven&apos;t set up any tables yet.
-                    Create your first table to start building your floor plan.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setView('list')}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white font-medium hover:bg-accent/90 transition-colors"
-                >
-                  <List className="h-4 w-4" />
-                  Go to Table List
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <TablesManager
-            initialTables={initialTables}
-            venueId={venueId}
-            venueName={venueName}
-            venueSlug={venueSlug}
-            tablesWithLayout={initialTablesWithLayout}
-            zones={initialZones}
-            selectedTableId={selectedTableId}
-            onSelectTable={handleListTableSelect}
-          />
-        )}
+              </CardContent>
+            </Card>
+          ) : (
+            <TablesManager
+              initialTables={initialTables}
+              venueId={venueId}
+              venueName={venueName}
+              venueSlug={venueSlug}
+              tablesWithLayout={initialTablesWithLayout}
+              zones={initialZones}
+              selectedTableId={selectedTableId}
+              onSelectTable={handleListTableSelect}
+            />
+          )}
+        </div>
       </>
     );
   }
@@ -593,123 +626,130 @@ export function FloorPlanPageClient({
         </button>
       </div>
 
-      {/* Tab content */}
-      {view === 'map' ? (
-        <Card className="panel-surface">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <MapIcon className="h-5 w-5 text-ink-secondary" />
-              <CardTitle>Floor Plan</CardTitle>
-            </div>
-            <div className="flex items-center gap-2">
-              <TokenChip tone="accent">{tablesAvailable} available</TokenChip>
-              <TokenChip tone="muted">{tablesInUse} in use</TokenChip>
-              {duplicateCount > 0 && (
-                <TokenChip tone="warn">{duplicateCount} duplicate sessions</TokenChip>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Toolbar */}
-            <div className="flex flex-wrap items-center gap-3">
-              <ZoneTabs
-                zones={zones}
-                activeZoneId={activeZoneId}
-                onZoneChange={handleZoneChange}
-                isEditMode={isEditMode}
-                onManageZones={() => setShowZoneManager(true)}
-              />
-              <div className="flex-1" />
-              <EditModeToolbar
-                isEditMode={isEditMode}
-                hasChanges={hasChanges}
-                isSaving={isSaving}
-                onSave={handleSave}
-                onCancel={handleCancel}
-              />
-            </div>
+      {/* Tab content with smooth transition */}
+      <div
+        className={cn(
+          'transition-opacity duration-150',
+          isViewTransitioning ? 'opacity-0' : 'opacity-100'
+        )}
+      >
+        {view === 'map' ? (
+          <Card className="panel-surface">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <MapIcon className="h-5 w-5 text-ink-secondary" />
+                <CardTitle>Floor Plan</CardTitle>
+              </div>
+              <div className="flex items-center gap-2">
+                <TokenChip tone="accent">{tablesAvailable} available</TokenChip>
+                <TokenChip tone="muted">{tablesInUse} in use</TokenChip>
+                {duplicateCount > 0 && (
+                  <TokenChip tone="warn">{duplicateCount} duplicate sessions</TokenChip>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Toolbar */}
+              <div className="flex flex-wrap items-center gap-3">
+                <ZoneTabs
+                  zones={zones}
+                  activeZoneId={activeZoneId}
+                  onZoneChange={handleZoneChange}
+                  isEditMode={isEditMode}
+                  onManageZones={() => setShowZoneManager(true)}
+                />
+                <div className="flex-1" />
+                <EditModeToolbar
+                  isEditMode={isEditMode}
+                  hasChanges={hasChanges}
+                  isSaving={isSaving}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                />
+              </div>
 
-            {/* Main content: Canvas + Sidebar */}
-            <div className="flex gap-4">
-              {/* Canvas container with floating toolbar */}
-              <div className="flex-1 relative">
-                {activeZone ? (
-                  <>
-                    <FloorPlanCanvas
-                      zone={activeZone}
+              {/* Main content: Canvas + Sidebar */}
+              <div className="flex gap-4">
+                {/* Canvas container with floating toolbar */}
+                <div className="flex-1 relative">
+                  {activeZone ? (
+                    <>
+                      <FloorPlanCanvas
+                        zone={activeZone}
+                        tables={layoutState}
+                        sessions={sessionsMap}
+                        isEditMode={isEditMode}
+                        selectedTableId={selectedTableId}
+                        showGrid={showGrid}
+                        onTableClick={handleTableClick}
+                        onTableMove={handleMove}
+                        onTableResize={handleResize}
+                      />
+                      {/* Floating toolbar */}
+                      <FloatingToolbar
+                        isEditMode={isEditMode}
+                        showGrid={showGrid}
+                        onToggleEditMode={handleToggleEditMode}
+                        onToggleGrid={() => setShowGrid(!showGrid)}
+                      />
+                    </>
+                  ) : zones.length === 0 ? (
+                    <div className="h-64 flex flex-col items-center justify-center gap-3 bg-muted/30 rounded-xl border border-structure">
+                      <p className="text-sm text-ink-secondary">
+                        Create a zone to start building your floor plan
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowZoneManager(true)}
+                        className="text-sm font-medium text-accent hover:underline"
+                      >
+                        + Add Zone
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center bg-muted/30 rounded-xl border border-structure">
+                      <p className="text-sm text-ink-secondary">
+                        Select a zone to view
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sidebar - only in edit mode */}
+                {isEditMode && (
+                  <div className="w-64 space-y-3 flex-shrink-0">
+                    {/* TableInspector when table selected, otherwise show unplaced */}
+                    <TableInspector
+                      table={selectedTable}
+                      zones={zones}
+                      onRotationChange={handleRotate}
+                      onShapeChange={handleShapeChange}
+                      onZoneChange={handleTableZoneChange}
+                    />
+                    <UnplacedTablesList
                       tables={layoutState}
                       sessions={sessionsMap}
+                      onPlaceTable={handlePlace}
                       isEditMode={isEditMode}
-                      selectedTableId={selectedTableId}
-                      showGrid={showGrid}
-                      onTableClick={handleTableClick}
-                      onTableMove={handleMove}
-                      onTableResize={handleResize}
                     />
-                    {/* Floating toolbar */}
-                    <FloatingToolbar
-                      isEditMode={isEditMode}
-                      showGrid={showGrid}
-                      onToggleEditMode={handleToggleEditMode}
-                      onToggleGrid={() => setShowGrid(!showGrid)}
-                    />
-                  </>
-                ) : zones.length === 0 ? (
-                  <div className="h-64 flex flex-col items-center justify-center gap-3 bg-muted/30 rounded-xl border border-structure">
-                    <p className="text-sm text-ink-secondary">
-                      Create a zone to start building your floor plan
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowZoneManager(true)}
-                      className="text-sm font-medium text-accent hover:underline"
-                    >
-                      + Add Zone
-                    </button>
-                  </div>
-                ) : (
-                  <div className="h-64 flex items-center justify-center bg-muted/30 rounded-xl border border-structure">
-                    <p className="text-sm text-ink-secondary">
-                      Select a zone to view
-                    </p>
                   </div>
                 )}
               </div>
-
-              {/* Sidebar - only in edit mode */}
-              {isEditMode && (
-                <div className="w-64 space-y-3 flex-shrink-0">
-                  {/* TableInspector when table selected, otherwise show unplaced */}
-                  <TableInspector
-                    table={selectedTable}
-                    zones={zones}
-                    onRotationChange={handleRotate}
-                    onShapeChange={handleShapeChange}
-                    onZoneChange={handleTableZoneChange}
-                  />
-                  <UnplacedTablesList
-                    tables={layoutState}
-                    sessions={sessionsMap}
-                    onPlaceTable={handlePlace}
-                    isEditMode={isEditMode}
-                  />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <TablesManager
-          initialTables={initialTables}
-          venueId={venueId}
-          venueName={venueName}
-          venueSlug={venueSlug}
-          tablesWithLayout={layoutState}
-          zones={zones}
-          selectedTableId={selectedTableId}
-          onSelectTable={handleListTableSelect}
-        />
-      )}
+            </CardContent>
+          </Card>
+        ) : (
+          <TablesManager
+            initialTables={initialTables}
+            venueId={venueId}
+            venueName={venueName}
+            venueSlug={venueSlug}
+            tablesWithLayout={layoutState}
+            zones={zones}
+            selectedTableId={selectedTableId}
+            onSelectTable={handleListTableSelect}
+          />
+        )}
+      </div>
 
       {/* Table drawer (view mode) */}
       <TableDrawer
