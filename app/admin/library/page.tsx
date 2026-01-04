@@ -7,6 +7,7 @@ import { getCopiesInUseByGame, getActiveSessionsForVenue, getFeedbackSummariesBy
 import { LibraryClient } from '@/components/admin/LibraryClient';
 import type { Session, VenueTable, Game } from '@/lib/db/types';
 import type { GameFeedbackSummary } from '@/lib/data/sessions';
+import type { LibraryFilter } from '@/components/admin/LibraryCommandBar';
 
 /** Session with table label for display */
 export interface SessionWithTable extends Session {
@@ -25,7 +26,12 @@ export interface LibraryAggregatedData {
   feedbackSummaries: Record<string, GameFeedbackSummary>;
 }
 
-export default async function LibraryPage() {
+interface LibraryPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function LibraryPage({ searchParams }: LibraryPageProps) {
+  const params = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -95,5 +101,15 @@ export default async function LibraryPage() {
     feedbackSummaries,
   };
 
-  return <LibraryClient data={aggregatedData} />;
+  // Parse URL params for initial state
+  const highlightGameId = typeof params.highlight === 'string' ? params.highlight : undefined;
+  const initialFilter = typeof params.filter === 'string' ? params.filter as LibraryFilter : undefined;
+
+  return (
+    <LibraryClient
+      data={aggregatedData}
+      initialHighlight={highlightGameId}
+      initialFilter={initialFilter}
+    />
+  );
 }

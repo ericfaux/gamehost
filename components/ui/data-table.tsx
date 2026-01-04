@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useDensity } from "../AppShell";
@@ -19,9 +19,20 @@ export interface DataTableProps<T> {
   columns: Column<T>[];
   pageSize?: number;
   filters?: React.ReactNode;
+  /** Function to get unique row ID for highlighting/scrolling */
+  getRowId?: (row: T) => string;
+  /** ID of the row to highlight */
+  highlightedRowId?: string | null;
 }
 
-export function DataTable<T>({ data, columns, pageSize = 6, filters }: DataTableProps<T>) {
+export function DataTable<T>({
+  data,
+  columns,
+  pageSize = 6,
+  filters,
+  getRowId,
+  highlightedRowId,
+}: DataTableProps<T>) {
   const { density } = useDensity();
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -40,6 +51,19 @@ export function DataTable<T>({ data, columns, pageSize = 6, filters }: DataTable
 
   const paged = sorted.slice(page * pageSize, page * pageSize + pageSize);
   const totalPages = Math.ceil(data.length / pageSize);
+
+  // Auto-navigate to the page containing the highlighted row
+  useEffect(() => {
+    if (highlightedRowId && getRowId) {
+      const rowIndex = sorted.findIndex((row) => getRowId(row) === highlightedRowId);
+      if (rowIndex !== -1) {
+        const targetPage = Math.floor(rowIndex / pageSize);
+        if (targetPage !== page) {
+          setPage(targetPage);
+        }
+      }
+    }
+  }, [highlightedRowId, getRowId, sorted, pageSize, page]);
 
   return (
     <div className="panel-surface">
@@ -81,15 +105,27 @@ export function DataTable<T>({ data, columns, pageSize = 6, filters }: DataTable
             </tr>
           </thead>
           <tbody className="text-sm text-[color:var(--color-ink-primary)]">
-            {paged.map((row, idx) => (
-              <tr key={idx} className="border-b border-[color:var(--color-structure)]/80 hover:bg-[color:var(--color-muted)]/60">
-                {columns.map((col) => (
-                  <td key={String(col.key)} className="px-4 text-[color:var(--color-ink-primary)]">
-                    {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key as string] as React.ReactNode}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {paged.map((row, idx) => {
+              const rowId = getRowId?.(row);
+              const isHighlighted = rowId && highlightedRowId === rowId;
+
+              return (
+                <tr
+                  key={rowId ?? idx}
+                  data-row-id={rowId}
+                  className={cn(
+                    "border-b border-[color:var(--color-structure)]/80 hover:bg-[color:var(--color-muted)]/60 transition-colors",
+                    isHighlighted && "bg-[color:var(--color-accent)]/10 ring-2 ring-inset ring-[color:var(--color-accent)] animate-pulse"
+                  )}
+                >
+                  {columns.map((col) => (
+                    <td key={String(col.key)} className="px-4 text-[color:var(--color-ink-primary)]">
+                      {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key as string] as React.ReactNode}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
