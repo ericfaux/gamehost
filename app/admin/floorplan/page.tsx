@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
@@ -184,15 +185,17 @@ export default async function FloorPlanPage() {
       </div>
 
       {/* Client Component - The Layout Engine */}
-      <FloorPlanPageClient
-        venueId={venue.id}
-        venueName={venue.name}
-        venueSlug={venue.slug}
-        initialZones={typedZones}
-        initialTables={tables}
-        initialTablesWithLayout={typedTablesWithLayout}
-        initialSessions={sessionsArray}
-      />
+      <Suspense fallback={<div>Loading...</div>}>
+        <FloorPlanPageClient
+          venueId={venue.id}
+          venueName={venue.name}
+          venueSlug={venue.slug}
+          initialZones={typedZones}
+          initialTables={tables}
+          initialTablesWithLayout={typedTablesWithLayout}
+          initialSessions={sessionsArray}
+        />
+      </Suspense>
     </>
   );
 }

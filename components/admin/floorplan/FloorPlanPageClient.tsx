@@ -15,6 +15,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TokenChip, useToast } from '@/components/AppShell';
 import { TablesManager } from '@/components/admin/TablesManager';
@@ -68,6 +69,21 @@ export function FloorPlanPageClient({
 }: FloorPlanPageClientProps) {
   const { push } = useToast();
 
+  // URL-based navigation
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Get view from URL (default to 'map' if not specified)
+  const view = (searchParams.get('view') as 'map' | 'list') ?? 'map';
+
+  // Function to update view via URL
+  const setView = (newView: 'map' | 'list') => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('view', newView);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
   // ---------------------------------------------------------------------------
   // STATE: The "Draft State" (mutable local copy for optimistic updates)
   // ---------------------------------------------------------------------------
@@ -77,7 +93,6 @@ export function FloorPlanPageClient({
   const [layoutState, setLayoutState] = useState<VenueTableWithLayout[]>(initialTablesWithLayout);
 
   // UI state
-  const [activeTab, setActiveTab] = useState<'map' | 'list'>('map');
   const [activeZoneId, setActiveZoneId] = useState<string>(initialZones[0]?.id ?? '');
   const [isEditMode, setIsEditMode] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
@@ -471,9 +486,9 @@ export function FloorPlanPageClient({
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-structure bg-elevated p-1 w-fit">
           <button
             type="button"
-            onClick={() => setActiveTab('map')}
+            onClick={() => setView('map')}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'map'
+              view === 'map'
                 ? 'bg-surface shadow-card text-ink-primary'
                 : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
             }`}
@@ -483,9 +498,9 @@ export function FloorPlanPageClient({
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('list')}
+            onClick={() => setView('list')}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'list'
+              view === 'list'
                 ? 'bg-surface shadow-card text-ink-primary'
                 : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
             }`}
@@ -495,7 +510,7 @@ export function FloorPlanPageClient({
           </button>
         </div>
 
-        {activeTab === 'map' ? (
+        {view === 'map' ? (
           <Card className="panel-surface border-2 border-dashed border-structure">
             <CardContent className="py-12">
               <div className="flex flex-col items-center gap-4 text-center max-w-md mx-auto">
@@ -511,7 +526,7 @@ export function FloorPlanPageClient({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setActiveTab('list')}
+                  onClick={() => setView('list')}
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white font-medium hover:bg-accent/90 transition-colors"
                 >
                   <List className="h-4 w-4" />
@@ -543,26 +558,26 @@ export function FloorPlanPageClient({
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-structure bg-elevated p-1 w-fit">
         <button
           type="button"
-          onClick={() => setActiveTab('map')}
+          onClick={() => setView('map')}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'map'
+            view === 'map'
               ? 'bg-surface shadow-card text-ink-primary'
               : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
           }`}
-          aria-pressed={activeTab === 'map'}
+          aria-pressed={view === 'map'}
         >
           <MapIcon className="h-4 w-4" />
           Visual Map
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('list')}
+          onClick={() => setView('list')}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'list'
+            view === 'list'
               ? 'bg-surface shadow-card text-ink-primary'
               : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
           }`}
-          aria-pressed={activeTab === 'list'}
+          aria-pressed={view === 'list'}
         >
           <List className="h-4 w-4" />
           Table List
@@ -570,7 +585,7 @@ export function FloorPlanPageClient({
       </div>
 
       {/* Tab content */}
-      {activeTab === 'map' ? (
+      {view === 'map' ? (
         <Card className="panel-surface">
           <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
