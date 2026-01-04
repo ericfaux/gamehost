@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
-import { ChevronDown, ChevronUp, MapPin, Pencil, Plus, QrCode, Trash2, X } from "@/components/icons/lucide-react";
+import { ChevronDown, ChevronUp, MapPin, Pencil, Plus, QrCode, Search, Trash2, X } from "@/components/icons/lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,7 @@ export function TablesManager({
   const [tables, setTables] = useState<VenueTable[]>(initialTables);
   const [sortField, setSortField] = useState<SortField>('label');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Create a map for quick zone name lookup
   const zoneMap = useMemo(() => {
@@ -61,9 +62,20 @@ export function TablesManager({
     return zoneMap.get(layout.zone_id) ?? null;
   };
 
+  // Filter tables based on search query
+  const filteredTables = useMemo(() => {
+    if (!searchQuery.trim()) return tables;
+    const q = searchQuery.toLowerCase();
+    return tables.filter(table =>
+      table.label.toLowerCase().includes(q) ||
+      getZoneName(table.id)?.toLowerCase().includes(q) ||
+      table.id.includes(q)
+    );
+  }, [tables, searchQuery]);
+
   // Sort tables based on current sort settings
   const sortedTables = useMemo(() => {
-    return [...tables].sort((a, b) => {
+    return [...filteredTables].sort((a, b) => {
       let comparison = 0;
 
       switch (sortField) {
@@ -83,7 +95,7 @@ export function TablesManager({
 
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [tables, sortField, sortDirection]);
+  }, [filteredTables, sortField, sortDirection]);
 
   // Group tables by zone
   const tablesByZone = useMemo(() => {
@@ -284,6 +296,47 @@ export function TablesManager({
             <Plus className="h-4 w-4" />
             Add table
           </Button>
+        </div>
+
+        {/* Search bar */}
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+          <div className="relative">
+            <Search className="
+              absolute left-3 top-1/2 -translate-y-1/2
+              w-4 h-4 text-slate-400
+            " />
+            <input
+              type="text"
+              placeholder="Search tables by name, zone, or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="
+                w-full pl-10 pr-4 py-2
+                bg-slate-50 dark:bg-slate-800
+                border border-slate-200 dark:border-slate-700
+                rounded-lg
+                text-sm
+                placeholder:text-slate-400
+                focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500
+              "
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Results count */}
+          {searchQuery && (
+            <p className="mt-2 text-xs text-slate-500">
+              {filteredTables.length} of {tables.length} tables
+            </p>
+          )}
         </div>
 
         {tables.length === 0 ? (
