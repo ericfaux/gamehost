@@ -188,7 +188,7 @@ export function FloorPlanCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-[color:var(--color-muted)]/30 rounded-xl overflow-hidden border border-[color:var(--color-structure)]"
+      className="relative w-full bg-slate-50 dark:bg-slate-900 bg-[radial-gradient(circle,#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(circle,#334155_1px,transparent_1px)] bg-[size:24px_24px] rounded-xl overflow-hidden border border-[color:var(--color-border)] shadow-inner"
       style={{ height: `${containerSize.height}px` }}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
