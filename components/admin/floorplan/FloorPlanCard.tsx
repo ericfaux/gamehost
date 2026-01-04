@@ -16,6 +16,7 @@ import { ZoneTabs } from './ZoneTabs';
 import { UnplacedTablesList } from './UnplacedTablesList';
 import { TableInspector } from './TableInspector';
 import { EditModeToolbar } from './EditModeToolbar';
+import { FloatingToolbar } from './FloatingToolbar';
 import { ZoneManagerModal } from './ZoneManagerModal';
 import { getDefaultLayoutForCapacity, type TableSessionInfo } from './TableNode';
 import {
@@ -380,11 +381,8 @@ export function FloorPlanCard({
             <div className="flex-1" />
             <EditModeToolbar
               isEditMode={isEditMode}
-              showGrid={showGrid}
               hasChanges={hasChanges}
               isSaving={isSaving}
-              onToggleEditMode={handleToggleEditMode}
-              onToggleGrid={() => setShowGrid(!showGrid)}
               onSave={handleSave}
               onCancel={handleCancel}
             />
@@ -392,20 +390,29 @@ export function FloorPlanCard({
 
           {/* Main content */}
           <div className="flex gap-4">
-            {/* Canvas */}
-            <div className="flex-1">
+            {/* Canvas container with floating toolbar */}
+            <div className="flex-1 relative">
               {activeZone ? (
-                <FloorPlanCanvas
-                  zone={activeZone}
-                  tables={tables}
-                  sessions={sessionsMap}
-                  isEditMode={isEditMode}
-                  selectedTableId={selectedTableId}
-                  showGrid={showGrid}
-                  onTableClick={handleTableClick}
-                  onTableMove={handleTableMove}
-                  onTableResize={handleTableResize}
-                />
+                <>
+                  <FloorPlanCanvas
+                    zone={activeZone}
+                    tables={tables}
+                    sessions={sessionsMap}
+                    isEditMode={isEditMode}
+                    selectedTableId={selectedTableId}
+                    showGrid={showGrid}
+                    onTableClick={handleTableClick}
+                    onTableMove={handleTableMove}
+                    onTableResize={handleTableResize}
+                  />
+                  {/* Floating toolbar */}
+                  <FloatingToolbar
+                    isEditMode={isEditMode}
+                    showGrid={showGrid}
+                    onToggleEditMode={handleToggleEditMode}
+                    onToggleGrid={() => setShowGrid(!showGrid)}
+                  />
+                </>
               ) : (
                 <div className="h-64 flex items-center justify-center bg-[color:var(--color-muted)]/30 rounded-xl border border-[color:var(--color-structure)]">
                   <p className="text-sm text-[color:var(--color-ink-secondary)]">
