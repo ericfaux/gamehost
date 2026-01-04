@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Menu, Search, Bell, Sparkle, ChevronDown } from '@/components/icons';
 import { useDensity } from '@/components/providers/DensityProvider';
+import { UserMenu } from './UserMenu';
 import { cn } from '@/lib/utils';
 
 // =============================================================================
@@ -15,13 +16,17 @@ import { cn } from '@/lib/utils';
 interface AdminShellProps {
   children: React.ReactNode;
   userVenues?: { id: string; name: string }[];
+  user?: {
+    email: string;
+    name: string | null;
+  };
 }
 
 // =============================================================================
 // COMPONENT
 // =============================================================================
 
-export function AdminShell({ children, userVenues = [] }: AdminShellProps) {
+export function AdminShell({ children, userVenues = [], user }: AdminShellProps) {
   const { density } = useDensity();
   const [openMobile, setOpenMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,9 +109,13 @@ export function AdminShell({ children, userVenues = [] }: AdminShellProps) {
               <Button variant="ghost" size="icon" aria-label="Notifications">
                 <Bell className="h-5 w-5" />
               </Button>
-              <div className="h-10 w-10 rounded-xl bg-orange-100 border border-orange-200 flex items-center justify-center text-orange-700 font-semibold">
-                AV
-              </div>
+              {user ? (
+                <UserMenu user={user} />
+              ) : (
+                <div className="h-10 w-10 rounded-xl bg-orange-100 border border-orange-200 flex items-center justify-center text-orange-700 font-semibold">
+                  --
+                </div>
+              )}
             </div>
           </div>
         </header>

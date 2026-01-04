@@ -11,20 +11,36 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user: authUser } } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!authUser) {
     redirect('/login');
   }
 
+  // Fetch profile for the current user (graceful fallback if missing)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name')
+    .eq('id', authUser.id)
+    .single();
+
+  // Build user object with graceful fallback
+  const userEmail = authUser.email ?? '';
+  const userName = profile?.name ?? authUser.user_metadata?.full_name ?? null;
+
+  const user = {
+    email: userEmail,
+    name: userName,
+  };
+
   // Fetch venue(s) for the current user
-  const venue = await getVenueByOwnerId(user.id);
+  const venue = await getVenueByOwnerId(authUser.id);
   const userVenues = venue ? [{ id: venue.id, name: venue.name }] : [];
 
   return (
     <DensityProvider>
       <ToastProvider>
-        <AdminShell userVenues={userVenues}>{children}</AdminShell>
+        <AdminShell userVenues={userVenues} user={user}>{children}</AdminShell>
       </ToastProvider>
     </DensityProvider>
   );
