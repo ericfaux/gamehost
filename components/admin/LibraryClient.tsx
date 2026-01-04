@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, Play, Pencil, Star, Eye } from "@/components/icons";
 import { TokenChip, useToast } from '@/components/AppShell';
 import { Button } from '@/components/ui/button';
@@ -24,16 +25,62 @@ import type { LibraryAggregatedData, SessionWithTable } from '@/app/admin/librar
 
 interface LibraryClientProps {
   data: LibraryAggregatedData;
+  /** Game ID to highlight (from URL param) */
+  initialHighlight?: string;
+  /** Initial filter to apply (from URL param) */
+  initialFilter?: LibraryFilter;
 }
 
-export function LibraryClient({ data }: LibraryClientProps) {
+export function LibraryClient({
+  data,
+  initialHighlight,
+  initialFilter,
+}: LibraryClientProps) {
+  const router = useRouter();
   const { push } = useToast();
   const { games, copiesInUse, activeSessionsByGame, browsingSessions, feedbackSummaries, venueId } = data;
 
   // State
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Set<LibraryFilter>>(new Set());
+  const [activeFilters, setActiveFilters] = useState<Set<LibraryFilter>>(() => {
+    // Initialize with filter from URL param if provided
+    if (initialFilter) {
+      return new Set([initialFilter]);
+    }
+    return new Set();
+  });
+
+  // Highlight state - tracks which game to highlight and when to clear
+  const [highlightedGameId, setHighlightedGameId] = useState<string | null>(initialHighlight ?? null);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clear highlight after a few seconds and clean up URL
+  useEffect(() => {
+    if (highlightedGameId) {
+      // Scroll to the highlighted row after a short delay (to allow render and page navigation)
+      const scrollTimeout = setTimeout(() => {
+        const highlightedRow = document.querySelector(`[data-row-id="${highlightedGameId}"]`);
+        if (highlightedRow) {
+          highlightedRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 200);
+
+      // Clear highlight after 4 seconds
+      highlightTimeoutRef.current = setTimeout(() => {
+        setHighlightedGameId(null);
+        // Clean up URL params
+        router.replace('/admin/library', { scroll: false });
+      }, 4000);
+
+      return () => {
+        clearTimeout(scrollTimeout);
+        if (highlightTimeoutRef.current) {
+          clearTimeout(highlightTimeoutRef.current);
+        }
+      };
+    }
+  }, [highlightedGameId, router]);
 
   // Drawer state
   const [drawerGame, setDrawerGame] = useState<Game | null>(null);
@@ -379,7 +426,12 @@ export function LibraryClient({ data }: LibraryClientProps) {
       {/* Data Table */}
       <Card>
         <CardContent className="p-0">
-          <DataTable data={filtered} columns={columns} />
+          <DataTable
+            data={filtered}
+            columns={columns}
+            getRowId={(game) => game.id}
+            highlightedRowId={highlightedGameId}
+          />
         </CardContent>
       </Card>
 

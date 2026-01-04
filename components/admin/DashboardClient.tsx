@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,17 @@ import {
   ActivityFeed,
   BottleneckWidget,
 } from '@/components/admin/dashboard';
+import {
+  AssignGameToSessionModal,
+  type BrowsingSession,
+} from '@/components/admin/AssignGameToSessionModal';
 import type { OpsHudData, Alert } from '@/lib/data/dashboard';
+import type { Game } from '@/lib/db/types';
 
 export interface DashboardClientProps {
   data: OpsHudData;
+  availableGames: Game[];
+  browsingSessions: BrowsingSession[];
 }
 
 function formatLastUpdated(isoString: string): string {
@@ -35,49 +42,119 @@ function formatLastUpdated(isoString: string): string {
  * - Refresh button with loading state
  * - Alert actions (navigation and modals)
  * - Control deck actions
+ * - Assign game to session modal
  */
-export function DashboardClient({ data }: DashboardClientProps) {
+export function DashboardClient({
+  data,
+  availableGames,
+  browsingSessions,
+}: DashboardClientProps) {
   const router = useRouter();
   const [isRefreshing, startRefresh] = useTransition();
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
 
-  const handleRefresh = () => {
+  // Assign game modal state
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<BrowsingSession | null>(null);
+
+  const handleRefresh = useCallback(() => {
     startRefresh(() => {
       router.refresh();
     });
-  };
+  }, [router]);
 
-  const handleAlertAction = (alert: Alert, action: 'primary' | 'secondary') => {
+  /**
+   * Handle alert actions based on alert type and action config.
+   */
+  const handleAlertAction = useCallback((alert: Alert, action: 'primary' | 'secondary') => {
     const actionConfig = action === 'primary' ? alert.primaryAction : alert.secondaryAction;
     if (!actionConfig) return;
 
+    // Handle link actions directly
     if (actionConfig.type === 'link') {
       router.push(actionConfig.target);
-    } else if (actionConfig.type === 'modal') {
-      // Handle modal actions by navigating to relevant pages
-      // Future: implement actual modals for table-detail and game-detail
-      switch (actionConfig.target) {
-        case 'table-detail':
+      return;
+    }
+
+    // Handle modal actions based on alert type
+    if (actionConfig.type === 'modal') {
+      const params = actionConfig.params as Record<string, string> | undefined;
+
+      switch (alert.type) {
+        case 'table_browsing_stale': {
+          // Open assign game modal for this specific session
+          const sessionId = params?.sessionId;
+          if (sessionId) {
+            const session = browsingSessions.find((s) => s.id === sessionId);
+            if (session) {
+              setSelectedSession(session);
+              setAssignModalOpen(true);
+              return;
+            }
+          }
+          // Fallback to sessions page if session not found
           router.push('/admin/sessions');
           break;
-        case 'game-detail':
-          router.push('/admin/library');
+        }
+
+        case 'game_bottlenecked': {
+          // Navigate to library with game highlighted
+          const gameId = params?.gameId;
+          if (gameId) {
+            router.push(`/admin/library?highlight=${gameId}`);
+          } else {
+            router.push('/admin/library?filter=bottlenecked');
+          }
           break;
+        }
+
+        case 'game_problematic': {
+          // Navigate to library with problematic filter and game highlighted
+          const gameId = params?.gameId;
+          if (gameId) {
+            router.push(`/admin/library?filter=problematic&highlight=${gameId}`);
+          } else {
+            router.push('/admin/library?filter=problematic');
+          }
+          break;
+        }
+
+        case 'game_out_for_repair': {
+          // Navigate to library with game highlighted
+          const gameId = params?.gameId;
+          if (gameId) {
+            router.push(`/admin/library?filter=out_for_repair&highlight=${gameId}`);
+          } else {
+            router.push('/admin/library?filter=out_for_repair');
+          }
+          break;
+        }
+
         default:
-          console.warn('Unknown modal target:', actionConfig.target);
+          // Fallback for unknown modal targets
+          console.warn('Unknown alert type for modal:', alert.type);
+          router.push('/admin/library');
       }
     }
-  };
+  }, [router, browsingSessions]);
 
-  const handleAssignGame = () => {
+  const handleAssignGame = useCallback(() => {
     // Navigate to sessions page for assigning games
     router.push('/admin/sessions');
-  };
+  }, [router]);
 
-  const handleLogIssue = () => {
+  const handleLogIssue = useCallback(() => {
     // Navigate to library for marking games for repair
     router.push('/admin/library?filter=problematic');
-  };
+  }, [router]);
+
+  const handleCloseAssignModal = useCallback(() => {
+    setAssignModalOpen(false);
+    setSelectedSession(null);
+  }, []);
+
+  const handleAssignSuccess = useCallback(() => {
+    router.refresh();
+  }, [router]);
 
   // Determine pulse tile tones based on values
   const waitingTone = data.pulse.waitingTables > 0
@@ -197,6 +274,17 @@ export function DashboardClient({ data }: DashboardClientProps) {
           </Card>
         </div>
       </div>
+
+      {/* Assign Game to Session Modal */}
+      {selectedSession && (
+        <AssignGameToSessionModal
+          session={selectedSession}
+          availableGames={availableGames}
+          isOpen={assignModalOpen}
+          onClose={handleCloseAssignModal}
+          onSuccess={handleAssignSuccess}
+        />
+      )}
     </div>
   );
 }
