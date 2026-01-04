@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ChevronDown, ChevronUp } from '@/components/icons';
+import { ChevronDown } from '@/components/icons';
 import { AlertRow } from './AlertRow';
 import type { Alert, AlertType, AlertSeverity } from '@/lib/data/dashboard';
 

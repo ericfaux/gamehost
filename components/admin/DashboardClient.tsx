@@ -90,7 +90,7 @@ function NewVenueOnboarding() {
           Welcome to your dashboard!
         </h2>
         <p className="text-[color:var(--color-ink-secondary)]">
-          Let's get your venue set up. Complete these steps to start tracking sessions and feedback.
+          Let&apos;s get your venue set up. Complete these steps to start tracking sessions and feedback.
         </p>
       </div>
       <div className="max-w-lg w-full flex flex-col gap-4">

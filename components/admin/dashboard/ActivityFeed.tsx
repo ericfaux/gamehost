@@ -59,8 +59,6 @@ function isNegativeFeedback(feedback: RecentFeedback): boolean {
  * Shows recently ended sessions and recent feedback with negative highlights.
  */
 export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps) {
-  const hasNoActivity = recentEnded.length === 0 && recentFeedback.length === 0;
-
   return (
     <div className="flex flex-col" role="region" aria-label="Recent activity">
       {/* Recently Ended Section */}
@@ -170,7 +168,7 @@ export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps)
                           : 'text-[color:var(--color-ink-secondary)]',
                       )}
                     >
-                      "{feedback.comment}"
+                      &ldquo;{feedback.comment}&rdquo;
                     </p>
                   )}
                 </article>
