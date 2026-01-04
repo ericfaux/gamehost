@@ -78,6 +78,21 @@ export {
   type HiddenGemGame,
 } from './analytics';
 
+// Live Ops HUD
+export {
+  getOpsHud,
+  type OpsHudData,
+  type Alert,
+  type AlertType,
+  type AlertSeverity,
+  type AlertContextChip,
+  type AlertAction,
+  type ChipTone,
+  type RecentEndedSession,
+  type RecentFeedback,
+  type BottleneckedGame,
+} from './dashboard';
+
 // Re-export types for convenience
 export type {
   Venue,
