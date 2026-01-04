@@ -71,22 +71,32 @@ function getStatusStyles(status: TableStatus) {
   }
 }
 
-function getShapeStyles(shape: TableShape): { borderRadius: string; padding: string } {
+function getShapeStyles(shape: TableShape): {
+  borderRadius: string;
+  padding: string;
+  highlightRadius: string;
+} {
   switch (shape) {
     case 'round':
+      // Round tables: fully circular for small cocktail/round tables
       return {
         borderRadius: 'rounded-full',
         padding: 'p-1.5',
+        highlightRadius: 'rounded-full',
       };
     case 'booth':
+      // Bar seating: elongated with rounded ends (pill shape)
       return {
-        borderRadius: 'rounded-t-3xl rounded-b-lg',
+        borderRadius: 'rounded-full',
         padding: 'p-1.5 pt-2',
+        highlightRadius: 'rounded-full',
       };
     default:
+      // Rectangular tables: rounded-lg with appropriate aspect ratio
       return {
-        borderRadius: 'rounded-xl',
+        borderRadius: 'rounded-lg',
         padding: 'p-1.5',
+        highlightRadius: 'rounded-t-lg',
       };
   }
 }
@@ -132,16 +142,17 @@ export function TableNode({
       className={`
         ${shapeStyles.borderRadius}
         ${shapeStyles.padding}
-        ${styles.bg}
-        border-2 ${styles.border}
-        ${isSelected ? 'ring-2 ring-[color:var(--color-accent)] ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}
-        ${isEditMode ? 'cursor-move' : 'cursor-pointer'}
+        relative
+        bg-white dark:bg-slate-800
+        border-2 border-slate-300 dark:border-slate-600
+        shadow-md
         transition-all duration-150 ease-out
-        hover:shadow-lg hover:scale-[1.02]
+        hover:scale-105 hover:shadow-lg
+        ${isEditMode ? 'cursor-move' : 'cursor-pointer'}
+        ${isSelected ? 'ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-slate-900 scale-105' : ''}
         flex flex-col items-center justify-center
         overflow-hidden
         select-none
-        backdrop-blur-sm
       `}
       onClick={onClick}
       role="button"
@@ -154,22 +165,25 @@ export function TableNode({
         }
       }}
     >
+      {/* 3D depth highlight - simulates physical board game token */}
+      <div
+        className={`absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-white/30 to-transparent ${shapeStyles.highlightRadius} pointer-events-none`}
+      />
       {/* Table label - always visible, prominent */}
-      <div className={`font-semibold text-[12px] leading-none ${styles.text} truncate max-w-full tracking-tight`}>
+      <div className="font-bold text-[13px] leading-none text-slate-800 dark:text-slate-100 truncate max-w-full tracking-tight z-10">
         {table.label}
       </div>
 
-      {/* Capacity badge - subtle, only when there's space */}
-      {!isCompact && table.capacity && (
-        <div className="flex items-center gap-0.5 mt-0.5 text-[9px] leading-none text-slate-500 dark:text-slate-400 opacity-80">
-          <Users className="h-2 w-2" />
-          <span>{table.capacity}</span>
+      {/* Capacity badge - "4p" style badge */}
+      {table.capacity && (
+        <div className="mt-0.5 px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-full text-[9px] font-medium leading-none text-slate-600 dark:text-slate-300 z-10">
+          {table.capacity}p
         </div>
       )}
 
       {/* Session status content */}
       {session && (
-        <div className="mt-1 flex flex-col items-center gap-0.5 max-w-full">
+        <div className="mt-1 flex flex-col items-center gap-0.5 max-w-full z-10">
           {/* Playing state - Game title in pill */}
           {status === 'playing' && session.gameTitle && (
             <div className={`
@@ -217,7 +231,7 @@ export function TableNode({
 
       {/* Available state - minimal */}
       {!session && !isCompact && (
-        <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 text-[9px] font-semibold text-slate-800 dark:text-slate-100 shadow-sm">
+        <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 text-[9px] font-semibold text-slate-800 dark:text-slate-100 shadow-sm z-10">
           <span>Available</span>
         </div>
       )}
