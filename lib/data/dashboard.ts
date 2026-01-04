@@ -116,11 +116,40 @@ export interface OpsHudData {
 // Internal Types
 // =============================================================================
 
+/** Raw session type from Supabase - relations are arrays */
+interface RawSessionWithRelations extends Session {
+  games?: { title: string }[] | null;
+  venue_tables?: { label: string; capacity: number | null }[] | null;
+}
+
+/** Cleaned session type - relations are single objects */
 interface SessionWithRelations extends Session {
   games?: { title: string } | null;
   venue_tables?: { label: string; capacity: number | null } | null;
 }
 
+/** Transform raw Supabase session response to clean type */
+function transformSessionRelations(raw: RawSessionWithRelations): SessionWithRelations {
+  return {
+    ...raw,
+    games: raw.games?.[0] ?? null,
+    venue_tables: raw.venue_tables?.[0] ?? null,
+  };
+}
+
+/** Raw type from Supabase - relations are arrays */
+interface RawNegativeFeedbackRow {
+  id: string;
+  game_id: string | null;
+  feedback_rating: number | null;
+  feedback_venue_rating: number | null;
+  feedback_venue_comment: string | null;
+  feedback_submitted_at: string;
+  games: { title: string }[] | null;
+  venue_tables: { label: string }[] | null;
+}
+
+/** Cleaned type for application use - relations are single objects */
 interface NegativeFeedbackRow {
   id: string;
   game_id: string | null;
@@ -488,8 +517,10 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
     negativeFeedback24h,
     topGamesThisWeek,
   ] = await Promise.all([
-    // Active sessions with relations
-    getActiveSessionsForVenue(venueId) as Promise<SessionWithRelations[]>,
+    // Active sessions with relations - transform array relations to single objects
+    getActiveSessionsForVenue(venueId).then((sessions) =>
+      (sessions as unknown as RawSessionWithRelations[]).map(transformSessionRelations)
+    ),
 
     // Copies in use by game
     getCopiesInUseByGame(venueId),
@@ -537,7 +568,14 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
       .gte('feedback_submitted_at', twentyFourHoursAgo)
       .or('feedback_rating.lt.3,feedback_venue_rating.lt.3')
       .order('feedback_submitted_at', { ascending: false })
-      .then(({ data }) => (data ?? []) as NegativeFeedbackRow[]),
+      .then(({ data }) => {
+        // Transform raw Supabase response (arrays) to clean type (single objects)
+        return ((data ?? []) as RawNegativeFeedbackRow[]).map((row) => ({
+          ...row,
+          games: row.games?.[0] ?? null,
+          venue_tables: row.venue_tables?.[0] ?? null,
+        })) as NegativeFeedbackRow[];
+      }),
 
     // Top 5 games this week (for severity boosting)
     supabase
@@ -615,25 +653,35 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
     const endedAt = new Date(row.ended_at).getTime();
     const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
 
+    // Supabase relations return as arrays - access first element
+    const venueTables = row.venue_tables as { label: string }[] | null;
+    const games = row.games as { title: string }[] | null;
+
     return {
       id: row.id,
-      tableLabel: (row.venue_tables as { label: string } | null)?.label ?? 'Unknown',
-      gameTitle: (row.games as { title: string } | null)?.title ?? null,
+      tableLabel: venueTables?.[0]?.label ?? 'Unknown',
+      gameTitle: games?.[0]?.title ?? null,
       endedAt: row.ended_at,
       durationMinutes,
       feedbackRating: row.feedback_rating,
     };
   });
 
-  const recentFeedback: RecentFeedback[] = recentFeedbackData.map((row) => ({
-    id: row.id,
-    tableLabel: (row.venue_tables as { label: string } | null)?.label ?? 'Unknown',
-    gameTitle: (row.games as { title: string } | null)?.title ?? null,
-    gameRating: row.feedback_rating,
-    venueRating: row.feedback_venue_rating,
-    comment: row.feedback_comment || row.feedback_venue_comment || null,
-    submittedAt: row.feedback_submitted_at!,
-  }));
+  const recentFeedback: RecentFeedback[] = recentFeedbackData.map((row) => {
+    // Supabase relations return as arrays - access first element
+    const venueTables = row.venue_tables as { label: string }[] | null;
+    const games = row.games as { title: string }[] | null;
+
+    return {
+      id: row.id,
+      tableLabel: venueTables?.[0]?.label ?? 'Unknown',
+      gameTitle: games?.[0]?.title ?? null,
+      gameRating: row.feedback_rating,
+      venueRating: row.feedback_venue_rating,
+      comment: row.feedback_comment || row.feedback_venue_comment || null,
+      submittedAt: row.feedback_submitted_at!,
+    };
+  });
 
   // ---------------------------------------------------------------------------
   // Bottlenecked Games
