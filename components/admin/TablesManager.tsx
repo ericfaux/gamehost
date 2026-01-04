@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
-import { ChevronDown, ChevronUp, Pencil, Plus, QrCode, Trash2, X } from "@/components/icons/lucide-react";
+import { useState, useTransition, useMemo, useEffect } from "react";
+import { ChevronDown, ChevronUp, MapPin, Pencil, Plus, QrCode, Trash2, X } from "@/components/icons/lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,33 @@ export function TablesManager({
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [tables, sortField, sortDirection]);
+
+  // Group tables by zone
+  const tablesByZone = useMemo(() => {
+    return sortedTables.reduce<Record<string, VenueTable[]>>((acc, table) => {
+      const zone = getZoneName(table.id) || 'Unassigned';
+      if (!acc[zone]) acc[zone] = [];
+      acc[zone].push(table);
+      return acc;
+    }, {});
+  }, [sortedTables]);
+
+  // Track expanded zones (all expanded by default)
+  const [expandedZones, setExpandedZones] = useState<string[]>([]);
+
+  // Initialize expanded zones when tablesByZone changes
+  useEffect(() => {
+    setExpandedZones(Object.keys(tablesByZone));
+  }, [tablesByZone]);
+
+  // Toggle zone expansion
+  const toggleZone = (zone: string) => {
+    setExpandedZones(prev =>
+      prev.includes(zone)
+        ? prev.filter(z => z !== zone)
+        : [...prev, zone]
+    );
+  };
 
   // Toggle sort for a column
   const handleSort = (field: SortField) => {
@@ -324,104 +352,139 @@ export function TablesManager({
               <div className="w-24">Actions</div>
             </div>
 
-            {/* Table rows */}
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {sortedTables.map((table) => {
-                const layout = getLayoutInfo(table.id);
-                const zoneName = getZoneName(table.id);
-                const hasPosition = layout?.layout_x != null && layout?.layout_y != null;
-
-                return (
-                  <div
-                    key={table.id}
-                    className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group"
+            {/* Zone-grouped table rows */}
+            <div>
+              {Object.entries(tablesByZone).map(([zone, zoneTables]) => (
+                <div key={zone} className="mb-4 last:mb-0">
+                  {/* Zone Header */}
+                  <button
+                    type="button"
+                    onClick={() => toggleZone(zone)}
+                    className="
+                      w-full flex items-center justify-between
+                      px-4 py-2
+                      bg-slate-100 dark:bg-slate-800
+                      text-sm font-semibold text-slate-700 dark:text-slate-200
+                      hover:bg-slate-200 dark:hover:bg-slate-700
+                      transition-colors
+                    "
                   >
-                    {/* ID - monospace */}
-                    <div className="w-14 font-mono text-xs text-slate-400 dark:text-slate-500">
-                      #{table.id.slice(-4)}
-                    </div>
-
-                    {/* Name with status dot */}
-                    <div className="flex-1 flex items-center gap-2 min-w-0">
-                      <span
-                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                          table.is_active
-                            ? 'bg-green-500'
-                            : 'bg-slate-300 dark:bg-slate-600'
-                        }`}
-                      />
-                      <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
-                        {table.label}
+                    <span className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-slate-400" />
+                      {zone}
+                      <span className="text-slate-400 font-normal">
+                        ({zoneTables.length} {zoneTables.length === 1 ? 'table' : 'tables'})
                       </span>
-                    </div>
+                    </span>
+                    <ChevronDown className={cn(
+                      "w-4 h-4 transition-transform",
+                      expandedZones.includes(zone) ? "rotate-180" : ""
+                    )} />
+                  </button>
 
-                    {/* Zone badge */}
-                    <div className="w-24">
-                      <span className="inline-flex px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded truncate max-w-full">
-                        {zoneName ?? 'Unassigned'}
-                      </span>
-                    </div>
+                  {/* Zone Tables */}
+                  {expandedZones.includes(zone) && (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {zoneTables.map((table) => {
+                        const layout = getLayoutInfo(table.id);
+                        const zoneName = getZoneName(table.id);
+                        const hasPosition = layout?.layout_x != null && layout?.layout_y != null;
 
-                    {/* Coordinates - monospace */}
-                    <div className="w-28 font-mono text-xs text-slate-400 dark:text-slate-500">
-                      {hasPosition
-                        ? `(${Math.round((layout.layout_x ?? 0) * 100)}, ${Math.round((layout.layout_y ?? 0) * 100)})`
-                        : '—'}
-                    </div>
+                        return (
+                          <div
+                            key={table.id}
+                            className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group"
+                          >
+                            {/* ID - monospace */}
+                            <div className="w-14 font-mono text-xs text-slate-400 dark:text-slate-500">
+                              #{table.id.slice(-4)}
+                            </div>
 
-                    {/* Capacity badge - board game style */}
-                    <div className="w-16 flex justify-center">
-                      {table.capacity ? (
-                        <span className="inline-flex items-center justify-center w-8 h-8 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-sm font-bold rounded-full border-2 border-orange-200 dark:border-orange-800">
-                          {table.capacity}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
-                      )}
-                    </div>
+                            {/* Name with status dot */}
+                            <div className="flex-1 flex items-center gap-2 min-w-0">
+                              <span
+                                className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                  table.is_active
+                                    ? 'bg-green-500'
+                                    : 'bg-slate-300 dark:bg-slate-600'
+                                }`}
+                              />
+                              <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
+                                {table.label}
+                              </span>
+                            </div>
 
-                    {/* Actions - visible on hover */}
-                    <div className="w-24 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={() => setQrTable(table)}
-                        disabled={isPending}
-                        className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
-                        aria-label={`View QR code for ${table.label}`}
-                        title="View QR"
-                      >
-                        <QrCode className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingTable(table);
-                          setTableLabel(table.label);
-                          setCapacity(table.capacity?.toString() ?? "");
-                          setDescription(table.description ?? "");
-                          setIsDialogOpen(true);
-                        }}
-                        disabled={isPending}
-                        className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
-                        aria-label={`Edit ${table.label}`}
-                        title="Edit"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTable(table)}
-                        disabled={isPending || deletingId === table.id}
-                        className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
-                        aria-label={`Archive ${table.label}`}
-                        title="Archive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                            {/* Zone badge */}
+                            <div className="w-24">
+                              <span className="inline-flex px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded truncate max-w-full">
+                                {zoneName ?? 'Unassigned'}
+                              </span>
+                            </div>
+
+                            {/* Coordinates - monospace */}
+                            <div className="w-28 font-mono text-xs text-slate-400 dark:text-slate-500">
+                              {hasPosition
+                                ? `(${Math.round((layout.layout_x ?? 0) * 100)}, ${Math.round((layout.layout_y ?? 0) * 100)})`
+                                : '—'}
+                            </div>
+
+                            {/* Capacity badge - board game style */}
+                            <div className="w-16 flex justify-center">
+                              {table.capacity ? (
+                                <span className="inline-flex items-center justify-center w-8 h-8 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-sm font-bold rounded-full border-2 border-orange-200 dark:border-orange-800">
+                                  {table.capacity}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
+                              )}
+                            </div>
+
+                            {/* Actions - visible on hover */}
+                            <div className="w-24 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                type="button"
+                                onClick={() => setQrTable(table)}
+                                disabled={isPending}
+                                className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                                aria-label={`View QR code for ${table.label}`}
+                                title="View QR"
+                              >
+                                <QrCode className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTable(table);
+                                  setTableLabel(table.label);
+                                  setCapacity(table.capacity?.toString() ?? "");
+                                  setDescription(table.description ?? "");
+                                  setIsDialogOpen(true);
+                                }}
+                                disabled={isPending}
+                                className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                                aria-label={`Edit ${table.label}`}
+                                title="Edit"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTable(table)}
+                                disabled={isPending || deletingId === table.id}
+                                className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
+                                aria-label={`Archive ${table.label}`}
+                                title="Archive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                );
-              })}
+                  )}
+                </div>
+              ))}
             </div>
           </>
         )}
