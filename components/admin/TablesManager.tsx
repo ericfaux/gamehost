@@ -23,6 +23,10 @@ interface TablesManagerProps {
   tablesWithLayout?: VenueTableWithLayout[];
   /** Optional: Zones for looking up zone names */
   zones?: VenueZone[];
+  /** Optional: Currently selected table ID (synced with map view) */
+  selectedTableId?: string | null;
+  /** Optional: Callback when a table is selected */
+  onSelectTable?: (tableId: string | null) => void;
 }
 
 export function TablesManager({
@@ -32,6 +36,8 @@ export function TablesManager({
   venueSlug,
   tablesWithLayout,
   zones = [],
+  selectedTableId,
+  onSelectTable,
 }: TablesManagerProps) {
   const { push } = useToast();
   const [tables, setTables] = useState<VenueTable[]>(initialTables);
@@ -114,6 +120,20 @@ export function TablesManager({
   useEffect(() => {
     setExpandedZones(Object.keys(tablesByZone));
   }, [tablesByZone]);
+
+  // Scroll selected table into view when selection changes
+  useEffect(() => {
+    if (selectedTableId) {
+      // Small delay to ensure the DOM is updated
+      const timer = setTimeout(() => {
+        document.getElementById(`table-row-${selectedTableId}`)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedTableId]);
 
   // Toggle zone expansion
   const toggleZone = (zone: string) => {
@@ -446,7 +466,14 @@ export function TablesManager({
                         return (
                           <div
                             key={table.id}
-                            className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group"
+                            id={`table-row-${table.id}`}
+                            className={cn(
+                              "flex items-center gap-4 px-4 py-3 cursor-pointer transition-colors group",
+                              table.id === selectedTableId
+                                ? "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-orange-500"
+                                : "hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                            )}
+                            onClick={() => onSelectTable?.(table.id)}
                           >
                             {/* ID - monospace */}
                             <div className="w-14 font-mono text-xs text-slate-400 dark:text-slate-500">
