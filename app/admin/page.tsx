@@ -63,11 +63,15 @@ export default async function AdminDashboardPage() {
       tableLabel: tablesMap[s.table_id]?.label ?? 'Unknown Table',
     }));
 
+  // Determine if this is a new venue with no setup
+  const isNewVenue = allGames.length === 0 && tables.length === 0;
+
   return (
     <DashboardClient
       data={data}
       availableGames={availableGames}
       browsingSessions={browsingSessions}
+      isNewVenue={isNewVenue}
     />
   );
 }
