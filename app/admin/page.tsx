@@ -1,34 +1,33 @@
-export default function AdminDashboard() {
-  return (
-    <div className="max-w-4xl">
-      <h1 className="text-2xl font-bold text-slate-900 mb-2">
-        Dashboard Overview
-      </h1>
-      <p className="text-slate-600">
-        Welcome to the GameHost Manager. Select an option from the sidebar.
-      </p>
+import { redirect } from 'next/navigation';
+import { createClient } from '@/utils/supabase/server';
+import { getVenueByOwnerId } from '@/lib/data/venues';
+import { getOpsHud } from '@/lib/data/dashboard';
+import { DashboardClient } from '@/components/admin/DashboardClient';
 
-      {/* Quick stats placeholder */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Games in Library
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">—</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Active Sessions
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">—</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Total Sessions
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">—</p>
-        </div>
+export default async function AdminDashboardPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  // Fetch the user's venue
+  const venue = await getVenueByOwnerId(user.id);
+
+  if (!venue) {
+    return (
+      <div className="max-w-4xl">
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">No Venue Found</h1>
+        <p className="text-slate-600">
+          You don&apos;t have a venue associated with your account yet.
+        </p>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Fetch dashboard data
+  const data = await getOpsHud(venue.id);
+
+  return <DashboardClient data={data} />;
 }
