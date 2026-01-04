@@ -26,6 +26,7 @@ import { TableDrawer } from '@/components/admin/floorplan/TableDrawer';
 import { EditModeToolbar } from '@/components/admin/floorplan/EditModeToolbar';
 import { UnplacedTablesList } from '@/components/admin/floorplan/UnplacedTablesList';
 import { ZoneManagerModal } from '@/components/admin/floorplan/ZoneManagerModal';
+import { FloatingToolbar } from '@/components/admin/floorplan/FloatingToolbar';
 import { getDefaultLayoutForCapacity } from '@/components/admin/floorplan/TableNode';
 import type { TableSessionInfo } from '@/components/admin/floorplan/TableNode';
 import {
@@ -613,11 +614,8 @@ export function FloorPlanPageClient({
               <div className="flex-1" />
               <EditModeToolbar
                 isEditMode={isEditMode}
-                showGrid={showGrid}
                 hasChanges={hasChanges}
                 isSaving={isSaving}
-                onToggleEditMode={handleToggleEditMode}
-                onToggleGrid={() => setShowGrid(!showGrid)}
                 onSave={handleSave}
                 onCancel={handleCancel}
               />
@@ -625,20 +623,29 @@ export function FloorPlanPageClient({
 
             {/* Main content: Canvas + Sidebar */}
             <div className="flex gap-4">
-              {/* Canvas */}
-              <div className="flex-1">
+              {/* Canvas container with floating toolbar */}
+              <div className="flex-1 relative">
                 {activeZone ? (
-                  <FloorPlanCanvas
-                    zone={activeZone}
-                    tables={layoutState}
-                    sessions={sessionsMap}
-                    isEditMode={isEditMode}
-                    selectedTableId={selectedTableId}
-                    showGrid={showGrid}
-                    onTableClick={handleTableClick}
-                    onTableMove={handleMove}
-                    onTableResize={handleResize}
-                  />
+                  <>
+                    <FloorPlanCanvas
+                      zone={activeZone}
+                      tables={layoutState}
+                      sessions={sessionsMap}
+                      isEditMode={isEditMode}
+                      selectedTableId={selectedTableId}
+                      showGrid={showGrid}
+                      onTableClick={handleTableClick}
+                      onTableMove={handleMove}
+                      onTableResize={handleResize}
+                    />
+                    {/* Floating toolbar */}
+                    <FloatingToolbar
+                      isEditMode={isEditMode}
+                      showGrid={showGrid}
+                      onToggleEditMode={handleToggleEditMode}
+                      onToggleGrid={() => setShowGrid(!showGrid)}
+                    />
+                  </>
                 ) : zones.length === 0 ? (
                   <div className="h-64 flex flex-col items-center justify-center gap-3 bg-muted/30 rounded-xl border border-structure">
                     <p className="text-sm text-ink-secondary">
