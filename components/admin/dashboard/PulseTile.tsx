@@ -63,12 +63,10 @@ export function PulseTile({
         'shadow-card transition-all duration-150',
         toneBg[tone],
         // Clickable hover states
-        isClickable && [
-          'cursor-pointer',
-          'hover:shadow-token hover:border-[color:var(--color-structure-strong)]',
-          'hover:scale-[1.02]',
-          'active:scale-[0.98] active:shadow-soft',
-        ],
+        isClickable && 'cursor-pointer',
+        isClickable && 'hover:shadow-token hover:border-[color:var(--color-structure-strong)]',
+        isClickable && 'hover:scale-[1.02]',
+        isClickable && 'active:scale-[0.98] active:shadow-soft',
         // Focus state for accessibility
         isClickable && 'focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/50 focus:ring-offset-2',
       )}
