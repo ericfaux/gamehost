@@ -537,16 +537,14 @@ export function FloorPlanPageClient({
             </CardContent>
           </Card>
         ) : (
-          <Card className="panel-surface">
-            <CardContent className="p-0">
-              <TablesManager
-                initialTables={initialTables}
-                venueId={venueId}
-                venueName={venueName}
-                venueSlug={venueSlug}
-              />
-            </CardContent>
-          </Card>
+          <TablesManager
+            initialTables={initialTables}
+            venueId={venueId}
+            venueName={venueName}
+            venueSlug={venueSlug}
+            tablesWithLayout={initialTablesWithLayout}
+            zones={initialZones}
+          />
         )}
       </>
     );
@@ -691,16 +689,14 @@ export function FloorPlanPageClient({
           </CardContent>
         </Card>
       ) : (
-        <Card className="panel-surface">
-          <CardContent className="p-0">
-            <TablesManager
-              initialTables={initialTables}
-              venueId={venueId}
-              venueName={venueName}
-              venueSlug={venueSlug}
-            />
-          </CardContent>
-        </Card>
+        <TablesManager
+          initialTables={initialTables}
+          venueId={venueId}
+          venueName={venueName}
+          venueSlug={venueSlug}
+          tablesWithLayout={layoutState}
+          zones={zones}
+        />
       )}
 
       {/* Table drawer (view mode) */}

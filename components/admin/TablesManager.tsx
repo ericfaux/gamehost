@@ -1,25 +1,106 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Pencil, Plus, QrCode, Trash2, X } from "@/components/icons/lucide-react";
+import { useState, useTransition, useMemo } from "react";
+import { ChevronDown, ChevronUp, Pencil, Plus, QrCode, Trash2, X } from "@/components/icons/lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast, TokenChip } from "@/components/AppShell";
 import { createTable, deleteTable, updateTable } from "@/app/admin/settings/actions";
 import { QRCodeModal } from "@/components/admin/QRCodeModal";
-import type { VenueTable } from "@/lib/db/types";
+import type { VenueTable, VenueTableWithLayout, VenueZone } from "@/lib/db/types";
+
+type SortField = 'label' | 'zone' | 'capacity';
+type SortDirection = 'asc' | 'desc';
 
 interface TablesManagerProps {
   initialTables: VenueTable[];
   venueId: string;
   venueName: string;
   venueSlug: string;
+  /** Optional: Tables with layout info for zone/position display */
+  tablesWithLayout?: VenueTableWithLayout[];
+  /** Optional: Zones for looking up zone names */
+  zones?: VenueZone[];
 }
 
-export function TablesManager({ initialTables, venueId, venueName, venueSlug }: TablesManagerProps) {
+export function TablesManager({
+  initialTables,
+  venueId,
+  venueName,
+  venueSlug,
+  tablesWithLayout,
+  zones = [],
+}: TablesManagerProps) {
   const { push } = useToast();
   const [tables, setTables] = useState<VenueTable[]>(initialTables);
+  const [sortField, setSortField] = useState<SortField>('label');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  // Create a map for quick zone name lookup
+  const zoneMap = useMemo(() => {
+    return new Map(zones.map(z => [z.id, z.name]));
+  }, [zones]);
+
+  // Create a map for quick layout lookup
+  const layoutMap = useMemo(() => {
+    if (!tablesWithLayout) return new Map<string, VenueTableWithLayout>();
+    return new Map(tablesWithLayout.map(t => [t.id, t]));
+  }, [tablesWithLayout]);
+
+  // Get layout info for a table
+  const getLayoutInfo = (tableId: string) => {
+    return layoutMap.get(tableId);
+  };
+
+  // Get zone name for a table
+  const getZoneName = (tableId: string): string | null => {
+    const layout = getLayoutInfo(tableId);
+    if (!layout?.zone_id) return null;
+    return zoneMap.get(layout.zone_id) ?? null;
+  };
+
+  // Sort tables based on current sort settings
+  const sortedTables = useMemo(() => {
+    return [...tables].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'label':
+          comparison = a.label.localeCompare(b.label);
+          break;
+        case 'zone': {
+          const zoneA = getZoneName(a.id) ?? '';
+          const zoneB = getZoneName(b.id) ?? '';
+          comparison = zoneA.localeCompare(zoneB);
+          break;
+        }
+        case 'capacity':
+          comparison = (a.capacity ?? 0) - (b.capacity ?? 0);
+          break;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [tables, sortField, sortDirection]);
+
+  // Toggle sort for a column
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Render sort indicator
+  const SortIndicator = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc'
+      ? <ChevronUp className="h-3 w-3" />
+      : <ChevronDown className="h-3 w-3" />;
+  };
   const [tableLabel, setTableLabel] = useState("");
   const [capacity, setCapacity] = useState("4");
   const [description, setDescription] = useState("");
@@ -161,92 +242,189 @@ export function TablesManager({ initialTables, venueId, venueName, venueSlug }: 
 
   return (
     <>
-      <div className="rounded-2xl border border-structure bg-surface shadow-token">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-structure p-6">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Settings</p>
-            <h2 className="text-xl font-semibold text-ink-primary">Venue Tables</h2>
-            <p className="text-sm text-ink-secondary">
-              Manage the physical tables and booths available at your venue.
-            </p>
-          </div>
+      {/* Inventory Ledger Container */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+        {/* Top toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 px-4 py-3">
           <div className="flex items-center gap-3">
-            <TokenChip tone="muted">{tables.length} active</TokenChip>
-            <Button variant="secondary" onClick={openCreateDialog}>
-              <Plus className="h-4 w-4" />
-              Add table
-            </Button>
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Component Manifest
+            </h2>
+            <TokenChip tone="muted">{tables.length} registered</TokenChip>
           </div>
+          <Button variant="secondary" size="sm" onClick={openCreateDialog}>
+            <Plus className="h-4 w-4" />
+            Add table
+          </Button>
         </div>
 
-        <div className="p-6">
-          {tables.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-structure bg-surface/60 p-6 text-center text-sm text-ink-secondary">
-              No tables configured yet. Add your first table to start seating sessions.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {tables.map((table) => (
-                <div
-                  key={table.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-structure bg-surface/80 p-4"
+        {tables.length === 0 ? (
+          /* Empty state for list context */
+          <div className="px-6 py-12">
+            <div className="flex flex-col items-center gap-4 text-center max-w-sm mx-auto">
+              <div className="h-14 w-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <svg
+                  className="h-7 w-7 text-slate-400 dark:text-slate-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
                 >
-                  <div className="space-y-1">
-                    <p className="font-semibold text-ink-primary">{table.label}</p>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-ink-secondary">
-                      <span>{table.capacity ? `${table.capacity} seats` : "Capacity not set"}</span>
-                      <span className="text-ink-subtle">•</span>
-                      <span>Created {new Date(table.created_at).toLocaleDateString()}</span>
-                    </div>
-                    <p className="text-sm text-ink-secondary">
-                      {table.description ? table.description : "No description provided"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setQrTable(table)}
-                      disabled={isPending}
-                      className="text-ink-secondary hover:text-ink-primary"
-                      aria-label={`View QR code for ${table.label}`}
-                      title="View QR"
-                    >
-                      <QrCode className="h-4 w-4" />
-                      QR
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEditingTable(table);
-                        setTableLabel(table.label);
-                        setCapacity(table.capacity?.toString() ?? "");
-                        setDescription(table.description ?? "");
-                        setIsDialogOpen(true);
-                      }}
-                      disabled={isPending}
-                      className="text-ink-secondary hover:text-ink-primary"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteTable(table)}
-                      disabled={isPending || deletingId === table.id}
-                      className="text-[color:var(--color-danger)] hover:bg-[color:var(--color-danger)]/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {deletingId === table.id ? "Archiving..." : "Archive"}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
+                  />
+                </svg>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  No components registered
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Add your first table to start building your venue inventory.
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={openCreateDialog}>
+                <Plus className="h-4 w-4" />
+                Register first table
+              </Button>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            {/* Header row with sortable columns */}
+            <div className="flex items-center gap-4 px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <div className="w-14">ID</div>
+              <button
+                type="button"
+                onClick={() => handleSort('label')}
+                className="flex-1 flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors text-left"
+              >
+                Name
+                <SortIndicator field="label" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSort('zone')}
+                className="w-24 flex items-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              >
+                Zone
+                <SortIndicator field="zone" />
+              </button>
+              <div className="w-28 font-mono">Position</div>
+              <button
+                type="button"
+                onClick={() => handleSort('capacity')}
+                className="w-16 flex items-center justify-center gap-1 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              >
+                Seats
+                <SortIndicator field="capacity" />
+              </button>
+              <div className="w-24">Actions</div>
+            </div>
+
+            {/* Table rows */}
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {sortedTables.map((table) => {
+                const layout = getLayoutInfo(table.id);
+                const zoneName = getZoneName(table.id);
+                const hasPosition = layout?.layout_x != null && layout?.layout_y != null;
+
+                return (
+                  <div
+                    key={table.id}
+                    className="flex items-center gap-4 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group"
+                  >
+                    {/* ID - monospace */}
+                    <div className="w-14 font-mono text-xs text-slate-400 dark:text-slate-500">
+                      #{table.id.slice(-4)}
+                    </div>
+
+                    {/* Name with status dot */}
+                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                      <span
+                        className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                          table.is_active
+                            ? 'bg-green-500'
+                            : 'bg-slate-300 dark:bg-slate-600'
+                        }`}
+                      />
+                      <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
+                        {table.label}
+                      </span>
+                    </div>
+
+                    {/* Zone badge */}
+                    <div className="w-24">
+                      <span className="inline-flex px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded truncate max-w-full">
+                        {zoneName ?? 'Unassigned'}
+                      </span>
+                    </div>
+
+                    {/* Coordinates - monospace */}
+                    <div className="w-28 font-mono text-xs text-slate-400 dark:text-slate-500">
+                      {hasPosition
+                        ? `(${Math.round((layout.layout_x ?? 0) * 100)}, ${Math.round((layout.layout_y ?? 0) * 100)})`
+                        : '—'}
+                    </div>
+
+                    {/* Capacity badge - board game style */}
+                    <div className="w-16 flex justify-center">
+                      {table.capacity ? (
+                        <span className="inline-flex items-center justify-center w-8 h-8 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-sm font-bold rounded-full border-2 border-orange-200 dark:border-orange-800">
+                          {table.capacity}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
+                      )}
+                    </div>
+
+                    {/* Actions - visible on hover */}
+                    <div className="w-24 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => setQrTable(table)}
+                        disabled={isPending}
+                        className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                        aria-label={`View QR code for ${table.label}`}
+                        title="View QR"
+                      >
+                        <QrCode className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingTable(table);
+                          setTableLabel(table.label);
+                          setCapacity(table.capacity?.toString() ?? "");
+                          setDescription(table.description ?? "");
+                          setIsDialogOpen(true);
+                        }}
+                        disabled={isPending}
+                        className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                        aria-label={`Edit ${table.label}`}
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTable(table)}
+                        disabled={isPending || deletingId === table.id}
+                        className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
+                        aria-label={`Archive ${table.label}`}
+                        title="Archive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
 
       {isDialogOpen && (
