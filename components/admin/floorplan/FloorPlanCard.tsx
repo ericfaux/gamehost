@@ -404,6 +404,11 @@ export function FloorPlanCard({
                     onTableClick={handleTableClick}
                     onTableMove={handleTableMove}
                     onTableResize={handleTableResize}
+                    onAddFirstTable={() => {
+                      if (!isEditMode) {
+                        setIsEditMode(true);
+                      }
+                    }}
                   />
                   {/* Floating toolbar */}
                   <FloatingToolbar

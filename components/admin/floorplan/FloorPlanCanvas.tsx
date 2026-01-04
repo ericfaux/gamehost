@@ -7,6 +7,7 @@
 
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { TableNode, type TableSessionInfo } from './TableNode';
+import { LayoutGrid, Plus } from '@/components/icons';
 import type { VenueZone, VenueTableWithLayout } from '@/lib/db/types';
 
 interface FloorPlanCanvasProps {
@@ -19,6 +20,7 @@ interface FloorPlanCanvasProps {
   onTableClick: (tableId: string) => void;
   onTableMove?: (tableId: string, x: number, y: number) => void;
   onTableResize?: (tableId: string, w: number, h: number) => void;
+  onAddFirstTable?: () => void;
 }
 
 const CANVAS_ASPECT = 3 / 2; // 1200x800 default
@@ -33,6 +35,7 @@ export function FloorPlanCanvas({
   onTableClick,
   onTableMove,
   onTableResize,
+  onAddFirstTable,
 }: FloorPlanCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 600, height: 400 });
@@ -272,12 +275,43 @@ export function FloorPlanCanvas({
 
       {/* Empty state */}
       {zoneTables.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-sm text-[color:var(--color-ink-secondary)]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+          {/* Ghost token illustration */}
+          <div className="
+            w-24 h-24 mb-4
+            border-2 border-dashed border-slate-300 dark:border-slate-600
+            rounded-lg
+            flex items-center justify-center
+            text-slate-400 dark:text-slate-500
+          ">
+            <LayoutGrid className="w-10 h-10" />
+          </div>
+
+          <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">
+            No tables placed yet
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 max-w-xs">
             {isEditMode
-              ? 'Drag tables from the sidebar to place them'
-              : 'No tables placed in this zone'}
+              ? 'Drag tables from the sidebar or click below to get started'
+              : 'Start building your floor plan by adding your first table'}
           </p>
+
+          {onAddFirstTable && (
+            <button
+              onClick={onAddFirstTable}
+              className="
+                inline-flex items-center gap-2
+                px-4 py-2
+                bg-orange-500 hover:bg-orange-600
+                text-white font-medium
+                rounded-lg shadow-sm
+                transition-colors
+              "
+            >
+              <Plus className="w-4 h-4" />
+              Add First Table
+            </button>
+          )}
         </div>
       )}
     </div>
