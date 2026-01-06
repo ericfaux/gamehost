@@ -189,6 +189,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
   const bggRatingStr = formData.get('bggRating') as string | null;
   const copiesInRotationStr = formData.get('copiesInRotation') as string | null;
   const bggId = formData.get('bggId') as string | null;
+  const imageUrl = formData.get('imageUrl') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -278,6 +279,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
       bgg_rank: bggRank,
       bgg_rating: bggRating,
       copies_in_rotation: copiesInRotation,
+      cover_image_url: imageUrl?.trim() || null,
       status: 'in_rotation',
       condition: 'good',
       vibes: [],
@@ -332,6 +334,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
   const setupSteps = formData.get('setupSteps') as string | null;
   const rulesBullets = formData.get('rulesBullets') as string | null;
   const bggId = formData.get('bggId') as string | null;
+  const imageUrl = formData.get('imageUrl') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -439,6 +442,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
       bgg_rank: bggRank,
       bgg_rating: bggRating,
       copies_in_rotation: copiesInRotation,
+      cover_image_url: imageUrl?.trim() || null,
       status,
       condition,
       vibes,
