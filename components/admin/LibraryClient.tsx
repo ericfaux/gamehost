@@ -306,7 +306,7 @@ export function LibraryClient({
     },
     {
       key: 'actions',
-      header: '',
+      header: 'Feedback',
       minWidth: 130,
       render: (row) => {
         const copies = row.copies_in_rotation ?? 1;
