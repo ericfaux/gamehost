@@ -312,11 +312,25 @@ export function GameFeedbackDrawer({
                         key={comment.id}
                         className="panel-surface p-3"
                       >
-                        <p className="text-sm text-[color:var(--color-ink-primary)] mb-2">
+                        {/* Rating + Timestamp row */}
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1">
+                            {comment.rating !== null && (
+                              <>
+                                <Star className="h-3 w-3 text-amber-500" />
+                                <span className="text-xs font-medium text-[color:var(--color-ink-primary)]">
+                                  {comment.rating}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          <span className="text-xs text-[color:var(--color-ink-secondary)]">
+                            {formatRelativeTime(comment.submittedAt)}
+                          </span>
+                        </div>
+                        {/* Comment text */}
+                        <p className="text-sm text-[color:var(--color-ink-primary)]">
                           &ldquo;{comment.comment}&rdquo;
-                        </p>
-                        <p className="text-xs text-[color:var(--color-ink-secondary)]">
-                          {formatRelativeTime(comment.submittedAt)}
                         </p>
                       </div>
                     ))}
