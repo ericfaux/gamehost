@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
+import { normalizeTitle } from '@/lib/utils/strings';
 import type { GameComplexity, GameStatus, GameCondition } from '@/lib/db/types';
 
 // Valid enum values for validation
@@ -41,21 +42,6 @@ interface AddGameResult {
 }
 
 const VALID_COMPLEXITIES: GameComplexity[] = ['simple', 'medium', 'complex'];
-
-/**
- * Normalizes a game title for comparison:
- * - Lowercase
- * - Trim whitespace
- * - Collapse internal spaces
- * - Remove punctuation
- */
-function normalizeTitle(title: string): string {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, ' ')
-    .replace(/[^\w\s]/g, '');
-}
 
 export async function importGames(games: CSVGameImport[]) {
   const supabase = await createClient();
