@@ -1,6 +1,8 @@
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Game, RecommendationParams, GameComplexity, TimeBucket } from '@/lib/db/types';
 import { getCopiesInUseByGame } from './sessions';
+import { getBggHotGames } from '@/lib/bgg';
+import { normalizeTitle } from '@/lib/utils/strings';
 
 /**
  * Fetches a single game by its ID.
@@ -278,4 +280,75 @@ export async function getQuickPickGames(venueId: string, limit: number = 6): Pro
   });
 
   return available.slice(0, limit);
+}
+
+/**
+ * Fetches games from the venue's library that are currently trending on BGG.
+ *
+ * Matching strategy (in order of preference):
+ * 1. Exact match on bgg_id (most reliable)
+ * 2. Normalized title match (fallback for games without bgg_id)
+ *
+ * @param venueId - The venue's UUID
+ * @returns Array of Game objects that match trending games, ordered by BGG rank
+ *
+ * @example
+ * const trending = await getTrendingGamesForVenue(venue.id);
+ * // Returns up to ~50 games that are both in-rotation AND trending on BGG
+ */
+export async function getTrendingGamesForVenue(venueId: string): Promise<Game[]> {
+  // 1. Fetch BGG hot list (cached for 1 hour)
+  const hotGames = await getBggHotGames();
+
+  if (hotGames.length === 0) {
+    return [];
+  }
+
+  // 2. Fetch venue's in_rotation games with relevant fields
+  const { data: localGames, error } = await getSupabaseAdmin()
+    .from('games')
+    .select('*')
+    .eq('venue_id', venueId)
+    .eq('status', 'in_rotation');
+
+  if (error || !localGames || localGames.length === 0) {
+    return [];
+  }
+
+  // 3. Build lookup maps for efficient matching
+  // Primary: bgg_id -> Game (exact match)
+  const bggIdMap = new Map<string, Game>();
+  // Secondary: normalized title -> Game (fuzzy fallback)
+  const titleMap = new Map<string, Game>();
+
+  for (const game of localGames as Game[]) {
+    if (game.bgg_id) {
+      bggIdMap.set(game.bgg_id, game);
+    }
+    titleMap.set(normalizeTitle(game.title), game);
+  }
+
+  // 4. Match hot games to local library, preserving BGG rank order
+  const matches: Game[] = [];
+  const matchedIds = new Set<string>(); // Prevent duplicates
+
+  for (const hotGame of hotGames) {
+    let localMatch: Game | undefined;
+
+    // Try exact bgg_id match first
+    localMatch = bggIdMap.get(hotGame.bggId);
+
+    // Fall back to normalized title match
+    if (!localMatch) {
+      localMatch = titleMap.get(normalizeTitle(hotGame.title));
+    }
+
+    // Add if found and not already matched
+    if (localMatch && !matchedIds.has(localMatch.id)) {
+      matches.push(localMatch);
+      matchedIds.add(localMatch.id);
+    }
+  }
+
+  return matches;
 }
