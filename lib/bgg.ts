@@ -36,6 +36,22 @@ export interface BggGameDetails {
   complexity: GameComplexity;
 }
 
+/**
+ * Represents a game from BGG's "Hotness" trending list.
+ */
+export interface BggHotGame {
+  /** BGG's unique game identifier */
+  bggId: string;
+  /** Current rank on the Hotness list (1-50) */
+  rank: number;
+  /** Game title as listed on BGG */
+  title: string;
+  /** Year the game was published */
+  yearPublished: string;
+  /** URL to the game's thumbnail image */
+  thumbnail: string;
+}
+
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
@@ -241,5 +257,72 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
     }
     console.error('Failed to fetch BGG game details', error);
     return null;
+  }
+}
+
+/**
+ * Fetches the current "Hotness" trending games list from BoardGameGeek.
+ * Results are cached for 1 hour since the list updates infrequently.
+ *
+ * @returns Array of up to 50 trending games, ordered by rank
+ *
+ * @example
+ * const hotGames = await getBggHotGames();
+ * // Returns: [{ bggId: "123", rank: 1, title: "Dune: Imperium", ... }, ...]
+ */
+export async function getBggHotGames(): Promise<BggHotGame[]> {
+  try {
+    const response = await fetch(
+      'https://boardgamegeek.com/xmlapi2/hot?type=boardgame',
+      {
+        headers: getBggHeaders(),
+        next: { revalidate: 3600 }, // Cache for 1 hour
+      }
+    );
+
+    if (!response.ok) {
+      console.error('BGG hotness request failed', response.status, response.statusText);
+      return [];
+    }
+
+    const xml = await response.text();
+    const parsed = parser.parse(xml);
+    const items = normalizeArray(parsed?.items?.item);
+
+    return items
+      .map((item): BggHotGame | null => {
+        if (typeof item !== 'object' || item === null) return null;
+
+        const data = item as Record<string, unknown>;
+        const id = data['@_id'];
+        const rank = data['@_rank'];
+        const nameNode = data.name as Record<string, unknown> | undefined;
+        const yearNode = data.yearpublished as Record<string, unknown> | undefined;
+        const thumbnailNode = data.thumbnail as Record<string, unknown> | undefined;
+
+        // Extract values - BGG hotness uses @_value for nested elements
+        const title = nameNode?.['@_value'];
+        const yearPublished = yearNode?.['@_value'];
+        // Thumbnail can be either @_value attribute or direct text content
+        const thumbnail =
+          typeof data.thumbnail === 'string'
+            ? data.thumbnail
+            : thumbnailNode?.['@_value'] ?? '';
+
+        if (!id || !rank || !title) return null;
+
+        return {
+          bggId: String(id),
+          rank: typeof rank === 'number' ? rank : parseInt(String(rank), 10),
+          title: String(title),
+          yearPublished: yearPublished ? String(yearPublished) : '',
+          thumbnail: typeof thumbnail === 'string' ? thumbnail : '',
+        };
+      })
+      .filter((game): game is BggHotGame => game !== null)
+      .sort((a, b) => a.rank - b.rank);
+  } catch (error) {
+    console.error('Failed to fetch BGG hotness list', error);
+    return [];
   }
 }
