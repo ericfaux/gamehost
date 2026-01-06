@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Plus, Play, Pencil, Star, Eye, Gamepad2 } from "@/components/icons";
+import { Plus, Play, Pencil, Star, Eye, Gamepad2, Download, Loader2 } from "@/components/icons";
 import { TokenChip, useToast } from '@/components/AppShell';
 import { Button } from '@/components/ui/button';
 import { DataTable, Column } from '@/components/ui/data-table';
@@ -23,6 +23,47 @@ import {
 } from '@/components/admin/InlineEditors';
 import { Game } from '@/lib/db/types';
 import type { LibraryAggregatedData, SessionWithTable } from '@/app/admin/library/page';
+import { fetchCoverFromBgg } from '@/app/admin/library/actions';
+
+/**
+ * FetchCoverButton - Inline button to fetch cover image from BGG
+ */
+function FetchCoverButton({ gameId, title }: { gameId: string; title: string }) {
+  const { push } = useToast();
+  const [isPending, startTransition] = useTransition();
+
+  const handleFetch = () => {
+    startTransition(async () => {
+      const result = await fetchCoverFromBgg(gameId, title);
+      if (result.success) {
+        push({ title: 'Cover fetched', description: `Found cover for "${title}"`, tone: 'success' });
+      } else {
+        push({ title: 'Could not fetch cover', description: result.error, tone: 'danger' });
+      }
+    });
+  };
+
+  return (
+    <button
+      onClick={handleFetch}
+      disabled={isPending}
+      className="
+        w-10 h-10 rounded bg-[color:var(--color-muted)]
+        flex items-center justify-center
+        hover:bg-[color:var(--color-structure)] hover:ring-2 hover:ring-[color:var(--color-accent)]/20
+        transition-all cursor-pointer
+        disabled:cursor-not-allowed disabled:opacity-50
+      "
+      title="Fetch cover from BoardGameGeek"
+    >
+      {isPending ? (
+        <Loader2 className="h-4 w-4 text-[color:var(--color-accent)] animate-spin" />
+      ) : (
+        <Download className="h-4 w-4 text-[color:var(--color-ink-secondary)]" />
+      )}
+    </button>
+  );
+}
 
 interface LibraryClientProps {
   data: LibraryAggregatedData;
@@ -186,9 +227,7 @@ export function LibraryClient({
               unoptimized
             />
           ) : (
-            <div className="w-10 h-10 rounded bg-[color:var(--color-muted)] flex items-center justify-center">
-              <Gamepad2 className="h-5 w-5 text-[color:var(--color-ink-secondary)]" />
-            </div>
+            <FetchCoverButton gameId={row.id} title={row.title} />
           )}
         </div>
       ),
