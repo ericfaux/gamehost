@@ -2,146 +2,50 @@
 
 import { useState, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { RotateCcw, Gamepad2, LayoutGrid, QrCode } from '@/components/icons';
+import { RotateCcw } from '@/components/icons';
 import {
-  PulseTile,
   AlertQueue,
-  ControlDeck,
-  ActivityFeed,
+  QuickActions,
   BottleneckWidget,
+  ActivityFeed,
 } from '@/components/admin/dashboard';
+import { VenueFeedbackWidget } from '@/components/admin/VenueFeedbackWidget';
 import {
   AssignGameToSessionModal,
   type BrowsingSession,
 } from '@/components/admin/AssignGameToSessionModal';
-import type { OpsHudData, Alert } from '@/lib/data/dashboard';
+import type { DashboardData, Alert } from '@/lib/data/dashboard';
 import type { Game } from '@/lib/db/types';
 
 export interface DashboardClientProps {
-  data: OpsHudData;
+  dashboardData: DashboardData;
   availableGames: Game[];
   browsingSessions: BrowsingSession[];
-  isNewVenue?: boolean;
-}
-
-/**
- * Onboarding card for new venues with no data
- */
-function OnboardingCard({
-  icon,
-  title,
-  description,
-  href,
-  primary = false,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  href: string;
-  primary?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        'flex items-start gap-4 p-5 rounded-xl border transition-all duration-150',
-        'shadow-card hover:shadow-token hover:scale-[1.01] active:scale-[0.99]',
-        'focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/50 focus:ring-offset-2',
-        primary
-          ? 'bg-[color:var(--color-accent)] border-[color:var(--color-accent)] text-white'
-          : 'bg-[color:var(--color-elevated)] border-[color:var(--color-structure)] hover:border-[color:var(--color-structure-strong)]',
-      )}
-    >
-      <span
-        className={cn(
-          'flex-shrink-0 p-2 rounded-lg',
-          primary
-            ? 'bg-white/20'
-            : 'bg-[color:var(--color-accent-soft)]',
-        )}
-      >
-        {icon}
-      </span>
-      <div className="flex flex-col gap-1">
-        <span className={cn('font-semibold', primary ? 'text-white' : 'text-[color:var(--color-ink-primary)]')}>
-          {title}
-        </span>
-        <span className={cn('text-sm', primary ? 'text-white/80' : 'text-[color:var(--color-ink-secondary)]')}>
-          {description}
-        </span>
-      </div>
-    </Link>
-  );
-}
-
-/**
- * Onboarding empty state for new venues
- */
-function NewVenueOnboarding() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12">
-      <div className="max-w-xl w-full text-center mb-8">
-        <span className="text-5xl mb-4 block" role="img" aria-label="Sparkles">✨</span>
-        <h2 className="text-2xl font-bold text-[color:var(--color-ink-primary)] mb-2">
-          Welcome to your dashboard!
-        </h2>
-        <p className="text-[color:var(--color-ink-secondary)]">
-          Let&apos;s get your venue set up. Complete these steps to start tracking sessions and feedback.
-        </p>
-      </div>
-      <div className="max-w-lg w-full flex flex-col gap-4">
-        <OnboardingCard
-          icon={<Gamepad2 className="w-5 h-5 text-white" />}
-          title="Add your first game"
-          description="Build your library with games guests can play"
-          href="/admin/library?action=add"
-          primary
-        />
-        <OnboardingCard
-          icon={<LayoutGrid className="w-5 h-5 text-[color:var(--color-accent)]" />}
-          title="Set up tables"
-          description="Configure your venue's table layout"
-          href="/admin/settings"
-        />
-        <OnboardingCard
-          icon={<QrCode className="w-5 h-5 text-[color:var(--color-accent)]" />}
-          title="Print QR codes"
-          description="Generate codes for guests to check in"
-          href="/admin/settings"
-        />
-      </div>
-    </div>
-  );
-}
-
-function formatLastUpdated(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
 }
 
 /**
  * DashboardClient - Client-side wrapper for dashboard interactivity.
  *
+ * Renders the complete blended dashboard layout:
+ * 1. Header row: "DASHBOARD > Overview" with refresh button
+ * 2. KPI Strip: Games in Library | Active Sessions | Sessions Today
+ * 3. Venue Feedback Widget
+ * 4. Two-column grid:
+ *    - Left (lg:col-span-7): AlertQueue
+ *    - Right (lg:col-span-5): QuickActions, BottleneckWidget, ActivityFeed
+ *
  * Handles:
  * - Refresh button with loading state
  * - Alert actions (navigation and modals)
- * - Control deck actions
+ * - Quick Actions → open modal or navigate
  * - Assign game to session modal
- * - New venue onboarding state
  */
 export function DashboardClient({
-  data,
+  dashboardData,
   availableGames,
   browsingSessions,
-  isNewVenue = false,
 }: DashboardClientProps) {
   const router = useRouter();
   const [isRefreshing, startRefresh] = useTransition();
@@ -232,14 +136,15 @@ export function DashboardClient({
   }, [router, browsingSessions]);
 
   const handleAssignGame = useCallback(() => {
-    // Navigate to sessions page for assigning games
-    router.push('/admin/sessions');
-  }, [router]);
-
-  const handleLogIssue = useCallback(() => {
-    // Navigate to library for marking games for repair
-    router.push('/admin/library?filter=problematic');
-  }, [router]);
+    // If there are browsing sessions, open modal with the first one
+    if (browsingSessions.length > 0) {
+      setSelectedSession(browsingSessions[0]);
+      setAssignModalOpen(true);
+    } else {
+      // Navigate to sessions page for assigning games
+      router.push('/admin/sessions');
+    }
+  }, [router, browsingSessions]);
 
   const handleCloseAssignModal = useCallback(() => {
     setAssignModalOpen(false);
@@ -250,68 +155,30 @@ export function DashboardClient({
     router.refresh();
   }, [router]);
 
-  // Determine pulse tile tones based on values
-  const waitingTone = data.pulse.waitingTables > 0
-    ? (data.pulse.waitingTables >= 3 ? 'danger' : 'warn')
-    : 'default';
-
-  const issuesTone = data.pulse.openIssues > 0
-    ? (data.pulse.openIssues >= 3 ? 'danger' : 'warn')
-    : 'default';
-
-  const venuePulseTone = data.pulse.venuePulse.avg !== null
-    ? (data.pulse.venuePulse.avg >= 4 ? 'success' : data.pulse.venuePulse.avg >= 3 ? 'default' : 'warn')
-    : 'default';
-
-  const venuePulseValue = data.pulse.venuePulse.avg !== null
-    ? data.pulse.venuePulse.avg.toFixed(1)
-    : '—';
-
-  const hasBrowsingSessions = data.pulse.waitingTables > 0;
-
-  // Show onboarding for new venues
-  if (isNewVenue) {
-    return (
-      <div className="flex flex-col gap-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[color:var(--color-ink-primary)]">
-            Dashboard
-          </h1>
-        </div>
-        <NewVenueOnboarding />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
+    <div className="max-w-6xl space-y-6">
+      {/* Header row: "DASHBOARD > Overview" with refresh button */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[color:var(--color-ink-primary)]">
-          Dashboard
-        </h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-[color:var(--color-ink-secondary)]">
-            Updated: {formatLastUpdated(data.meta.generatedAt)}
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            aria-label={isRefreshing ? 'Refreshing dashboard...' : 'Refresh dashboard'}
-          >
-            <RotateCcw
-              className={cn(
-                'w-4 h-4 transition-transform',
-                isRefreshing && 'animate-spin'
-              )}
-              aria-hidden="true"
-            />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
+        <div>
+          <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Dashboard</p>
+          <h1 className="text-3xl">Overview</h1>
         </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          aria-label={isRefreshing ? 'Refreshing dashboard...' : 'Refresh dashboard'}
+        >
+          <RotateCcw
+            className={cn(
+              'w-4 h-4 transition-transform',
+              isRefreshing && 'animate-spin'
+            )}
+            aria-hidden="true"
+          />
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
+        </Button>
       </div>
 
       {/* Screen reader announcement for refresh */}
@@ -319,84 +186,61 @@ export function DashboardClient({
         {isRefreshing ? 'Refreshing dashboard data...' : ''}
       </div>
 
-      {/* Pulse Strip */}
-      <div
-        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-        role="region"
-        aria-label="Dashboard metrics"
-      >
-        <PulseTile
-          value={data.pulse.activeTables}
-          label="Active Tables"
-          tone="accent"
-          badge={data.pulse.activeTables > 0 ? 'Live' : undefined}
-          loading={isRefreshing}
-        />
-        <PulseTile
-          value={data.pulse.waitingTables}
-          label="Waiting"
-          tone={waitingTone}
-          badge={data.pulse.waitingTables > 0 ? 'Needs help' : undefined}
-          loading={isRefreshing}
-        />
-        <PulseTile
-          value={data.pulse.openIssues}
-          label="Open Issues"
-          tone={issuesTone}
-          loading={isRefreshing}
-        />
-        <PulseTile
-          value={venuePulseValue}
-          label="Venue Pulse"
-          tone={venuePulseTone}
-          badge={data.pulse.venuePulse.count > 0 ? `${data.pulse.venuePulse.count} today` : undefined}
-          loading={isRefreshing}
-        />
+      {/* KPI Strip */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
+            Games in Library
+          </h3>
+          <p className="text-3xl font-bold text-slate-900 mt-2">
+            {dashboardData.gamesInLibrary}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
+            Active Sessions
+          </h3>
+          <p className="text-3xl font-bold text-slate-900 mt-2">
+            {dashboardData.activeSessions}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
+            Sessions Today
+          </h3>
+          <p className="text-3xl font-bold text-slate-900 mt-2">
+            {dashboardData.totalSessionsToday}
+          </p>
+        </div>
       </div>
 
-      {/* Main Content Grid */}
+      {/* Venue Feedback Widget */}
+      <VenueFeedbackWidget feedback={dashboardData.venueFeedback} />
+
+      {/* Two-column grid: AlertQueue on left, QuickActions/Bottleneck/Activity on right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Alert Queue */}
         <div className="lg:col-span-7">
           <AlertQueue
-            alerts={data.alerts}
+            alerts={dashboardData.alerts}
             onAction={handleAlertAction}
             loading={isRefreshing}
           />
         </div>
 
-        {/* Right Column: Control Deck, Bottleneck Widget, Activity Feed */}
+        {/* Right Column: QuickActions, Bottleneck Widget, Activity Feed */}
         <div className="lg:col-span-5 flex flex-col gap-6">
-          {/* Control Deck */}
-          <Card className="panel-surface">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ControlDeck
-                onAssignGame={handleAssignGame}
-                onLogIssue={handleLogIssue}
-                hasBrowsingSessions={hasBrowsingSessions}
-                browsingCount={data.pulse.waitingTables}
-              />
-            </CardContent>
-          </Card>
+          <QuickActions
+            browsingCount={dashboardData.browsingSessionsCount}
+            onAssignGame={handleAssignGame}
+          />
 
-          {/* Bottleneck Widget */}
-          <BottleneckWidget games={data.bottleneckedGames} />
+          <BottleneckWidget games={dashboardData.bottleneckedGames} />
 
-          {/* Activity Feed */}
-          <Card className="panel-surface">
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ActivityFeed
-                recentEnded={data.activity.recentEnded}
-                recentFeedback={data.activity.recentFeedback}
-              />
-            </CardContent>
-          </Card>
+          <ActivityFeed
+            recentEnded={dashboardData.recentEnded}
+            recentFeedback={dashboardData.recentFeedback}
+          />
         </div>
       </div>
 
@@ -413,3 +257,6 @@ export function DashboardClient({
     </div>
   );
 }
+
+// Re-export the type for backward compatibility
+export type { BrowsingSession };
