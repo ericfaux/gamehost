@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { RotateCcw } from '@/components/icons';
@@ -188,30 +189,36 @@ export function DashboardClient({
 
       {/* KPI Strip */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Games in Library
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">
-            {dashboardData.gamesInLibrary}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Active Sessions
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">
-            {dashboardData.activeSessions}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Sessions Today
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">
-            {dashboardData.totalSessionsToday}
-          </p>
-        </div>
+        <Link href="/admin/library" className="block">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
+            <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
+              Games in Library
+            </h3>
+            <p className="text-3xl font-bold text-slate-900 mt-2">
+              {dashboardData.gamesInLibrary}
+            </p>
+          </div>
+        </Link>
+        <Link href="/admin/sessions" className="block">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
+            <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
+              Active Sessions
+            </h3>
+            <p className="text-3xl font-bold text-slate-900 mt-2">
+              {dashboardData.activeSessions}
+            </p>
+          </div>
+        </Link>
+        <Link href="/admin/sessions" className="block">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
+            <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
+              Sessions Today
+            </h3>
+            <p className="text-3xl font-bold text-slate-900 mt-2">
+              {dashboardData.totalSessionsToday}
+            </p>
+          </div>
+        </Link>
       </div>
 
       {/* Venue Feedback Widget */}
