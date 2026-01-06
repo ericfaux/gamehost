@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { normalizeTitle } from '@/lib/utils/strings';
-import { getBggHotGames } from '@/lib/bgg';
+import { getBggHotGames, searchBggGames, getBggGameDetails } from '@/lib/bgg';
 import type { GameComplexity, GameStatus, GameCondition } from '@/lib/db/types';
 
 // Valid enum values for validation
@@ -601,4 +601,77 @@ export async function getTrendingGameIds(venueId: string): Promise<Set<string>> 
   }
 
   return trendingIds;
+}
+
+/**
+ * Fetches a cover image from BoardGameGeek for a game missing one.
+ * Searches BGG by title, takes the top result's full image URL,
+ * and saves it to the database.
+ */
+export interface FetchCoverResult {
+  success: boolean;
+  imageUrl?: string;
+  error?: string;
+}
+
+export async function fetchCoverFromBgg(
+  gameId: string,
+  title: string
+): Promise<FetchCoverResult> {
+  // Get current user
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'You must be logged in' };
+  }
+
+  // Get user's venue
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    return { success: false, error: 'No venue found for your account' };
+  }
+
+  // Validate the game exists and belongs to this venue
+  const { data: existingGame, error: fetchError } = await getSupabaseAdmin()
+    .from('games')
+    .select('id, venue_id')
+    .eq('id', gameId)
+    .single();
+
+  if (fetchError || !existingGame) {
+    return { success: false, error: 'Game not found' };
+  }
+
+  if (existingGame.venue_id !== venue.id) {
+    return { success: false, error: 'Game does not belong to your venue' };
+  }
+
+  // Search BGG for the game
+  const searchResults = await searchBggGames(title);
+  if (searchResults.length === 0) {
+    return { success: false, error: 'No match found on BGG' };
+  }
+
+  // Get full details for the top result (includes full-size image URL)
+  const topResult = searchResults[0];
+  const details = await getBggGameDetails(topResult.id);
+  if (!details || !details.cover_image_url) {
+    return { success: false, error: 'Could not retrieve cover image from BGG' };
+  }
+
+  // Update the game with the cover image URL
+  const { error: updateError } = await getSupabaseAdmin()
+    .from('games')
+    .update({ cover_image_url: details.cover_image_url })
+    .eq('id', gameId);
+
+  if (updateError) {
+    console.error('Failed to update game cover:', updateError);
+    return { success: false, error: 'Failed to save cover image' };
+  }
+
+  revalidatePath('/admin/library');
+
+  return { success: true, imageUrl: details.cover_image_url };
 }
