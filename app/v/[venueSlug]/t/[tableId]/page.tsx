@@ -18,7 +18,9 @@ import {
   getGameById,
   getActiveSession,
   getQuickPickGames,
+  getTrendingGamesForVenue,
 } from '@/lib/data';
+import { TrendingUp } from 'lucide-react';
 import { StartSessionButton } from './StartSessionButton';
 import { EndSessionButton } from './EndSessionButton';
 import { QuickPickCard } from '@/components/table-app';
@@ -141,6 +143,11 @@ export default async function TableLandingPage({ params }: PageProps) {
   if (hasValidSession && !isPlaying) {
     quickPicks = await getQuickPickGames(venue.id, 6);
   }
+
+  // Fetch trending games for browsing state
+  // Only fetch if we're in browsing state to avoid unnecessary API calls
+  const trendingGames =
+    hasValidSession && !isPlaying ? await getTrendingGamesForVenue(venue.id) : [];
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 rulebook-grid">
@@ -279,13 +286,38 @@ export default async function TableLandingPage({ params }: PageProps) {
               Session Active
             </div>
 
-            {/* Quick Picks Section */}
+            {/* Trending at Venue - Show when we have matches */}
+            {trendingGames.length > 0 && (
+              <section className="space-y-3 text-left">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-orange-500" />
+                  <h2 className="text-lg font-semibold text-[color:var(--color-ink-primary)]">
+                    Trending at {venue.name}
+                  </h2>
+                </div>
+                <p className="text-sm text-[color:var(--color-ink-secondary)]">
+                  These games are hot on BoardGameGeek right now
+                </p>
+                <div className="space-y-3">
+                  {trendingGames.slice(0, 3).map((game) => (
+                    <QuickPickCard
+                      key={game.id}
+                      game={game}
+                      venueSlug={venueSlug}
+                      tableId={tableId}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Quick Picks / Staff Picks Section */}
             {quickPicks.length > 0 && (
               <div className="space-y-4 text-left">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-bold text-[color:var(--color-ink-primary)]">
-                      Quick Picks
+                      {trendingGames.length > 0 ? 'Staff Picks' : 'Quick Picks'}
                     </h2>
                     <p className="text-sm text-[color:var(--color-ink-secondary)]">
                       Top games available now
