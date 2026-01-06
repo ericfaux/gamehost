@@ -189,8 +189,8 @@ export function DashboardClient({
 
       {/* KPI Strip */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Link href="/admin/library" className="block">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
+        <Link href="/admin/library" className="block h-full">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group h-full">
             <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
               Games in Library
             </h3>
@@ -199,8 +199,8 @@ export function DashboardClient({
             </p>
           </div>
         </Link>
-        <Link href="/admin/sessions" className="block">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
+        <Link href="/admin/sessions" className="block h-full">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group h-full">
             <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
               Active Sessions
             </h3>
@@ -209,8 +209,8 @@ export function DashboardClient({
             </p>
           </div>
         </Link>
-        <Link href="/admin/sessions" className="block">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
+        <Link href="/admin/sessions" className="block h-full">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group h-full">
             <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
               Sessions Today
             </h3>
@@ -219,8 +219,8 @@ export function DashboardClient({
             </p>
           </div>
         </Link>
-        <Link href="/admin/library" className="block">
-          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
+        <Link href="/admin/library" className="block h-full">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group h-full">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-orange-500" aria-hidden="true" />
               <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
