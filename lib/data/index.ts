@@ -39,6 +39,7 @@ export {
   getGamesForVenue,
   getRecommendedGames,
   getQuickPickGames,
+  getStaffPickGames,
   getTrendingGamesForVenue,
 } from './games';
 
