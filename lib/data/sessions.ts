@@ -777,6 +777,7 @@ export interface GameFeedbackDetail {
   recentComments: Array<{
     id: string;
     comment: string;
+    rating: number | null;
     submittedAt: string;
   }>;
 }
@@ -864,6 +865,7 @@ export async function getGameFeedbackDetail(
       detail.recentComments.push({
         id: row.id,
         comment: row.feedback_comment,
+        rating: row.feedback_rating,
         submittedAt: row.feedback_submitted_at,
       });
     }
