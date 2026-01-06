@@ -2,7 +2,10 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getDashboardData } from '@/lib/data/dashboard';
-import { VenueFeedbackWidget } from '@/components/admin/VenueFeedbackWidget';
+import { getActiveSessionsForVenue } from '@/lib/data/sessions';
+import { getGamesForVenue } from '@/lib/data/games';
+import { DashboardClient } from '@/components/admin/DashboardClient';
+import type { BrowsingSession } from '@/components/admin/AssignGameToSessionModal';
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
@@ -25,45 +28,33 @@ export default async function AdminDashboard() {
     );
   }
 
-  const dashboardData = await getDashboardData(venue.id);
+  // Fetch all dashboard data in parallel
+  const [dashboardData, activeSessions, allGames] = await Promise.all([
+    getDashboardData(venue.id),
+    getActiveSessionsForVenue(venue.id),
+    getGamesForVenue(venue.id),
+  ]);
+
+  // Extract browsing sessions (no game assigned) with table labels
+  const browsingSessions: BrowsingSession[] = activeSessions
+    .filter((session) => session.game_id === null)
+    .map((session) => {
+      // Supabase relations return as arrays - access first element
+      const venueTables = (session as unknown as { venue_tables?: { label: string }[] }).venue_tables;
+      return {
+        ...session,
+        tableLabel: venueTables?.[0]?.label ?? 'Unknown Table',
+      };
+    });
+
+  // Get available games (in rotation)
+  const availableGames = allGames.filter((game) => game.status === 'in_rotation');
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div>
-        <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Dashboard</p>
-        <h1 className="text-3xl">Overview</h1>
-      </div>
-
-      {/* Quick stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Games in Library
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">
-            {dashboardData.gamesInLibrary}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Active Sessions
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">
-            {dashboardData.activeSessions}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide">
-            Sessions Today
-          </h3>
-          <p className="text-3xl font-bold text-slate-900 mt-2">
-            {dashboardData.totalSessionsToday}
-          </p>
-        </div>
-      </div>
-
-      {/* Venue Feedback Widget */}
-      <VenueFeedbackWidget feedback={dashboardData.venueFeedback} />
-    </div>
+    <DashboardClient
+      dashboardData={dashboardData}
+      availableGames={availableGames}
+      browsingSessions={browsingSessions}
+    />
   );
 }
