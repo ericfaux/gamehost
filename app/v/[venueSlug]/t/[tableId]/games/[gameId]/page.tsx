@@ -2,7 +2,7 @@
  * Game Detail Route - /v/[venueSlug]/t/[tableId]/games/[gameId]
  *
  * Shows detailed information about a specific game and allows
- * guests to start a session ("We're playing this").
+ * guests to check out the game ("Check Out My Game").
  *
  * Wizard params can be passed via query string from the wizard page
  * and will be stored with the session for analytics.
@@ -262,6 +262,7 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
             gameTitle={game.title}
             tableLabel={table.label}
             wizardParams={wizardParams}
+            shelfLocation={game.shelf_location}
           />
         </div>
       </div>
