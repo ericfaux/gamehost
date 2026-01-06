@@ -53,6 +53,7 @@ export interface VenueTable {
 export interface Game {
   id: string;
   venue_id: string;
+  bgg_id: string | null;  // BGG's unique identifier for exact matching
   title: string;
   min_players: number;
   max_players: number;

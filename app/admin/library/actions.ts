@@ -201,6 +201,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
   const bggRankStr = formData.get('bggRank') as string | null;
   const bggRatingStr = formData.get('bggRating') as string | null;
   const copiesInRotationStr = formData.get('copiesInRotation') as string | null;
+  const bggId = formData.get('bggId') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -278,6 +279,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
     .from('games')
     .insert({
       venue_id: venue.id,
+      bgg_id: bggId || null,
       title: title.trim(),
       pitch: description?.trim() || null,
       min_players: minPlayers,
@@ -342,6 +344,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
   const vibesJson = formData.get('vibes') as string | null;
   const setupSteps = formData.get('setupSteps') as string | null;
   const rulesBullets = formData.get('rulesBullets') as string | null;
+  const bggId = formData.get('bggId') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -437,6 +440,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
     .from('games')
     .update({
       venue_id: venue.id,
+      bgg_id: bggId || null,
       title: title.trim(),
       pitch: description?.trim() || null,
       min_players: minPlayers,
