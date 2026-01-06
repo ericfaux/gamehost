@@ -20,7 +20,7 @@ import {
   getQuickPickGames,
   getTrendingGamesForVenue,
 } from '@/lib/data';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp } from '@/components/icons';
 import { StartSessionButton } from './StartSessionButton';
 import { EndSessionButton } from './EndSessionButton';
 import { QuickPickCard } from '@/components/table-app';
