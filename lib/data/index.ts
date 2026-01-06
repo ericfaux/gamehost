@@ -34,7 +34,13 @@ export {
 } from './zones';
 
 // Game queries
-export { getGameById, getGamesForVenue, getRecommendedGames, getQuickPickGames } from './games';
+export {
+  getGameById,
+  getGamesForVenue,
+  getRecommendedGames,
+  getQuickPickGames,
+  getTrendingGamesForVenue,
+} from './games';
 
 // Session operations
 export {
