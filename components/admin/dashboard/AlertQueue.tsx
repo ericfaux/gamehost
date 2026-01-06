@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ChevronDown } from '@/components/icons';
+import { ChevronDown, Table2, Wrench, MessageSquare } from '@/components/icons';
 import { AlertRow } from './AlertRow';
 import type { Alert, AlertType, AlertSeverity } from '@/lib/data/dashboard';
 
@@ -51,6 +51,15 @@ const severityOrder: Record<AlertSeverity, number> = {
  */
 const categoryOrder: AlertCategory[] = ['Tables', 'Maintenance', 'Experience'];
 
+/**
+ * Maps categories to their icons
+ */
+const categoryIcons: Record<AlertCategory, React.ComponentType<{ className?: string }>> = {
+  Tables: Table2,
+  Maintenance: Wrench,
+  Experience: MessageSquare,
+};
+
 interface AlertGroup {
   category: AlertCategory;
   alerts: Alert[];
@@ -97,6 +106,8 @@ function AlertGroupHeader({
   onToggle: () => void;
   id: string;
 }) {
+  const Icon = categoryIcons[category];
+
   return (
     <button
       type="button"
@@ -112,6 +123,7 @@ function AlertGroupHeader({
       id={`alert-header-${id}`}
     >
       <span className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-[color:var(--color-ink-secondary)]" />
         <span className="text-sm font-semibold text-[color:var(--color-ink-primary)]">
           {category}
         </span>
