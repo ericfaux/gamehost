@@ -38,7 +38,10 @@ export function LibraryClient({
 }: LibraryClientProps) {
   const router = useRouter();
   const { push } = useToast();
-  const { games, copiesInUse, activeSessionsByGame, browsingSessions, feedbackSummaries, venueId } = data;
+  const { games, copiesInUse, activeSessionsByGame, browsingSessions, feedbackSummaries, venueId, trendingGameIds } = data;
+
+  // Create a Set for efficient trending lookup
+  const trendingSet = useMemo(() => new Set(trendingGameIds), [trendingGameIds]);
 
   // State
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -173,9 +176,20 @@ export function LibraryClient({
       minWidth: 180,
       render: (row) => {
         const feedback = feedbackSummaries[row.id];
+        const isTrending = trendingSet.has(row.id);
         return (
           <div className="space-y-0.5">
-            <span className="font-medium text-[color:var(--color-ink-primary)]">{row.title}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-[color:var(--color-ink-primary)]">{row.title}</span>
+              {isTrending && (
+                <span
+                  className="text-orange-500"
+                  title="Trending on BoardGameGeek"
+                >
+                  🔥
+                </span>
+              )}
+            </div>
             {feedback && feedback.responseCount > 0 && (
               <div className="flex items-center gap-1.5 text-xs">
                 <Star className="h-3 w-3 text-amber-500" />
@@ -357,7 +371,7 @@ export function LibraryClient({
         );
       },
     },
-  ], [copiesInUse, browsingSessions.length, feedbackSummaries, handleOpenDrawer, handleOpenAssignModal, handleOpenEditModal, handleOpenFeedbackDrawer]);
+  ], [copiesInUse, browsingSessions.length, feedbackSummaries, trendingSet, handleOpenDrawer, handleOpenAssignModal, handleOpenEditModal, handleOpenFeedbackDrawer]);
 
   // Filter games
   const filtered = useMemo(() => {
