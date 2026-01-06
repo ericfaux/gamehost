@@ -35,6 +35,7 @@ interface FormState {
   vibes: string[];
   setupSteps: string;
   rulesBullets: string;
+  bggId: string;
 }
 
 const initialFormState: FormState = {
@@ -55,6 +56,7 @@ const initialFormState: FormState = {
   vibes: [],
   setupSteps: '',
   rulesBullets: '',
+  bggId: '',
 };
 
 function mapGameToFormState(game: Game): FormState {
@@ -76,6 +78,7 @@ function mapGameToFormState(game: Game): FormState {
     vibes: game.vibes ?? [],
     setupSteps: game.setup_steps || '',
     rulesBullets: game.rules_bullets || '',
+    bggId: game.bgg_id || '',
   };
 }
 
@@ -212,6 +215,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
       const details: BggGameDetails = result.data;
       setFormState((prev) => ({
         ...prev,
+        bggId: gameId,  // Store the BGG ID for exact matching
         title: details.title,
         description: details.pitch || '',
         minPlayers: String(details.min_players),
@@ -272,6 +276,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
       formData.set('vibes', JSON.stringify(formState.vibes));
       formData.set('setupSteps', formState.setupSteps);
       formData.set('rulesBullets', formState.rulesBullets);
+      formData.set('bggId', formState.bggId);
 
       if (initialData) {
         formData.append('id', initialData.id);

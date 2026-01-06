@@ -26,6 +26,7 @@ const gameBase = {
   setup_steps: null,
   rules_bullets: null,
   cover_image_url: null,
+  bgg_id: null,
   bgg_rank: null,
   bgg_rating: null,
 };
