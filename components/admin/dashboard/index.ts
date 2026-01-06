@@ -4,3 +4,4 @@ export { AlertRow, type AlertRowProps } from './AlertRow';
 export { ControlDeck, type ControlDeckProps } from './ControlDeck';
 export { ActivityFeed, type ActivityFeedProps } from './ActivityFeed';
 export { BottleneckWidget, type BottleneckWidgetProps } from './BottleneckWidget';
+export { QuickActions, type QuickActionsProps } from './QuickActions';
