@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Play, Pencil, Star, Eye } from "@/components/icons";
+import Image from 'next/image';
+import { Plus, Play, Pencil, Star, Eye, Gamepad2 } from "@/components/icons";
 import { TokenChip, useToast } from '@/components/AppShell';
 import { Button } from '@/components/ui/button';
 import { DataTable, Column } from '@/components/ui/data-table';
@@ -169,6 +170,29 @@ export function LibraryClient({
 
   // Table columns
   const columns: Column<Game>[] = useMemo(() => [
+    {
+      key: 'cover',
+      header: '',
+      minWidth: 56,
+      render: (row) => (
+        <div className="flex items-center justify-center w-10 h-10">
+          {row.cover_image_url ? (
+            <Image
+              src={row.cover_image_url}
+              alt={row.title}
+              width={40}
+              height={40}
+              className="rounded object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="w-10 h-10 rounded bg-[color:var(--color-muted)] flex items-center justify-center">
+              <Gamepad2 className="h-5 w-5 text-[color:var(--color-ink-secondary)]" />
+            </div>
+          )}
+        </div>
+      ),
+    },
     {
       key: 'title',
       header: 'Title',
