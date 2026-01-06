@@ -12,6 +12,8 @@ import {
   getCopiesInUseByGame,
   getVenueExperienceSummary,
 } from './sessions';
+import { getBggHotGames } from '@/lib/bgg';
+import { normalizeTitle } from '@/lib/utils/strings';
 
 // =============================================================================
 // Constants
@@ -984,6 +986,10 @@ export interface DashboardData {
   activeSessions: number;
   totalSessionsToday: number;
 
+  // Trending games (BGG Hotness)
+  trendingGamesCount: number;
+  trendingGamesTotal: number;
+
   // Venue feedback (last 30 days)
   venueFeedback: VenueFeedback;
 
@@ -1019,6 +1025,8 @@ export async function getDashboardData(venueId: string): Promise<DashboardData> 
     bottleneckedGames,
     recentActivity,
     browsingSessionsCount,
+    hotGames,
+    rotationGamesResult,
   ] = await Promise.all([
     // Games in library count
     supabase
@@ -1060,6 +1068,16 @@ export async function getDashboardData(venueId: string): Promise<DashboardData> 
 
     // Browsing sessions count
     getBrowsingSessionsCount(venueId),
+
+    // BGG hot games for trending calculation
+    getBggHotGames(),
+
+    // All in_rotation games for trending matching
+    supabase
+      .from('games')
+      .select('id, bgg_id, title')
+      .eq('venue_id', venueId)
+      .eq('status', 'in_rotation'),
   ]);
 
   // Process games count
@@ -1070,6 +1088,28 @@ export async function getDashboardData(venueId: string): Promise<DashboardData> 
 
   // Process today's sessions count
   const totalSessionsToday = todaySessionsResult.count ?? 0;
+
+  // -------------------------------------------------------------------------
+  // Trending Games Count (BGG Hotness matching)
+  // -------------------------------------------------------------------------
+  const rotationGames = rotationGamesResult.data ?? [];
+  const trendingGamesTotal = rotationGames.length;
+  let trendingGamesCount = 0;
+
+  if (hotGames.length > 0 && rotationGames.length > 0) {
+    // Build lookup maps for efficient matching
+    const bggIdSet = new Set(
+      rotationGames.filter((g) => g.bgg_id).map((g) => g.bgg_id)
+    );
+    const titleSet = new Set(rotationGames.map((g) => normalizeTitle(g.title)));
+
+    // Count matches (by bgg_id or normalized title)
+    for (const hot of hotGames) {
+      if (bggIdSet.has(hot.bggId) || titleSet.has(normalizeTitle(hot.title))) {
+        trendingGamesCount++;
+      }
+    }
+  }
 
   // Process venue feedback
   const feedbackRows = venueFeedbackResult.data ?? [];
@@ -1113,6 +1153,8 @@ export async function getDashboardData(venueId: string): Promise<DashboardData> 
     gamesInLibrary,
     activeSessions,
     totalSessionsToday,
+    trendingGamesCount,
+    trendingGamesTotal,
     venueFeedback: {
       avgRating,
       responseCount,
