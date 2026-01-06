@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { RotateCcw } from '@/components/icons';
+import { RotateCcw, TrendingUp } from '@/components/icons';
 import {
   AlertQueue,
   QuickActions,
@@ -188,7 +188,7 @@ export function DashboardClient({
       </div>
 
       {/* KPI Strip */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Link href="/admin/library" className="block">
           <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
             <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
@@ -216,6 +216,24 @@ export function DashboardClient({
             </h3>
             <p className="text-3xl font-bold text-slate-900 mt-2">
               {dashboardData.totalSessionsToday}
+            </p>
+          </div>
+        </Link>
+        <Link href="/admin/library" className="block">
+          <div className="bg-white rounded-xl border border-slate-200 p-6 transition-all duration-150 hover:border-orange-300 hover:shadow-md cursor-pointer group">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-orange-500" aria-hidden="true" />
+              <h3 className="text-sm font-medium text-slate-500 uppercase tracking-wide group-hover:text-orange-600 transition-colors">
+                BGG Trending
+              </h3>
+            </div>
+            <p className="text-3xl font-bold text-slate-900 mt-2">
+              {dashboardData.trendingGamesCount}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              {dashboardData.trendingGamesTotal > 0
+                ? `${Math.round((dashboardData.trendingGamesCount / dashboardData.trendingGamesTotal) * 100)}% of library`
+                : 'of your games are trending'}
             </p>
           </div>
         </Link>
