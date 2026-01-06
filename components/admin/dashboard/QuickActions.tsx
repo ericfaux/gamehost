@@ -97,7 +97,7 @@ export function QuickActions({ browsingCount, onAssignGame }: QuickActionsProps)
         <ActionButton
           icon={<QrCode className="w-5 h-5" />}
           label="Print QRs"
-          href="/admin/floor-plan"
+          href="/admin/floorplan?view=list"
         />
         <ActionButton
           icon={<Plus className="w-5 h-5" />}
