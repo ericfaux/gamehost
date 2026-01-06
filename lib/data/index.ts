@@ -84,6 +84,7 @@ export {
   type OpsHudData,
   type Alert,
   type AlertType,
+  type AlertCategory,
   type AlertSeverity,
   type AlertContextChip,
   type AlertAction,
@@ -94,7 +95,15 @@ export {
 } from './dashboard';
 
 // Dashboard data
-export { getDashboardData, type DashboardData } from './dashboard';
+export {
+  getDashboardData,
+  getAlerts,
+  getBottleneckedGames,
+  getRecentActivity,
+  getBrowsingSessionsCount,
+  type DashboardData,
+  type VenueFeedback,
+} from './dashboard';
 
 // Re-export types for convenience
 export type {

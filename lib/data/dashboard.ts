@@ -33,6 +33,8 @@ export type AlertType =
   | 'feedback_negative_game'
   | 'feedback_negative_venue';
 
+export type AlertCategory = 'tables' | 'maintenance' | 'experience';
+
 export type AlertSeverity = 'low' | 'medium' | 'high';
 
 export type ChipTone = 'default' | 'warn' | 'danger' | 'accent';
@@ -52,6 +54,7 @@ export interface AlertAction {
 export interface Alert {
   id: string;
   type: AlertType;
+  category: AlertCategory;
   severity: AlertSeverity;
   title: string;
   contextChips: AlertContextChip[];
@@ -238,6 +241,7 @@ function generateBrowsingStaleAlerts(
     alerts.push({
       id: `table_browsing:${session.id}`,
       type: 'table_browsing_stale',
+      category: 'tables',
       severity,
       title: `Table ${tableLabel} browsing for ${minutesBrowsing} min`,
       contextChips: chips,
@@ -300,6 +304,7 @@ function generateGameBottleneckAlerts(
     alerts.push({
       id: `game_bottlenecked:${game.id}`,
       type: 'game_bottlenecked',
+      category: 'maintenance',
       severity,
       title: `${game.title} is fully checked out`,
       contextChips: chips,
@@ -354,6 +359,7 @@ function generateGameMaintenanceAlerts(
       alerts.push({
         id: `game_problematic:${game.id}`,
         type: 'game_problematic',
+        category: 'maintenance',
         severity,
         title: `${game.title} needs attention`,
         contextChips: chips,
@@ -381,6 +387,7 @@ function generateGameMaintenanceAlerts(
       alerts.push({
         id: `game_out_for_repair:${game.id}`,
         type: 'game_out_for_repair',
+        category: 'maintenance',
         severity: 'low',
         title: `${game.title} is out for repair`,
         contextChips: [{ label: 'Out for Repair', tone: 'warn' }],
@@ -421,6 +428,7 @@ function generateFeedbackAlerts(
     alerts.push({
       id: `feedback_negative_game:aggregate`,
       type: 'feedback_negative_game',
+      category: 'experience',
       severity: 'low',
       title:
         count === 1
@@ -467,6 +475,7 @@ function generateFeedbackAlerts(
     alerts.push({
       id: `feedback_negative_venue:aggregate`,
       type: 'feedback_negative_venue',
+      category: 'experience',
       severity,
       title:
         count === 1
@@ -721,8 +730,253 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
 }
 
 // =============================================================================
+// Standalone Alert & Activity Functions
+// =============================================================================
+
+/**
+ * Fetches all alerts for a venue.
+ * Generates alerts based on:
+ * - Tables browsing > 15 minutes without a game assigned
+ * - Games where copies_in_use >= copies_in_rotation
+ * - Games with condition = 'problematic' or status = 'out_for_repair'
+ * - Negative feedback (rating < 3) in last 24h
+ *
+ * @param venueId - The venue ID to fetch alerts for
+ * @returns Array of Alert objects sorted by severity (high first)
+ */
+export async function getAlerts(venueId: string): Promise<Alert[]> {
+  const supabase = getSupabaseAdmin();
+  const twentyFourHoursAgo = hoursAgo(24);
+  const sevenDaysAgo = hoursAgo(24 * 7);
+  const browsingThreshold = DEFAULT_BROWSING_THRESHOLD_MINUTES;
+
+  // Parallel data fetching
+  const [
+    activeSessions,
+    copiesInUse,
+    allGames,
+    negativeFeedback24h,
+    topGamesThisWeek,
+  ] = await Promise.all([
+    // Active sessions with relations
+    getActiveSessionsForVenue(venueId).then((sessions) =>
+      (sessions as unknown as RawSessionWithRelations[]).map(transformSessionRelations)
+    ),
+
+    // Copies in use by game
+    getCopiesInUseByGame(venueId),
+
+    // All games for the venue
+    supabase
+      .from('games')
+      .select('*')
+      .eq('venue_id', venueId)
+      .then(({ data }) => (data ?? []) as Game[]),
+
+    // Negative feedback in last 24h
+    supabase
+      .from('sessions')
+      .select(
+        'id, game_id, feedback_rating, feedback_venue_rating, feedback_venue_comment, feedback_submitted_at, games(title), venue_tables(label)'
+      )
+      .eq('venue_id', venueId)
+      .not('feedback_submitted_at', 'is', null)
+      .gte('feedback_submitted_at', twentyFourHoursAgo)
+      .or('feedback_rating.lt.3,feedback_venue_rating.lt.3')
+      .order('feedback_submitted_at', { ascending: false })
+      .then(({ data }) => {
+        return ((data ?? []) as RawNegativeFeedbackRow[]).map((row) => ({
+          ...row,
+          games: row.games?.[0] ?? null,
+          venue_tables: row.venue_tables?.[0] ?? null,
+        })) as NegativeFeedbackRow[];
+      }),
+
+    // Top 5 games this week (for severity boosting)
+    supabase
+      .from('sessions')
+      .select('game_id')
+      .eq('venue_id', venueId)
+      .not('game_id', 'is', null)
+      .gte('started_at', sevenDaysAgo)
+      .then(({ data }) => {
+        const counts = new Map<string, number>();
+        for (const row of data ?? []) {
+          const gameId = row.game_id as string;
+          counts.set(gameId, (counts.get(gameId) ?? 0) + 1);
+        }
+        const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+        return new Set(sorted.slice(0, 5).map(([id]) => id));
+      }),
+  ]);
+
+  // Generate all alerts
+  const browsingAlerts = generateBrowsingStaleAlerts(activeSessions, browsingThreshold);
+  const bottleneckAlerts = generateGameBottleneckAlerts(
+    allGames,
+    copiesInUse,
+    topGamesThisWeek,
+    activeSessions
+  );
+  const maintenanceAlerts = generateGameMaintenanceAlerts(allGames, copiesInUse);
+  const feedbackAlerts = generateFeedbackAlerts(negativeFeedback24h);
+
+  // Combine and sort by severity (high first)
+  const severityOrder: Record<AlertSeverity, number> = { high: 0, medium: 1, low: 2 };
+  return [
+    ...browsingAlerts,
+    ...bottleneckAlerts,
+    ...maintenanceAlerts,
+    ...feedbackAlerts,
+  ].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+}
+
+/**
+ * Fetches games that are at full capacity (all copies in use).
+ *
+ * @param venueId - The venue ID to fetch bottlenecked games for
+ * @returns Array of BottleneckedGame objects
+ */
+export async function getBottleneckedGames(venueId: string): Promise<BottleneckedGame[]> {
+  const supabase = getSupabaseAdmin();
+
+  const [copiesInUse, allGames] = await Promise.all([
+    getCopiesInUseByGame(venueId),
+    supabase
+      .from('games')
+      .select('*')
+      .eq('venue_id', venueId)
+      .then(({ data }) => (data ?? []) as Game[]),
+  ]);
+
+  return allGames
+    .filter((g) => {
+      if (g.status !== 'in_rotation') return false;
+      const inUse = copiesInUse[g.id] ?? 0;
+      return inUse >= g.copies_in_rotation;
+    })
+    .map((g) => ({
+      gameId: g.id,
+      title: g.title,
+      copiesInRotation: g.copies_in_rotation,
+      copiesInUse: copiesInUse[g.id] ?? 0,
+      waitingTables: [], // Would require additional tracking
+    }));
+}
+
+/**
+ * Fetches recent activity for a venue.
+ *
+ * @param venueId - The venue ID to fetch activity for
+ * @returns Object with last 5 ended sessions and last 5 feedback items
+ */
+export async function getRecentActivity(venueId: string): Promise<{
+  ended: RecentEndedSession[];
+  feedback: RecentFeedback[];
+}> {
+  const supabase = getSupabaseAdmin();
+
+  const [recentEndedData, recentFeedbackData] = await Promise.all([
+    // Recent ended sessions (last 5)
+    supabase
+      .from('sessions')
+      .select('id, started_at, ended_at, feedback_rating, game_id, games(title), venue_tables(label)')
+      .eq('venue_id', venueId)
+      .not('ended_at', 'is', null)
+      .order('ended_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => data ?? []),
+
+    // Recent feedback (last 5)
+    supabase
+      .from('sessions')
+      .select(
+        'id, feedback_rating, feedback_venue_rating, feedback_comment, feedback_venue_comment, feedback_submitted_at, game_id, games(title), venue_tables(label)'
+      )
+      .eq('venue_id', venueId)
+      .not('feedback_submitted_at', 'is', null)
+      .order('feedback_submitted_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => data ?? []),
+  ]);
+
+  // Transform ended sessions
+  const ended: RecentEndedSession[] = recentEndedData.map((row) => {
+    const startedAt = new Date(row.started_at).getTime();
+    const endedAt = new Date(row.ended_at).getTime();
+    const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
+
+    const venueTables = row.venue_tables as { label: string }[] | null;
+    const games = row.games as { title: string }[] | null;
+
+    return {
+      id: row.id,
+      tableLabel: venueTables?.[0]?.label ?? 'Unknown',
+      gameTitle: games?.[0]?.title ?? null,
+      endedAt: row.ended_at,
+      durationMinutes,
+      feedbackRating: row.feedback_rating,
+    };
+  });
+
+  // Transform feedback
+  const feedback: RecentFeedback[] = recentFeedbackData.map((row) => {
+    const venueTables = row.venue_tables as { label: string }[] | null;
+    const games = row.games as { title: string }[] | null;
+
+    return {
+      id: row.id,
+      tableLabel: venueTables?.[0]?.label ?? 'Unknown',
+      gameTitle: games?.[0]?.title ?? null,
+      gameRating: row.feedback_rating,
+      venueRating: row.feedback_venue_rating,
+      comment: row.feedback_comment || row.feedback_venue_comment || null,
+      submittedAt: row.feedback_submitted_at!,
+    };
+  });
+
+  return { ended, feedback };
+}
+
+/**
+ * Counts the number of browsing sessions (sessions without a game assigned).
+ *
+ * @param venueId - The venue ID to count browsing sessions for
+ * @returns Number of active sessions without a game
+ */
+export async function getBrowsingSessionsCount(venueId: string): Promise<number> {
+  const supabase = getSupabaseAdmin();
+
+  const { count } = await supabase
+    .from('sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('venue_id', venueId)
+    .is('ended_at', null)
+    .is('game_id', null);
+
+  return count ?? 0;
+}
+
+// =============================================================================
 // DASHBOARD DATA (for main Dashboard page)
 // =============================================================================
+
+/**
+ * Venue feedback data for dashboard display.
+ */
+export interface VenueFeedback {
+  avgRating: number | null;
+  responseCount: number;
+  positiveCount: number;
+  neutralCount: number;
+  negativeCount: number;
+  recentComments: Array<{
+    id: string;
+    comment: string;
+    rating: number;
+    submittedAt: string;
+  }>;
+}
 
 export interface DashboardData {
   // Quick stats
@@ -731,26 +985,21 @@ export interface DashboardData {
   totalSessionsToday: number;
 
   // Venue feedback (last 30 days)
-  venueFeedback: {
-    avgRating: number | null;
-    responseCount: number;
-    positiveCount: number;
-    neutralCount: number;
-    negativeCount: number;
-    recentComments: Array<{
-      id: string;
-      comment: string;
-      rating: number;
-      submittedAt: string;
-    }>;
-  };
+  venueFeedback: VenueFeedback;
+
+  // Alerts and activity
+  alerts: Alert[];
+  bottleneckedGames: BottleneckedGame[];
+  recentEnded: RecentEndedSession[];
+  recentFeedback: RecentFeedback[];
+  browsingSessionsCount: number;
 }
 
 /**
  * Fetches all data needed for the main Dashboard page.
  *
  * @param venueId - The venue ID to fetch data for
- * @returns DashboardData containing quick stats and venue feedback
+ * @returns DashboardData containing quick stats, venue feedback, alerts, and activity
  */
 export async function getDashboardData(venueId: string): Promise<DashboardData> {
   const supabase = getSupabaseAdmin();
@@ -760,12 +1009,16 @@ export async function getDashboardData(venueId: string): Promise<DashboardData> 
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  // Parallel data fetching
+  // Parallel data fetching - combine basic stats with alert/activity functions
   const [
     gamesCountResult,
     activeSessionsResult,
     todaySessionsResult,
     venueFeedbackResult,
+    alerts,
+    bottleneckedGames,
+    recentActivity,
+    browsingSessionsCount,
   ] = await Promise.all([
     // Games in library count
     supabase
@@ -795,6 +1048,18 @@ export async function getDashboardData(venueId: string): Promise<DashboardData> 
       .not('feedback_venue_rating', 'is', null)
       .gte('feedback_submitted_at', thirtyDaysAgo.toISOString())
       .order('feedback_submitted_at', { ascending: false }),
+
+    // Alerts
+    getAlerts(venueId),
+
+    // Bottlenecked games
+    getBottleneckedGames(venueId),
+
+    // Recent activity
+    getRecentActivity(venueId),
+
+    // Browsing sessions count
+    getBrowsingSessionsCount(venueId),
   ]);
 
   // Process games count
@@ -856,5 +1121,10 @@ export async function getDashboardData(venueId: string): Promise<DashboardData> 
       negativeCount,
       recentComments,
     },
+    alerts,
+    bottleneckedGames,
+    recentEnded: recentActivity.ended,
+    recentFeedback: recentActivity.feedback,
+    browsingSessionsCount,
   };
 }
