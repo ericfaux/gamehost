@@ -20,9 +20,16 @@ interface QuickPickCardProps {
   game: Game;
   venueSlug: string;
   tableId: string;
+  /** Whether to show the trending indicator badge */
+  showTrendingBadge?: boolean;
 }
 
-export function QuickPickCard({ game, venueSlug, tableId }: QuickPickCardProps) {
+export function QuickPickCard({
+  game,
+  venueSlug,
+  tableId,
+  showTrendingBadge = false,
+}: QuickPickCardProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -79,10 +86,24 @@ export function QuickPickCard({ game, venueSlug, tableId }: QuickPickCardProps) 
 
       {/* Content */}
       <div className="p-3 flex-1 flex flex-col">
-        {/* Title */}
-        <h3 className="font-bold text-[color:var(--color-ink-primary)] text-sm line-clamp-2 mb-1">
-          {game.title}
-        </h3>
+        {/* Title with optional trending badge */}
+        <div className="flex items-start gap-2 mb-1">
+          <h3 className="font-bold text-[color:var(--color-ink-primary)] text-sm line-clamp-2 flex-1 min-w-0">
+            {game.title}
+          </h3>
+          {showTrendingBadge && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 rounded-full whitespace-nowrap flex-shrink-0">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Trending
+            </span>
+          )}
+        </div>
 
         {/* Metadata */}
         <div className="flex items-center gap-2 text-xs text-[color:var(--color-ink-secondary)] mb-3">
