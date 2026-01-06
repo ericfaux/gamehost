@@ -719,3 +719,142 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
     },
   };
 }
+
+// =============================================================================
+// DASHBOARD DATA (for main Dashboard page)
+// =============================================================================
+
+export interface DashboardData {
+  // Quick stats
+  gamesInLibrary: number;
+  activeSessions: number;
+  totalSessionsToday: number;
+
+  // Venue feedback (last 30 days)
+  venueFeedback: {
+    avgRating: number | null;
+    responseCount: number;
+    positiveCount: number;
+    neutralCount: number;
+    negativeCount: number;
+    recentComments: Array<{
+      id: string;
+      comment: string;
+      rating: number;
+      submittedAt: string;
+    }>;
+  };
+}
+
+/**
+ * Fetches all data needed for the main Dashboard page.
+ *
+ * @param venueId - The venue ID to fetch data for
+ * @returns DashboardData containing quick stats and venue feedback
+ */
+export async function getDashboardData(venueId: string): Promise<DashboardData> {
+  const supabase = getSupabaseAdmin();
+
+  // Calculate date boundaries
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  // Parallel data fetching
+  const [
+    gamesCountResult,
+    activeSessionsResult,
+    todaySessionsResult,
+    venueFeedbackResult,
+  ] = await Promise.all([
+    // Games in library count
+    supabase
+      .from('games')
+      .select('id', { count: 'exact', head: true })
+      .eq('venue_id', venueId),
+
+    // Active sessions count (ended_at IS NULL)
+    supabase
+      .from('sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('venue_id', venueId)
+      .is('ended_at', null),
+
+    // Total sessions today (created_at >= start of today)
+    supabase
+      .from('sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('venue_id', venueId)
+      .gte('created_at', startOfToday.toISOString()),
+
+    // Venue feedback (last 30 days, where feedback_venue_rating IS NOT NULL)
+    supabase
+      .from('sessions')
+      .select('id, feedback_venue_rating, feedback_venue_comment, feedback_submitted_at')
+      .eq('venue_id', venueId)
+      .not('feedback_venue_rating', 'is', null)
+      .gte('feedback_submitted_at', thirtyDaysAgo.toISOString())
+      .order('feedback_submitted_at', { ascending: false }),
+  ]);
+
+  // Process games count
+  const gamesInLibrary = gamesCountResult.count ?? 0;
+
+  // Process active sessions count
+  const activeSessions = activeSessionsResult.count ?? 0;
+
+  // Process today's sessions count
+  const totalSessionsToday = todaySessionsResult.count ?? 0;
+
+  // Process venue feedback
+  const feedbackRows = venueFeedbackResult.data ?? [];
+  let ratingSum = 0;
+  let positiveCount = 0;
+  let neutralCount = 0;
+  let negativeCount = 0;
+  const recentComments: Array<{
+    id: string;
+    comment: string;
+    rating: number;
+    submittedAt: string;
+  }> = [];
+
+  for (const row of feedbackRows) {
+    const rating = row.feedback_venue_rating;
+    if (rating !== null) {
+      ratingSum += rating;
+      if (rating <= 2) negativeCount++;
+      else if (rating === 3) neutralCount++;
+      else if (rating >= 4) positiveCount++;
+    }
+
+    // Collect comments (limit to 10)
+    if (row.feedback_venue_comment && recentComments.length < 10) {
+      recentComments.push({
+        id: row.id,
+        comment: row.feedback_venue_comment,
+        rating: row.feedback_venue_rating ?? 0,
+        submittedAt: row.feedback_submitted_at,
+      });
+    }
+  }
+
+  const responseCount = feedbackRows.length;
+  const avgRating = responseCount > 0
+    ? Number((ratingSum / responseCount).toFixed(1))
+    : null;
+
+  return {
+    gamesInLibrary,
+    activeSessions,
+    totalSessionsToday,
+    venueFeedback: {
+      avgRating,
+      responseCount,
+      positiveCount,
+      neutralCount,
+      negativeCount,
+      recentComments,
+    },
+  };
+}
