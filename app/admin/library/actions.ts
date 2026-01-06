@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { normalizeTitle } from '@/lib/utils/strings';
+import { getBggHotGames } from '@/lib/bgg';
 import type { GameComplexity, GameStatus, GameCondition } from '@/lib/db/types';
 
 // Valid enum values for validation
@@ -549,4 +550,51 @@ export async function updateGameField(
   revalidatePath('/admin/library');
 
   return { success: true };
+}
+
+/**
+ * Returns a Set of game IDs from the venue's library that are currently trending on BGG.
+ * Used by the library list to show trending indicators.
+ */
+export async function getTrendingGameIds(venueId: string): Promise<Set<string>> {
+  // Fetch BGG hot list
+  const hotGames = await getBggHotGames();
+  if (hotGames.length === 0) return new Set();
+
+  // Fetch venue's games (just id, bgg_id, title for efficiency)
+  const { data: localGames } = await getSupabaseAdmin()
+    .from('games')
+    .select('id, bgg_id, title')
+    .eq('venue_id', venueId);
+
+  if (!localGames) return new Set();
+
+  // Build lookup structures
+  const bggIdToGameId = new Map<string, string>();
+  const titleToGameId = new Map<string, string>();
+
+  for (const game of localGames) {
+    if (game.bgg_id) {
+      bggIdToGameId.set(game.bgg_id, game.id);
+    }
+    titleToGameId.set(normalizeTitle(game.title), game.id);
+  }
+
+  // Find matches
+  const trendingIds = new Set<string>();
+
+  for (const hot of hotGames) {
+    const byId = bggIdToGameId.get(hot.bggId);
+    if (byId) {
+      trendingIds.add(byId);
+      continue;
+    }
+
+    const byTitle = titleToGameId.get(normalizeTitle(hot.title));
+    if (byTitle) {
+      trendingIds.add(byTitle);
+    }
+  }
+
+  return trendingIds;
 }
