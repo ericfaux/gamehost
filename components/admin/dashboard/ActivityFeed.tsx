@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Clock, Star, MessageSquare } from '@/components/icons';
 import type { RecentEndedSession, RecentFeedback } from '@/lib/data/dashboard';
 
@@ -60,9 +61,13 @@ function isNegativeFeedback(feedback: RecentFeedback): boolean {
  */
 export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps) {
   return (
-    <div className="flex flex-col" role="region" aria-label="Recent activity">
-      {/* Recently Ended Section */}
-      <section className="flex flex-col" aria-labelledby="recently-ended-heading">
+    <Card role="region" aria-label="Recent activity">
+      <CardHeader>
+        <CardTitle>Recent Activity</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col">
+        {/* Recently Ended Section */}
+        <section className="flex flex-col" aria-labelledby="recently-ended-heading">
         <h3
           id="recently-ended-heading"
           className="flex items-center gap-2 text-sm font-semibold text-[color:var(--color-ink-secondary)] px-1 pb-2"
@@ -177,6 +182,7 @@ export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps)
           )}
         </div>
       </section>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
