@@ -305,6 +305,7 @@ export default async function TableLandingPage({ params }: PageProps) {
                       game={game}
                       venueSlug={venueSlug}
                       tableId={tableId}
+                      showTrendingBadge
                     />
                   ))}
                 </div>
