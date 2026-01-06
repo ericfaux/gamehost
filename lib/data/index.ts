@@ -93,6 +93,9 @@ export {
   type BottleneckedGame,
 } from './dashboard';
 
+// Dashboard data
+export { getDashboardData, type DashboardData } from './dashboard';
+
 // Re-export types for convenience
 export type {
   Venue,
