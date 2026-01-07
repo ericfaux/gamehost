@@ -1964,3 +1964,144 @@ export async function checkAvailableTablesAction(
     };
   }
 }
+
+// -----------------------------------------------------------------------------
+// Venue Booking Settings Actions
+// -----------------------------------------------------------------------------
+
+/**
+ * Parameters for updating venue booking settings.
+ */
+export interface UpdateVenueBookingSettingsParams {
+  default_duration_minutes?: number;
+  min_booking_notice_hours?: number;
+  max_advance_booking_days?: number;
+  buffer_minutes_between_bookings?: number;
+  slot_interval_minutes?: number;
+  allow_walk_ins?: boolean;
+  require_phone?: boolean;
+  require_email?: boolean;
+  confirmation_message_template?: string | null;
+}
+
+/**
+ * Updates booking settings for a venue.
+ * Only provided fields are updated; unspecified fields remain unchanged.
+ *
+ * @param venueId - The venue's UUID
+ * @param updates - Partial settings to update
+ * @returns ActionResult with updated settings or error
+ */
+export async function updateVenueBookingSettingsAction(
+  venueId: string,
+  updates: UpdateVenueBookingSettingsParams
+): Promise<ActionResult<{ updated: true }>> {
+  // --- Step 1: Verify user is authenticated and owns the venue ---
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      error: 'You must be logged in to update settings.',
+      code: 'UNAUTHORIZED',
+    };
+  }
+
+  // Verify the venue belongs to this user
+  const supabase = getSupabaseAdmin();
+  const { data: venue, error: venueError } = await supabase
+    .from('venues')
+    .select('id, owner_id')
+    .eq('id', venueId)
+    .single();
+
+  if (venueError || !venue) {
+    return {
+      success: false,
+      error: 'Venue not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  if (venue.owner_id !== user.id) {
+    return {
+      success: false,
+      error: 'You do not have permission to update this venue.',
+      code: 'UNAUTHORIZED',
+    };
+  }
+
+  // --- Step 2: Validate the update parameters ---
+  if (updates.default_duration_minutes !== undefined) {
+    if (!Number.isInteger(updates.default_duration_minutes) || updates.default_duration_minutes <= 0) {
+      return {
+        success: false,
+        error: 'Default duration must be a positive number.',
+        code: 'VALIDATION',
+      };
+    }
+  }
+
+  if (updates.min_booking_notice_hours !== undefined) {
+    if (!Number.isInteger(updates.min_booking_notice_hours) || updates.min_booking_notice_hours < 0) {
+      return {
+        success: false,
+        error: 'Minimum notice hours must be 0 or greater.',
+        code: 'VALIDATION',
+      };
+    }
+  }
+
+  if (updates.max_advance_booking_days !== undefined) {
+    if (!Number.isInteger(updates.max_advance_booking_days) || updates.max_advance_booking_days <= 0) {
+      return {
+        success: false,
+        error: 'Maximum advance days must be a positive number.',
+        code: 'VALIDATION',
+      };
+    }
+  }
+
+  if (updates.buffer_minutes_between_bookings !== undefined) {
+    if (!Number.isInteger(updates.buffer_minutes_between_bookings) || updates.buffer_minutes_between_bookings < 0) {
+      return {
+        success: false,
+        error: 'Buffer minutes must be 0 or greater.',
+        code: 'VALIDATION',
+      };
+    }
+  }
+
+  if (updates.slot_interval_minutes !== undefined) {
+    if (!Number.isInteger(updates.slot_interval_minutes) || updates.slot_interval_minutes <= 0) {
+      return {
+        success: false,
+        error: 'Slot interval must be a positive number.',
+        code: 'VALIDATION',
+      };
+    }
+  }
+
+  // --- Step 3: Update the settings ---
+  const { updateVenueBookingSettings } = await import('@/lib/data/bookings');
+
+  const result = await updateVenueBookingSettings(venueId, updates);
+
+  if (!result) {
+    return {
+      success: false,
+      error: 'Failed to update booking settings. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // --- Step 4: Revalidate paths ---
+  revalidatePath('/admin/settings/bookings');
+  revalidatePath('/admin/bookings');
+
+  return {
+    success: true,
+    data: { updated: true },
+  };
+}
