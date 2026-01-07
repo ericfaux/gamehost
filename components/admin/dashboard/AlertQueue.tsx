@@ -25,6 +25,7 @@ function getAlertCategory(type: AlertType): AlertCategory {
   switch (type) {
     case 'table_browsing_stale':
     case 'game_bottlenecked':
+    case 'turnover_risk':
       return 'Tables';
     case 'game_problematic':
     case 'game_out_for_repair':
