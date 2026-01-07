@@ -19,6 +19,18 @@ export type FeedbackReplay = 'definitely' | 'maybe' | 'no';
 
 export type FeedbackSource = 'end_sheet' | 'staff_prompt' | 'timer_prompt';
 
+export type BookingStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'arrived'
+  | 'seated'
+  | 'completed'
+  | 'no_show'
+  | 'cancelled_by_guest'
+  | 'cancelled_by_venue';
+
+export type BookingSource = 'online' | 'phone' | 'walk_in';
+
 // -----------------------------------------------------------------------------
 // Table Row Types
 // -----------------------------------------------------------------------------
@@ -99,6 +111,60 @@ export interface Session {
   // Feedback metadata
   feedback_skipped: boolean;
   feedback_source: FeedbackSource | null;
+}
+
+/**
+ * Represents a row in the `venue_booking_settings` table.
+ * Venue-level configuration for the booking system.
+ */
+export interface VenueBookingSettings {
+  id: string;
+  venue_id: string;
+  default_duration_minutes: number;
+  min_booking_notice_hours: number;
+  max_advance_booking_days: number;
+  buffer_minutes_between_bookings: number;
+  slot_interval_minutes: number;
+  allow_walk_ins: boolean;
+  require_phone: boolean;
+  require_email: boolean;
+  confirmation_message_template: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Represents a row in the `bookings` table.
+ * Reservation records with full lifecycle tracking.
+ */
+export interface Booking {
+  id: string;
+  venue_id: string;
+  table_id: string | null;
+  session_id: string | null;
+  status: BookingStatus;
+  source: BookingSource;
+  booking_date: string; // YYYY-MM-DD format
+  start_time: string; // HH:MM:SS format
+  end_time: string; // HH:MM:SS format
+  party_size: number;
+  guest_name: string;
+  guest_email: string | null;
+  guest_phone: string | null;
+  notes: string | null;
+  internal_notes: string | null;
+  game_id: string | null;
+  confirmation_code: string | null;
+  confirmed_at: string | null;
+  arrived_at: string | null;
+  seated_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  no_show_at: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
 }
 
 // -----------------------------------------------------------------------------
@@ -214,4 +280,194 @@ export interface FeedbackHistoryResult {
   stats: FeedbackStats;
   nextCursor: string | null;  // ISO timestamp for cursor pagination
   totalCount: number;
+}
+
+// -----------------------------------------------------------------------------
+// Booking Extended Types (for joins)
+// -----------------------------------------------------------------------------
+
+/**
+ * Booking with venue_table relation.
+ * Used when displaying booking with table info.
+ */
+export interface BookingWithTable extends Booking {
+  venue_table: { id: string; label: string; capacity: number | null } | null;
+}
+
+/**
+ * Booking with venue_table and game relations.
+ * Used for detailed booking views.
+ */
+export interface BookingWithDetails extends Booking {
+  venue_table: { id: string; label: string; capacity: number | null } | null;
+  game: { id: string; title: string; cover_image_url: string | null } | null;
+}
+
+/**
+ * Booking with session relation.
+ * Used for seated bookings to access session data.
+ */
+export interface BookingWithSession extends Booking {
+  session: Session | null;
+}
+
+// -----------------------------------------------------------------------------
+// Booking API Input Types
+// -----------------------------------------------------------------------------
+
+/**
+ * Parameters for creating a new booking.
+ */
+export interface CreateBookingParams {
+  venue_id: string;
+  table_id?: string;
+  source: BookingSource;
+  booking_date: string; // YYYY-MM-DD format
+  start_time: string; // HH:MM:SS format
+  end_time: string; // HH:MM:SS format
+  party_size: number;
+  guest_name: string;
+  guest_email?: string;
+  guest_phone?: string;
+  notes?: string;
+  internal_notes?: string;
+  game_id?: string;
+}
+
+/**
+ * Parameters for updating an existing booking.
+ * All fields optional for partial updates.
+ */
+export interface UpdateBookingParams {
+  table_id?: string | null;
+  status?: BookingStatus;
+  booking_date?: string;
+  start_time?: string;
+  end_time?: string;
+  party_size?: number;
+  guest_name?: string;
+  guest_email?: string | null;
+  guest_phone?: string | null;
+  notes?: string | null;
+  internal_notes?: string | null;
+  game_id?: string | null;
+  cancellation_reason?: string;
+}
+
+/**
+ * Parameters for checking slot availability.
+ */
+export interface AvailabilityQueryParams {
+  venue_id: string;
+  date: string; // YYYY-MM-DD format
+  party_size: number;
+  start_time?: string; // HH:MM:SS format, optional filter
+  end_time?: string; // HH:MM:SS format, optional filter
+  duration_minutes?: number;
+  exclude_booking_id?: string; // Exclude when rescheduling
+}
+
+// -----------------------------------------------------------------------------
+// Booking Response/Result Types
+// -----------------------------------------------------------------------------
+
+/**
+ * Result from availability check: a table that can accommodate the booking.
+ */
+export interface AvailableTable {
+  table_id: string;
+  table_label: string;
+  capacity: number | null;
+  available_from: string; // HH:MM:SS format
+  available_until: string; // HH:MM:SS format
+}
+
+/**
+ * A time slot with available tables.
+ */
+export interface AvailableSlot {
+  start_time: string; // HH:MM:SS format
+  end_time: string; // HH:MM:SS format
+  tables: AvailableTable[];
+}
+
+/**
+ * Represents a scheduling conflict for a booking.
+ */
+export interface BookingConflict {
+  booking_id: string;
+  table_id: string;
+  table_label: string;
+  guest_name: string;
+  start_time: string; // HH:MM:SS format
+  end_time: string; // HH:MM:SS format
+  conflict_type: 'overlap' | 'insufficient_buffer';
+}
+
+// -----------------------------------------------------------------------------
+// Booking Timeline/UI Types
+// -----------------------------------------------------------------------------
+
+/**
+ * Block type for timeline rendering.
+ */
+export type TimelineBlockType = 'booking' | 'session' | 'buffer';
+
+/**
+ * Represents a booking or session on the Gantt timeline view.
+ */
+export interface TimelineBlock {
+  id: string;
+  type: TimelineBlockType;
+  table_id: string;
+  table_label: string;
+  start_time: string; // HH:MM:SS or ISO string
+  end_time: string; // HH:MM:SS or ISO string
+  // Booking-specific fields
+  booking_id: string | null;
+  booking_status: BookingStatus | null;
+  guest_name: string | null;
+  party_size: number | null;
+  // Session-specific fields
+  session_id: string | null;
+  game_title: string | null;
+}
+
+/**
+ * Risk level for turnover alerts.
+ */
+export type TurnoverRiskLevel = 'low' | 'medium' | 'high';
+
+/**
+ * Alert data for turnover/conflict detection.
+ */
+export interface TurnoverRisk {
+  table_id: string;
+  table_label: string;
+  risk_level: TurnoverRiskLevel;
+  current_booking_id: string | null;
+  current_session_id: string | null;
+  next_booking_id: string;
+  current_end_time: string; // HH:MM:SS format
+  next_start_time: string; // HH:MM:SS format
+  gap_minutes: number;
+  message: string;
+}
+
+/**
+ * Data for the arrivals board display.
+ */
+export interface UpcomingArrival {
+  booking_id: string;
+  guest_name: string;
+  party_size: number;
+  booking_date: string; // YYYY-MM-DD format
+  start_time: string; // HH:MM:SS format
+  status: BookingStatus;
+  table_id: string | null;
+  table_label: string | null;
+  game_id: string | null;
+  game_title: string | null;
+  notes: string | null;
+  minutes_until_arrival: number;
 }
