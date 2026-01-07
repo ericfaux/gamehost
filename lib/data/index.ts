@@ -127,6 +127,23 @@ export {
   type BookingQueryOptions,
 } from './bookings';
 
+// Timeline data (for Gantt view)
+export {
+  getTimelineData,
+  subscribeToTimelineChanges,
+  bookingToTimelineBlock,
+  sessionToTimelineBlock,
+  getTimeRangeForDate,
+  blocksOverlap,
+  type TimelineOptions,
+  type TimelineData,
+  type TimelineTable,
+  type TimelineConflict,
+  type TimeRange,
+  type ConflictSeverity,
+  type TimelineBlockStatus,
+} from './timeline';
+
 // Re-export types for convenience
 export type {
   Venue,
