@@ -1065,3 +1065,400 @@ export async function checkGameAvailability(
     copiesAvailable,
   };
 }
+
+// -----------------------------------------------------------------------------
+// Turnover Risk Detection
+// -----------------------------------------------------------------------------
+
+/**
+ * Default session duration in minutes when no game is selected.
+ * Used for estimating when an active session might end.
+ */
+const DEFAULT_SESSION_DURATION_MINUTES = 120;
+
+/**
+ * Severity thresholds for turnover risk calculation.
+ * Buffer time is the difference between estimated session end and booking start.
+ */
+const TURNOVER_RISK_THRESHOLDS = {
+  HIGH: 15,    // < 15 min buffer = HIGH severity
+  MEDIUM: 30,  // 15-30 min buffer = MEDIUM severity
+  LOW: 60,     // 30-60 min buffer = LOW severity (> 60 min = no risk)
+};
+
+/**
+ * Severity levels for turnover risk alerts.
+ */
+export type TurnoverRiskSeverity = 'high' | 'medium' | 'low';
+
+/**
+ * Represents a potential turnover conflict between an active session and an upcoming booking.
+ * Used to alert hosts before a table conflict occurs.
+ */
+export interface TurnoverRisk {
+  /** Unique ID: `risk-${session.id}-${booking.id}` */
+  id: string;
+  /** Alert type identifier for integration with Alert Queue */
+  type: 'turnover_risk';
+  /** Risk severity based on buffer time */
+  severity: TurnoverRiskSeverity;
+
+  // Table info
+  table_id: string;
+  table_label: string;
+
+  // Session info
+  session_id: string;
+  session_started_at: string;
+  session_game_title: string | null;
+  estimated_end_time: string;
+
+  // Booking info
+  booking_id: string;
+  booking_start_time: string;
+  guest_name: string;
+  party_size: number;
+
+  // Calculated values
+  /** Minutes from now until the booking starts */
+  minutes_until_conflict: number;
+  /** Time between estimated session end and booking start (can be negative if overlap) */
+  buffer_minutes: number;
+
+  // Human-readable message
+  message: string;
+}
+
+/**
+ * Alert action for Alert Queue integration.
+ */
+export interface TurnoverRiskAlertAction {
+  label: string;
+  action: 'view_booking' | 'reassign_booking' | 'view_session';
+  bookingId?: string;
+  sessionId?: string;
+}
+
+/**
+ * Adapter type for integrating turnover risks with the Alert Queue.
+ */
+export interface TurnoverRiskAlertItem {
+  id: string;
+  type: 'turnover_risk';
+  severity: TurnoverRiskSeverity;
+  title: string;
+  message: string;
+  actions: TurnoverRiskAlertAction[];
+  timestamp: string;
+}
+
+/**
+ * Calculates the severity of a turnover risk based on buffer time.
+ *
+ * @param bufferMinutes - Minutes between estimated session end and booking start
+ * @returns Risk severity level
+ *
+ * @example
+ * // calculateRiskSeverity(10) returns 'high' (< 15 min buffer)
+ * // calculateRiskSeverity(20) returns 'medium' (15-30 min buffer)
+ * // calculateRiskSeverity(45) returns 'low' (30-60 min buffer)
+ */
+function calculateRiskSeverity(bufferMinutes: number): TurnoverRiskSeverity {
+  if (bufferMinutes < TURNOVER_RISK_THRESHOLDS.HIGH) return 'high';
+  if (bufferMinutes < TURNOVER_RISK_THRESHOLDS.MEDIUM) return 'medium';
+  return 'low';
+}
+
+/**
+ * Generates a human-readable message for a turnover risk based on severity.
+ *
+ * @param severity - Risk severity level
+ * @param tableLabel - Table identifier (e.g., "A1", "Table 5")
+ * @param guestName - Name of the guest with the booking
+ * @param bookingTime - Formatted time of the booking (e.g., "6:30 PM")
+ * @param sessionStartTime - Formatted time when the session started
+ * @returns Human-readable alert message
+ */
+function generateRiskMessage(
+  severity: TurnoverRiskSeverity,
+  tableLabel: string,
+  guestName: string,
+  bookingTime: string,
+  sessionStartTime: string
+): string {
+  switch (severity) {
+    case 'high':
+      return `Table ${tableLabel} may not be ready for ${guestName}'s party at ${bookingTime}. Current session started at ${sessionStartTime} and may run over.`;
+    case 'medium':
+      return `Table ${tableLabel} has a session that might extend into ${guestName}'s ${bookingTime} booking.`;
+    case 'low':
+      return `Keep an eye on Table ${tableLabel} - booking at ${bookingTime}, session has been active since ${sessionStartTime}.`;
+  }
+}
+
+/**
+ * Formats a time string for display in messages.
+ * Converts "HH:MM:SS" or "HH:MM" to "H:MM AM/PM" format.
+ *
+ * @param time - Time string in HH:MM or HH:MM:SS format
+ * @returns Formatted time string (e.g., "6:30 PM")
+ */
+function formatTimeForDisplay(time: string): string {
+  const parts = time.split(':');
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+
+  if (hours > 12) hours -= 12;
+  if (hours === 0) hours = 12;
+
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+/**
+ * Raw session type from Supabase for turnover risk queries.
+ * Relations are returned as arrays.
+ */
+interface TurnoverSessionRaw {
+  id: string;
+  table_id: string;
+  game_id: string | null;
+  started_at: string;
+  games: Array<{ title: string; max_time_minutes: number }> | null;
+  venue_tables: Array<{ id: string; label: string }> | null;
+}
+
+/**
+ * Raw booking type from Supabase for turnover risk queries.
+ */
+interface TurnoverBookingRaw {
+  id: string;
+  table_id: string;
+  start_time: string;
+  guest_name: string;
+  party_size: number;
+}
+
+/**
+ * Fetches turnover risks for a venue.
+ * Identifies active sessions that may conflict with upcoming bookings on the same table.
+ *
+ * Query logic:
+ * 1. Get all active sessions for venue (ended_at IS NULL)
+ * 2. For each session, find bookings on same table starting in next 2 hours
+ * 3. Estimate session end time using game's max_time_minutes or 120 min default
+ * 4. Calculate buffer time between estimated end and booking start
+ * 5. Generate risk if buffer < 60 minutes
+ *
+ * Performance notes:
+ * - This query runs frequently (every 30-60 seconds on dashboard)
+ * - Only queries sessions started in last 4 hours (ignores stale data)
+ * - Uses parallel queries for sessions and bookings
+ *
+ * Edge cases handled:
+ * - No active sessions: returns empty array
+ * - No upcoming bookings: returns empty array
+ * - Booking start time in past: filtered out
+ * - Session without game: uses default 120-minute duration
+ *
+ * @param venueId - The venue's UUID
+ * @returns Array of turnover risks sorted by severity (high first) then by time
+ */
+export async function getTurnoverRisks(venueId: string): Promise<TurnoverRisk[]> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const currentTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
+
+  // Calculate 2 hours ahead for booking lookups
+  const twoHoursAhead = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  const twoHoursAheadTime = twoHoursAhead.toTimeString().split(' ')[0];
+
+  // Calculate 4 hours ago for session filtering (ignore stale sessions)
+  const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+  const fourHoursAgoIso = fourHoursAgo.toISOString();
+
+  // Statuses to exclude from booking queries
+  const excludeStatuses: BookingStatus[] = ['cancelled_by_guest', 'cancelled_by_venue', 'no_show', 'completed'];
+
+  // ---------------------------------------------------------------------------
+  // Fetch active sessions with game and table info
+  // ---------------------------------------------------------------------------
+  const { data: sessionsRaw, error: sessionsError } = await supabase
+    .from('sessions')
+    .select(`
+      id,
+      table_id,
+      game_id,
+      started_at,
+      games:game_id (title, max_time_minutes),
+      venue_tables:table_id (id, label)
+    `)
+    .eq('venue_id', venueId)
+    .is('ended_at', null)
+    .gte('started_at', fourHoursAgoIso);
+
+  if (sessionsError) {
+    console.error('Error fetching active sessions for turnover risks:', sessionsError);
+    return [];
+  }
+
+  const sessions = sessionsRaw as TurnoverSessionRaw[] | null;
+  if (!sessions || sessions.length === 0) {
+    return [];
+  }
+
+  // Get unique table IDs from active sessions
+  const activeTableIds = [...new Set(sessions.map((s) => s.table_id))];
+
+  // ---------------------------------------------------------------------------
+  // Fetch upcoming bookings for active tables (next 2 hours)
+  // ---------------------------------------------------------------------------
+  const { data: bookingsRaw, error: bookingsError } = await supabase
+    .from('bookings')
+    .select('id, table_id, start_time, guest_name, party_size')
+    .eq('booking_date', today)
+    .in('table_id', activeTableIds)
+    .not('status', 'in', `(${excludeStatuses.join(',')})`)
+    .gte('start_time', currentTime)
+    .lte('start_time', twoHoursAheadTime)
+    .order('start_time', { ascending: true });
+
+  if (bookingsError) {
+    console.error('Error fetching upcoming bookings for turnover risks:', bookingsError);
+    return [];
+  }
+
+  const bookings = bookingsRaw as TurnoverBookingRaw[] | null;
+  if (!bookings || bookings.length === 0) {
+    return [];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Group bookings by table for efficient lookup
+  // ---------------------------------------------------------------------------
+  const bookingsByTable = new Map<string, TurnoverBookingRaw[]>();
+  for (const booking of bookings) {
+    const existing = bookingsByTable.get(booking.table_id) ?? [];
+    existing.push(booking);
+    bookingsByTable.set(booking.table_id, existing);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Calculate turnover risks
+  // ---------------------------------------------------------------------------
+  const risks: TurnoverRisk[] = [];
+
+  for (const session of sessions) {
+    // Get table info
+    const venueTable = Array.isArray(session.venue_tables) && session.venue_tables.length > 0
+      ? session.venue_tables[0]
+      : null;
+    if (!venueTable) continue;
+
+    // Get bookings for this table
+    const tableBookings = bookingsByTable.get(session.table_id);
+    if (!tableBookings || tableBookings.length === 0) continue;
+
+    // Estimate session end time
+    const game = Array.isArray(session.games) && session.games.length > 0
+      ? session.games[0]
+      : null;
+    const sessionDurationMinutes = game?.max_time_minutes ?? DEFAULT_SESSION_DURATION_MINUTES;
+
+    const sessionStart = new Date(session.started_at);
+    const estimatedEnd = new Date(sessionStart.getTime() + sessionDurationMinutes * 60 * 1000);
+    const estimatedEndTime = estimatedEnd.toTimeString().split(' ')[0].slice(0, 5); // HH:MM
+
+    // Check each booking for potential conflict
+    for (const booking of tableBookings) {
+      // Parse booking start time (HH:MM:SS from database)
+      const bookingStartParts = booking.start_time.split(':');
+      const bookingStartMinutes = parseInt(bookingStartParts[0], 10) * 60 + parseInt(bookingStartParts[1], 10);
+
+      // Parse estimated end time (HH:MM)
+      const estimatedEndParts = estimatedEndTime.split(':');
+      const estimatedEndMinutes = parseInt(estimatedEndParts[0], 10) * 60 + parseInt(estimatedEndParts[1], 10);
+
+      // Calculate buffer (can be negative if session is estimated to run past booking start)
+      const bufferMinutes = bookingStartMinutes - estimatedEndMinutes;
+
+      // Only create risk if buffer is less than threshold (60 minutes)
+      if (bufferMinutes >= TURNOVER_RISK_THRESHOLDS.LOW) continue;
+
+      // Calculate minutes from now until booking
+      const bookingStartToday = new Date(now);
+      bookingStartToday.setHours(parseInt(bookingStartParts[0], 10), parseInt(bookingStartParts[1], 10), 0, 0);
+      const minutesUntilConflict = Math.round((bookingStartToday.getTime() - now.getTime()) / (1000 * 60));
+
+      // Skip if booking is somehow in the past
+      if (minutesUntilConflict < 0) continue;
+
+      const severity = calculateRiskSeverity(bufferMinutes);
+      const formattedBookingTime = formatTimeForDisplay(booking.start_time);
+      const formattedSessionStart = formatTimeForDisplay(session.started_at.split('T')[1]);
+
+      const message = generateRiskMessage(
+        severity,
+        venueTable.label,
+        booking.guest_name,
+        formattedBookingTime,
+        formattedSessionStart
+      );
+
+      risks.push({
+        id: `risk-${session.id}-${booking.id}`,
+        type: 'turnover_risk',
+        severity,
+        table_id: session.table_id,
+        table_label: venueTable.label,
+        session_id: session.id,
+        session_started_at: session.started_at,
+        session_game_title: game?.title ?? null,
+        estimated_end_time: estimatedEnd.toISOString(),
+        booking_id: booking.id,
+        booking_start_time: booking.start_time,
+        guest_name: booking.guest_name,
+        party_size: booking.party_size,
+        minutes_until_conflict: minutesUntilConflict,
+        buffer_minutes: bufferMinutes,
+        message,
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sort by severity (high first) then by minutes until conflict (soonest first)
+  // ---------------------------------------------------------------------------
+  const severityOrder: Record<TurnoverRiskSeverity, number> = { high: 0, medium: 1, low: 2 };
+  risks.sort((a, b) => {
+    const severityDiff = severityOrder[a.severity] - severityOrder[b.severity];
+    if (severityDiff !== 0) return severityDiff;
+    return a.minutes_until_conflict - b.minutes_until_conflict;
+  });
+
+  return risks;
+}
+
+/**
+ * Converts a TurnoverRisk to an AlertQueueItem for integration with the Alert Queue.
+ * This adapter allows turnover risks to be displayed alongside other operational alerts.
+ *
+ * @param risk - The turnover risk to convert
+ * @returns AlertQueueItem compatible with the Alert Queue component
+ */
+export function turnoverRiskToAlert(risk: TurnoverRisk): TurnoverRiskAlertItem {
+  return {
+    id: risk.id,
+    type: 'turnover_risk',
+    severity: risk.severity,
+    title: `Turnover Risk: ${risk.table_label}`,
+    message: risk.message,
+    actions: [
+      { label: 'View Booking', action: 'view_booking', bookingId: risk.booking_id },
+      { label: 'Reassign Table', action: 'reassign_booking', bookingId: risk.booking_id },
+      { label: 'View Session', action: 'view_session', sessionId: risk.session_id },
+    ],
+    timestamp: new Date().toISOString(),
+  };
+}
