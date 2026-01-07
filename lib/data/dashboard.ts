@@ -12,6 +12,7 @@ import {
   getCopiesInUseByGame,
   getVenueExperienceSummary,
 } from './sessions';
+import { getTurnoverRisks, type TurnoverRisk } from './bookings';
 import { getBggHotGames } from '@/lib/bgg';
 import { normalizeTitle } from '@/lib/utils/strings';
 
@@ -33,7 +34,8 @@ export type AlertType =
   | 'game_problematic'
   | 'game_out_for_repair'
   | 'feedback_negative_game'
-  | 'feedback_negative_venue';
+  | 'feedback_negative_venue'
+  | 'turnover_risk';
 
 export type AlertCategory = 'tables' | 'maintenance' | 'experience';
 
@@ -64,6 +66,22 @@ export interface Alert {
   primaryAction: AlertAction;
   secondaryAction?: { label: string; type: 'link'; target: string };
   timestamp: string;
+  /** Optional typed data payload for specific alert types */
+  data?: TurnoverRiskAlertData;
+}
+
+/**
+ * Typed data payload for turnover_risk alerts.
+ * Contains all information needed to render and handle turnover risk alerts.
+ */
+export interface TurnoverRiskAlertData {
+  table_id: string;
+  table_label: string;
+  session_id: string;
+  booking_id: string;
+  guest_name: string;
+  booking_start_time: string;
+  minutes_until_conflict: number;
 }
 
 export interface RecentEndedSession {
@@ -736,12 +754,76 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
 // =============================================================================
 
 /**
+ * Converts turnover risks from bookings data to Alert format for the Alert Queue.
+ */
+function generateTurnoverRiskAlerts(turnoverRisks: TurnoverRisk[]): Alert[] {
+  return turnoverRisks.map((risk) => {
+    // Format booking time for display
+    const bookingTimeParts = risk.booking_start_time.split(':');
+    let hours = parseInt(bookingTimeParts[0], 10);
+    const minutes = bookingTimeParts[1];
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    if (hours > 12) hours -= 12;
+    if (hours === 0) hours = 12;
+    const formattedTime = `${hours}:${minutes} ${ampm}`;
+
+    const chips: AlertContextChip[] = [
+      {
+        label: `${risk.minutes_until_conflict} min`,
+        tone: risk.severity === 'high' ? 'danger' : risk.severity === 'medium' ? 'warn' : 'default',
+      },
+    ];
+    if (risk.party_size > 0) {
+      chips.push({ label: `${risk.party_size} guests`, tone: 'default' });
+    }
+
+    return {
+      id: risk.id,
+      type: 'turnover_risk' as AlertType,
+      category: 'tables' as AlertCategory,
+      severity: risk.severity,
+      title: `Turnover Risk: Table ${risk.table_label}`,
+      contextChips: chips,
+      details: `${risk.guest_name} booked at ${formattedTime}`,
+      primaryAction: {
+        label: 'Notify Table',
+        type: 'modal',
+        target: 'notify-table',
+        params: {
+          tableId: risk.table_id,
+          sessionId: risk.session_id,
+          bookingId: risk.booking_id,
+          guestName: risk.guest_name,
+          bookingTime: formattedTime,
+        },
+      },
+      secondaryAction: {
+        label: 'View Booking',
+        type: 'link',
+        target: `/admin/bookings?booking=${risk.booking_id}`,
+      },
+      timestamp: new Date().toISOString(),
+      data: {
+        table_id: risk.table_id,
+        table_label: risk.table_label,
+        session_id: risk.session_id,
+        booking_id: risk.booking_id,
+        guest_name: risk.guest_name,
+        booking_start_time: risk.booking_start_time,
+        minutes_until_conflict: risk.minutes_until_conflict,
+      },
+    };
+  });
+}
+
+/**
  * Fetches all alerts for a venue.
  * Generates alerts based on:
  * - Tables browsing > 15 minutes without a game assigned
  * - Games where copies_in_use >= copies_in_rotation
  * - Games with condition = 'problematic' or status = 'out_for_repair'
  * - Negative feedback (rating < 3) in last 24h
+ * - Turnover risks (active sessions conflicting with upcoming bookings)
  *
  * @param venueId - The venue ID to fetch alerts for
  * @returns Array of Alert objects sorted by severity (high first)
@@ -759,6 +841,7 @@ export async function getAlerts(venueId: string): Promise<Alert[]> {
     allGames,
     negativeFeedback24h,
     topGamesThisWeek,
+    turnoverRisks,
   ] = await Promise.all([
     // Active sessions with relations
     getActiveSessionsForVenue(venueId).then((sessions) =>
@@ -810,6 +893,9 @@ export async function getAlerts(venueId: string): Promise<Alert[]> {
         const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
         return new Set(sorted.slice(0, 5).map(([id]) => id));
       }),
+
+    // Turnover risks (sessions that may conflict with upcoming bookings)
+    getTurnoverRisks(venueId),
   ]);
 
   // Generate all alerts
@@ -822,6 +908,7 @@ export async function getAlerts(venueId: string): Promise<Alert[]> {
   );
   const maintenanceAlerts = generateGameMaintenanceAlerts(allGames, copiesInUse);
   const feedbackAlerts = generateFeedbackAlerts(negativeFeedback24h);
+  const turnoverAlerts = generateTurnoverRiskAlerts(turnoverRisks);
 
   // Combine and sort by severity (high first)
   const severityOrder: Record<AlertSeverity, number> = { high: 0, medium: 1, low: 2 };
@@ -830,6 +917,7 @@ export async function getAlerts(venueId: string): Promise<Alert[]> {
     ...bottleneckAlerts,
     ...maintenanceAlerts,
     ...feedbackAlerts,
+    ...turnoverAlerts,
   ].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
 }
 

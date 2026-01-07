@@ -19,7 +19,8 @@ import {
   AssignGameToSessionModal,
   type BrowsingSession,
 } from '@/components/admin/AssignGameToSessionModal';
-import type { DashboardData, Alert } from '@/lib/data/dashboard';
+import { NotifyTableModal } from '@/components/admin/NotifyTableModal';
+import type { DashboardData, Alert, TurnoverRiskAlertData } from '@/lib/data/dashboard';
 import type { Game } from '@/lib/db/types';
 
 export interface DashboardClientProps {
@@ -58,6 +59,14 @@ export function DashboardClient({
   // Assign game modal state
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<BrowsingSession | null>(null);
+
+  // Notify table modal state (for turnover risk alerts)
+  const [notifyModalOpen, setNotifyModalOpen] = useState(false);
+  const [notifyModalData, setNotifyModalData] = useState<{
+    tableLabel: string;
+    guestName: string;
+    bookingTime: string;
+  } | null>(null);
 
   const handleRefresh = useCallback(() => {
     startRefresh(() => {
@@ -129,6 +138,21 @@ export function DashboardClient({
           } else {
             router.push('/admin/library?filter=out_for_repair');
           }
+          break;
+        }
+
+        case 'turnover_risk': {
+          // Open notify table modal for turnover risk
+          const tableLabel = params?.tableId ? `Table ${alert.data?.table_label || params.tableId}` : 'Table';
+          const guestName = (params?.guestName as string) || alert.data?.guest_name || 'Guest';
+          const bookingTime = (params?.bookingTime as string) || '';
+
+          setNotifyModalData({
+            tableLabel: alert.data?.table_label || 'Unknown',
+            guestName,
+            bookingTime,
+          });
+          setNotifyModalOpen(true);
           break;
         }
 
@@ -317,6 +341,20 @@ export function DashboardClient({
           isOpen={assignModalOpen}
           onClose={handleCloseAssignModal}
           onSuccess={handleAssignSuccess}
+        />
+      )}
+
+      {/* Notify Table Modal (for turnover risk alerts) */}
+      {notifyModalData && (
+        <NotifyTableModal
+          isOpen={notifyModalOpen}
+          onClose={() => {
+            setNotifyModalOpen(false);
+            setNotifyModalData(null);
+          }}
+          tableLabel={notifyModalData.tableLabel}
+          guestName={notifyModalData.guestName}
+          bookingTime={notifyModalData.bookingTime}
         />
       )}
     </div>

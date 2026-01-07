@@ -99,6 +99,7 @@ export {
   type RecentEndedSession,
   type RecentFeedback,
   type BottleneckedGame,
+  type TurnoverRiskAlertData,
 } from './dashboard';
 
 // Dashboard data

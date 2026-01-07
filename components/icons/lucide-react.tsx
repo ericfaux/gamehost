@@ -974,3 +974,21 @@ export function CalendarDays(props: IconProps) {
     </IconBase>
   );
 }
+
+export function Send(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m22 2-7 20-4-9-9-4Z" />
+      <path d="M22 2 11 13" />
+    </IconBase>
+  );
+}
+
+export function Copy(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </IconBase>
+  );
+}
