@@ -2,10 +2,9 @@
 
 import { useState, useCallback } from 'react';
 import type { FeedbackFilters, FeedbackHistoryResult } from '@/lib/db/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare } from '@/components/icons';
 import { FeedbackSummaryHeader } from './FeedbackSummaryHeader';
 import { FeedbackFiltersCard } from './FeedbackFilters';
+import { FeedbackTable } from './FeedbackTable';
 
 interface FeedbackPageClientProps {
   venueId: string;
@@ -27,6 +26,17 @@ export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientP
     setIsLoading(false);
   }, []);
 
+  const handleLoadMore = useCallback(async () => {
+    if (!data.nextCursor || isLoading) return;
+
+    setIsLoading(true);
+
+    // TODO: Call server action to fetch next page
+    // For now, just clear loading state
+
+    setIsLoading(false);
+  }, [data.nextCursor, isLoading]);
+
   return (
     <div className="grid gap-4">
       {/* Summary Header */}
@@ -39,21 +49,13 @@ export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientP
         isLoading={isLoading}
       />
 
-      {/* Placeholder - will be built out in subsequent prompts */}
-      <Card className="panel-surface">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-ink-secondary" />
-            <CardTitle>Feedback History</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <p className="text-ink-secondary">
-            {data.totalCount} feedback responses loaded.
-            Full UI coming in next prompts.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Feedback Table */}
+      <FeedbackTable
+        rows={data.rows}
+        isLoading={isLoading}
+        hasMore={!!data.nextCursor}
+        onLoadMore={handleLoadMore}
+      />
     </div>
   );
 }
