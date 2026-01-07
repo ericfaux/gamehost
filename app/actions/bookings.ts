@@ -1874,3 +1874,92 @@ export async function endSessionAndCompleteBooking(
     },
   };
 }
+
+// -----------------------------------------------------------------------------
+// Fetch Games for Booking Modal
+// -----------------------------------------------------------------------------
+
+/**
+ * Fetches available games for a venue (for the booking modal game selector).
+ * Only returns games that are in_rotation status.
+ *
+ * @param venueId - The venue's UUID
+ * @returns ActionResult with array of games or error
+ */
+export async function getGamesForBooking(
+  venueId: string
+): Promise<ActionResult<Array<{ id: string; title: string; min_players: number; max_players: number }>>> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from('games')
+    .select('id, title, min_players, max_players')
+    .eq('venue_id', venueId)
+    .eq('status', 'in_rotation')
+    .order('title', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching games for booking:', error);
+    return {
+      success: false,
+      error: 'Failed to load games',
+      code: 'UNKNOWN',
+    };
+  }
+
+  return {
+    success: true,
+    data: data ?? [],
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Check Table Availability for Booking Modal
+// -----------------------------------------------------------------------------
+
+/**
+ * Checks available tables for a booking (for the booking modal).
+ * This is a server action wrapper around the data layer function.
+ *
+ * @param params - Availability check parameters
+ * @returns ActionResult with array of available tables or error
+ */
+export async function checkAvailableTablesAction(
+  params: {
+    venueId: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    partySize: number;
+  }
+): Promise<ActionResult<Array<{
+  table_id: string;
+  table_label: string;
+  capacity: number | null;
+  is_exact_fit: boolean;
+  is_tight_fit: boolean;
+}>>> {
+  try {
+    const { getAvailableTables } = await import('@/lib/data/bookings');
+
+    const tables = await getAvailableTables({
+      venueId: params.venueId,
+      date: params.date,
+      startTime: params.startTime,
+      endTime: params.endTime,
+      partySize: params.partySize,
+    });
+
+    return {
+      success: true,
+      data: tables,
+    };
+  } catch (error) {
+    console.error('Error checking table availability:', error);
+    return {
+      success: false,
+      error: 'Failed to check availability',
+      code: 'UNKNOWN',
+    };
+  }
+}
