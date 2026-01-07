@@ -20,6 +20,7 @@ import {
   type BrowsingSession,
 } from '@/components/admin/AssignGameToSessionModal';
 import { NotifyTableModal } from '@/components/admin/NotifyTableModal';
+import { QuickWalkInModal } from '@/components/admin/bookings/QuickWalkInModal';
 import type { DashboardData, Alert, TurnoverRiskAlertData } from '@/lib/data/dashboard';
 import type { Game } from '@/lib/db/types';
 
@@ -67,6 +68,9 @@ export function DashboardClient({
     guestName: string;
     bookingTime: string;
   } | null>(null);
+
+  // Walk-in modal state
+  const [walkInModalOpen, setWalkInModalOpen] = useState(false);
 
   const handleRefresh = useCallback(() => {
     startRefresh(() => {
@@ -202,6 +206,14 @@ export function DashboardClient({
     }
   }, [router]);
 
+  const handleSeatWalkIn = useCallback(() => {
+    setWalkInModalOpen(true);
+  }, []);
+
+  const handleWalkInSuccess = useCallback(() => {
+    router.refresh();
+  }, [router]);
+
   return (
     <div className="max-w-6xl space-y-6">
       {/* Header row: "DASHBOARD > Overview" with refresh button */}
@@ -322,6 +334,7 @@ export function DashboardClient({
           <QuickActions
             browsingCount={dashboardData.browsingSessionsCount}
             onAssignGame={handleAssignGame}
+            onSeatWalkIn={handleSeatWalkIn}
           />
 
           <BottleneckWidget games={dashboardData.bottleneckedGames} />
@@ -357,6 +370,14 @@ export function DashboardClient({
           bookingTime={notifyModalData.bookingTime}
         />
       )}
+
+      {/* Quick Walk-In Modal */}
+      <QuickWalkInModal
+        open={walkInModalOpen}
+        onClose={() => setWalkInModalOpen(false)}
+        venueId={venueId}
+        onSuccess={handleWalkInSuccess}
+      />
     </div>
   );
 }

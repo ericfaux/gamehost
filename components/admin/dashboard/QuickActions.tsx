@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Gamepad2, Wrench, QrCode, Plus } from '@/components/icons';
+import { Gamepad2, Wrench, QrCode, Plus, UserPlus } from '@/components/icons';
 
 export interface QuickActionsProps {
   browsingCount: number;
   onAssignGame: () => void;
+  onSeatWalkIn: () => void;
 }
 
 interface ActionButtonProps {
@@ -75,7 +76,7 @@ function ActionButton({ icon, label, onClick, href, badge, primary }: ActionButt
  * QuickActions - Big tactile buttons for high-frequency operator actions.
  * Designed to feel like a physical control panel with large touch targets.
  */
-export function QuickActions({ browsingCount, onAssignGame }: QuickActionsProps) {
+export function QuickActions({ browsingCount, onAssignGame, onSeatWalkIn }: QuickActionsProps) {
   return (
     <Card>
       <CardHeader>
@@ -83,11 +84,16 @@ export function QuickActions({ browsingCount, onAssignGame }: QuickActionsProps)
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <ActionButton
+          icon={<UserPlus className="w-5 h-5" />}
+          label="Seat Walk-In"
+          onClick={onSeatWalkIn}
+          primary
+        />
+        <ActionButton
           icon={<Gamepad2 className="w-5 h-5" />}
           label="Assign game"
           onClick={onAssignGame}
           badge={browsingCount > 0 ? browsingCount : undefined}
-          primary
         />
         <ActionButton
           icon={<Wrench className="w-5 h-5" />}
