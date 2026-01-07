@@ -87,6 +87,7 @@ export function FeedbackFiltersCard({
     }, 300);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchValue]); // Only depend on searchValue to avoid re-triggering
 
   // Check if any filters are active (dirty state)

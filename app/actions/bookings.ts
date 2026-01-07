@@ -248,7 +248,7 @@ function daysBetween(date1: Date, date2: Date): number {
  * Validates all booking parameters before attempting to create.
  * Returns validation result with array of error messages.
  */
-export function validateBookingParams(
+function validateBookingParams(
   params: CreateBookingActionParams,
   settings: {
     require_phone: boolean;
@@ -747,6 +747,7 @@ export async function createBooking(
           ? gamesArray
           : null;
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { venue_tables: _vt, games: _g, ...bookingData } = rawData;
 
       createdBooking = {
