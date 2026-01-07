@@ -616,33 +616,7 @@ export function TimelineBlock({
 
   const canDrag = useMemo(() => canDragBlock(block), [block]);
 
-  // Don't render if block is completely outside visible range
-  if (position.left >= totalWidth || position.left + position.width <= 0) {
-    return null;
-  }
-
-  // Calculate if we're near the top of the viewport for tooltip positioning
-  const handleMouseEnter = () => {
-    if (isDragging) return;
-
-    if (blockRef.current) {
-      const rect = blockRef.current.getBoundingClientRect();
-      // If block is in top 150px of viewport, show tooltip below
-      setTooltipPosition(rect.top < 150 ? 'bottom' : 'top');
-    }
-    // Delay showing tooltip slightly to avoid flicker on quick mouse movements
-    tooltipTimeout.current = setTimeout(() => {
-      setShowTooltip(true);
-    }, 200);
-  };
-
-  const handleMouseLeave = () => {
-    if (tooltipTimeout.current) {
-      clearTimeout(tooltipTimeout.current);
-    }
-    setShowTooltip(false);
-  };
-
+  // All hooks must be called before any early returns
   const handleAction = useCallback((action: BlockAction) => {
     onAction?.(block.id, action);
   }, [block.id, onAction]);
@@ -687,7 +661,33 @@ export function TimelineBlock({
     }
   }, [onClick]);
 
-  const status = getEffectiveStatus(block);
+  // Don't render if block is completely outside visible range
+  if (position.left >= totalWidth || position.left + position.width <= 0) {
+    return null;
+  }
+
+  // Calculate if we're near the top of the viewport for tooltip positioning
+  const handleMouseEnter = () => {
+    if (isDragging) return;
+
+    if (blockRef.current) {
+      const rect = blockRef.current.getBoundingClientRect();
+      // If block is in top 150px of viewport, show tooltip below
+      setTooltipPosition(rect.top < 150 ? 'bottom' : 'top');
+    }
+    // Delay showing tooltip slightly to avoid flicker on quick mouse movements
+    tooltipTimeout.current = setTimeout(() => {
+      setShowTooltip(true);
+    }, 200);
+  };
+
+  const handleMouseLeave = () => {
+    if (tooltipTimeout.current) {
+      clearTimeout(tooltipTimeout.current);
+    }
+    setShowTooltip(false);
+  };
+
   const label = block.type === 'booking' ? block.guest_name : (block.game_title || 'Session');
 
   const blockElement = (

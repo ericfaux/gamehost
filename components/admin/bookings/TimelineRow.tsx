@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useMemo, useCallback, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { TimelineBlock } from './TimelineBlock';
-import type { TimelineBlock as TimelineBlockType, BookingStatus } from '@/lib/db/types';
+import type { TimelineBlock as TimelineBlockType } from '@/lib/db/types';
 import type { TimelineTable, TimeRange, TimelineConflict } from '@/lib/data/timeline';
 import type { BlockAction } from './TimelineBlock';
 
