@@ -733,20 +733,24 @@ async function getConflictingBookings(
     return [];
   }
 
+  // Supabase returns foreign key relations as arrays even for many-to-one
   interface ConflictingBookingRow {
     id: string;
     table_id: string;
     guest_name: string;
     start_time: string;
     end_time: string;
-    venue_tables: { label: string } | null;
+    venue_tables: Array<{ label: string }> | null;
   }
 
   return (data ?? []).map((booking: ConflictingBookingRow) => {
+    const tableLabel = Array.isArray(booking.venue_tables) && booking.venue_tables.length > 0
+      ? booking.venue_tables[0].label
+      : 'Unknown';
     return {
       booking_id: booking.id,
       table_id: booking.table_id,
-      table_label: booking.venue_tables?.label ?? 'Unknown',
+      table_label: tableLabel,
       guest_name: booking.guest_name,
       start_time: normalizeTime(booking.start_time),
       end_time: normalizeTime(booking.end_time),
