@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useTransition } from 'react';
 import type { FeedbackFilters, FeedbackHistoryResult } from '@/lib/db/types';
+import { fetchFeedback } from '@/app/admin/feedback/actions';
 import { FeedbackSummaryHeader } from './FeedbackSummaryHeader';
 import { FeedbackFiltersCard } from './FeedbackFilters';
 import { FeedbackTable } from './FeedbackTable';
@@ -12,47 +13,73 @@ interface FeedbackPageClientProps {
 }
 
 export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientProps) {
+  // State
   const [filters, setFilters] = useState<FeedbackFilters>({ dateRangePreset: '30d' });
   const [data, setData] = useState(initialData);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
-  const handleFiltersChange = useCallback(async (newFilters: FeedbackFilters) => {
+  // Handle filter changes - refetch data
+  const handleFiltersChange = useCallback((newFilters: FeedbackFilters) => {
     setFilters(newFilters);
-    setIsLoading(true);
+    setError(null);
 
-    // TODO: Call server action to refetch with new filters
-    // For now, just update filters state
+    startTransition(async () => {
+      const result = await fetchFeedback(newFilters);
 
-    setIsLoading(false);
+      if (result.success) {
+        setData(result.data);
+      } else {
+        setError(result.error);
+      }
+    });
   }, []);
 
-  const handleLoadMore = useCallback(async () => {
-    if (!data.nextCursor || isLoading) return;
+  // Handle pagination - append more rows
+  const handleLoadMore = useCallback(() => {
+    if (!data.nextCursor || isPending) return;
 
-    setIsLoading(true);
+    startTransition(async () => {
+      const result = await fetchFeedback(filters, data.nextCursor!);
 
-    // TODO: Call server action to fetch next page
-    // For now, just clear loading state
-
-    setIsLoading(false);
-  }, [data.nextCursor, isLoading]);
+      if (result.success) {
+        setData(prev => ({
+          ...result.data,
+          rows: [...prev.rows, ...result.data.rows],
+          // Keep the new cursor and stats
+        }));
+      } else {
+        setError(result.error);
+      }
+    });
+  }, [filters, data.nextCursor, isPending]);
 
   return (
     <div className="grid gap-4">
-      {/* Summary Header */}
-      <FeedbackSummaryHeader stats={data.stats} isLoading={isLoading} />
+      {/* Error banner */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
-      {/* Filters Card */}
+      {/* Summary stats */}
+      <FeedbackSummaryHeader
+        stats={data.stats}
+        isLoading={isPending}
+      />
+
+      {/* Filters */}
       <FeedbackFiltersCard
         filters={filters}
         onChange={handleFiltersChange}
-        isLoading={isLoading}
+        isLoading={isPending}
       />
 
-      {/* Feedback Table */}
+      {/* Results table */}
       <FeedbackTable
         rows={data.rows}
-        isLoading={isLoading}
+        isLoading={isPending}
         hasMore={!!data.nextCursor}
         onLoadMore={handleLoadMore}
       />

@@ -2,7 +2,7 @@
 
 import type { FeedbackHistoryRow } from '@/lib/db/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Loader2 } from '@/components/icons';
+import { MessageSquare, Loader2, ChevronDown } from '@/components/icons';
 import { FeedbackRow } from './FeedbackRow';
 
 interface FeedbackTableProps {
@@ -123,7 +123,10 @@ export function FeedbackTable({ rows, isLoading, hasMore, onLoadMore }: Feedback
                     Loading...
                   </>
                 ) : (
-                  'Load more'
+                  <>
+                    Load more
+                    <ChevronDown className="h-4 w-4 ml-1" />
+                  </>
                 )}
               </button>
             ) : (
