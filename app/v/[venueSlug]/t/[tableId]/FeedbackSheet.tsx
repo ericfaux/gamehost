@@ -34,14 +34,13 @@ export interface FeedbackData {
 }
 
 function SentimentButton({
-  value: _value,
   selected,
   onClick,
   icon: Icon,
   label,
   color,
 }: {
-  value: SentimentValue;
+  value?: SentimentValue;
   selected: boolean;
   onClick: () => void;
   icon: typeof ThumbsUp;

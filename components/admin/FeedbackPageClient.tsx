@@ -105,7 +105,7 @@ interface FeedbackPageClientProps {
   initialData: FeedbackHistoryResult;
 }
 
-export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientProps) {
+export function FeedbackPageClient({ venueId: _venueId, initialData }: FeedbackPageClientProps) {
   // URL navigation hooks
   const router = useRouter();
   const pathname = usePathname();
@@ -151,6 +151,7 @@ export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientP
         }
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]); // Only depend on searchParams to detect external URL changes
 
   // Handle filter changes - update URL and fetch data

@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getGamesForVenue } from '@/lib/data/games';
 import { getVenueTables } from '@/lib/data/tables';
-import { getCopiesInUseByGame, getActiveSessionsForVenue, getFeedbackSummariesByGame, SessionWithDetails } from '@/lib/data/sessions';
+import { getCopiesInUseByGame, getActiveSessionsForVenue, getFeedbackSummariesByGame } from '@/lib/data/sessions';
 import { getTrendingGameIds } from './actions';
 import { LibraryClient } from '@/components/admin/LibraryClient';
 import type { Session, VenueTable, Game } from '@/lib/db/types';

@@ -747,6 +747,7 @@ export async function createBooking(
           ? gamesArray
           : null;
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { venue_tables: _vt, games: _g, ...bookingData } = rawData;
 
       createdBooking = {
