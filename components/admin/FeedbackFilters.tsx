@@ -12,6 +12,7 @@ import {
   Meh,
   X,
   Calendar,
+  Loader2,
 } from '@/components/icons';
 
 // =============================================================================
@@ -207,6 +208,14 @@ export function FeedbackFiltersCard({
     <Card className="panel-surface">
       <CardContent className="p-4">
         <div className="space-y-3">
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="flex items-center justify-end gap-2 text-sm text-ink-secondary">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Updating...
+            </div>
+          )}
+
           {/* Row 1: Date presets + Custom date + Search */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Date Range Presets */}
