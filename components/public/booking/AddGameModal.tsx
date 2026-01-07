@@ -48,7 +48,7 @@ export function AddGameModal({ open, onClose, booking, onComplete }: AddGameModa
         } else {
           setError('Failed to load games');
         }
-      } catch (e) {
+      } catch {
         setError('Failed to load games');
       } finally {
         setIsLoading(false);
@@ -121,7 +121,7 @@ export function AddGameModal({ open, onClose, booking, onComplete }: AddGameModa
       } else {
         setError(result.error ?? 'Failed to add game');
       }
-    } catch (e) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
@@ -146,7 +146,7 @@ export function AddGameModal({ open, onClose, booking, onComplete }: AddGameModa
 
         <div className="py-4 space-y-4">
           <p className="text-sm text-[color:var(--color-ink-secondary)]">
-            Reserve a game and we'll have it ready at your table when you arrive.
+            Reserve a game and we&apos;ll have it ready at your table when you arrive.
           </p>
 
           {/* Search Input */}
@@ -185,7 +185,7 @@ export function AddGameModal({ open, onClose, booking, onComplete }: AddGameModa
               </div>
             ) : filteredGames.length === 0 && searchQuery && otherGames.length === 0 ? (
               <div className="text-center py-8 text-[color:var(--color-ink-secondary)]">
-                No games found matching "{searchQuery}"
+                No games found matching &quot;{searchQuery}&quot;
               </div>
             ) : (
               <div className="space-y-2">
