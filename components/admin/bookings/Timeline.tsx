@@ -13,7 +13,8 @@ import { ChevronLeft, ChevronRight, Calendar, Clock, AlertCircle } from '@/compo
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { TimelineRow, TableLabels } from './TimelineRow';
-import type { TimelineBlock } from '@/lib/db/types';
+import { EnhancedConflictLayer } from './TimelineConflicts';
+import type { TimelineBlock, TurnoverRisk } from '@/lib/db/types';
 import type { TimelineData, TimeRange } from '@/lib/data/timeline';
 import { getTimelineData } from '@/lib/data/timeline';
 import type { BlockAction } from './TimelineBlock';
@@ -37,6 +38,8 @@ interface TimelineProps {
   onBlockClick?: (block: TimelineBlock) => void;
   onBlockAction?: (blockId: string, action: BlockAction) => void;
   onReschedule?: (bookingId: string, tableId: string, newTime: Date) => Promise<void>;
+  /** Optional turnover risks for conflict visualization */
+  turnoverRisks?: TurnoverRisk[];
 }
 
 interface TimelineHeaderProps {
@@ -449,6 +452,7 @@ export function Timeline({
   onBlockClick,
   onBlockAction,
   onReschedule,
+  turnoverRisks = [],
 }: TimelineProps) {
   // ---------------------------------------------------------------------------
   // State
@@ -488,6 +492,38 @@ export function Timeline({
     if (!timelineData) return 0;
     return getTimelineWidth(timelineData.timeRange, PIXELS_PER_HOUR);
   }, [timelineData]);
+
+  // Map table IDs to row indices for conflict layer positioning
+  const tableIdToRowIndex = useMemo(() => {
+    const map = new Map<string, number>();
+    if (timelineData) {
+      timelineData.tables.forEach((table, index) => {
+        map.set(table.id, index);
+      });
+    }
+    return map;
+  }, [timelineData]);
+
+  // Map block IDs to their start times for computing overlap positions
+  const blockStartTimes = useMemo(() => {
+    const map = new Map<string, Date>();
+    if (timelineData) {
+      const dateStr = formatDateString(date);
+      timelineData.tables.forEach((table) => {
+        table.blocks.forEach((block) => {
+          // Parse the start time to a Date
+          const startTime = block.start_time.includes('T')
+            ? new Date(block.start_time)
+            : new Date(`${dateStr}T${block.start_time}`);
+          map.set(block.id, startTime);
+        });
+      });
+    }
+    return map;
+  }, [timelineData, date]);
+
+  // Format date string for time parsing in conflict layer
+  const dateString = useMemo(() => formatDateString(date), [date]);
 
   // ---------------------------------------------------------------------------
   // Callbacks
@@ -760,6 +796,18 @@ export function Timeline({
                   isDragActive={isDragActive}
                 />
               ))}
+
+              {/* Conflict and risk visualization layer */}
+              <EnhancedConflictLayer
+                conflicts={timelineData.conflicts}
+                risks={turnoverRisks}
+                timeRange={timelineData.timeRange}
+                pixelsPerHour={PIXELS_PER_HOUR}
+                tableIdToRowIndex={tableIdToRowIndex}
+                rowHeight={ROW_HEIGHT}
+                dateString={dateString}
+                blockStartTimes={blockStartTimes}
+              />
 
               {/* Now indicator line */}
               <NowIndicator
