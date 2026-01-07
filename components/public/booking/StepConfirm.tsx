@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   Loader2,
   AlertCircle,
+  AlertTriangle,
   Send,
 } from '@/components/icons';
 import { createBooking } from '@/app/actions/bookings';
@@ -46,6 +47,15 @@ function formatDateDisplay(dateStr: string): string {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+// Format duration
+function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins} minutes`;
+  if (mins === 0) return hours === 1 ? '1 hour' : `${hours} hours`;
+  return `${hours} hour${hours > 1 ? 's' : ''} ${mins} min`;
 }
 
 export function StepConfirm({
@@ -101,17 +111,20 @@ export function StepConfirm({
       {/* Header */}
       <div>
         <h2 className="text-lg font-serif font-semibold text-[color:var(--color-ink-primary)]">
-          Confirm Your Reservation
+          Review Your Reservation
         </h2>
         <p className="text-sm text-[color:var(--color-ink-secondary)] mt-1">
-          Review your details before completing your booking
+          Please confirm your details before completing your booking
         </p>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="flex items-start gap-3 p-4 bg-red-50 rounded-token border border-red-200">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+        <div
+          className="flex items-start gap-3 p-4 bg-red-50 rounded-token border border-red-200"
+          role="alert"
+        >
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <p className="font-medium text-red-900">Booking Failed</p>
             <p className="text-sm text-red-700 mt-1">{error}</p>
@@ -120,32 +133,38 @@ export function StepConfirm({
       )}
 
       {/* Booking Summary Card */}
-      <div className="bg-[color:var(--color-muted)] rounded-token border border-[color:var(--color-structure)] divide-y divide-[color:var(--color-structure)]">
+      <div
+        className="bg-[color:var(--color-muted)] rounded-token border border-[color:var(--color-structure)] divide-y divide-[color:var(--color-structure)]"
+        role="region"
+        aria-label="Booking summary"
+      >
         {/* Date & Time */}
         <div className="p-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-5 h-5 text-teal-600" />
+              <Calendar className="w-5 h-5 text-teal-600" aria-hidden="true" />
             </div>
             <div>
               <p className="font-medium text-[color:var(--color-ink-primary)]">
                 {formatDateDisplay(data.date)}
               </p>
               <div className="flex items-center gap-2 mt-1 text-sm text-[color:var(--color-ink-secondary)]">
-                <Clock className="w-4 h-4" />
+                <Clock className="w-4 h-4" aria-hidden="true" />
                 <span>
                   {formatTime(data.startTime)} - {formatTime(data.endTime)}
                 </span>
+                <span className="text-[color:var(--color-structure)]">|</span>
+                <span>{formatDuration(settings.default_duration_minutes)}</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Party Size & Table */}
-        <div className="p-4 flex gap-6">
+        <div className="p-4 flex flex-wrap gap-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-[color:var(--color-structure)] flex items-center justify-center">
-              <Users className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
+              <Users className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
             </div>
             <div>
               <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
@@ -160,7 +179,7 @@ export function StepConfirm({
           {tableLabel && (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[color:var(--color-structure)] flex items-center justify-center">
-                <TableProperties className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
+                <TableProperties className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
@@ -176,16 +195,19 @@ export function StepConfirm({
 
         {/* Guest Details */}
         <div className="p-4 space-y-3">
+          <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
+            Your Information
+          </p>
           <div className="flex items-center gap-3">
-            <User className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
-            <span className="text-[color:var(--color-ink-primary)]">
+            <User className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
+            <span className="text-[color:var(--color-ink-primary)] font-medium">
               {data.guestName}
             </span>
           </div>
 
           {data.guestEmail && (
             <div className="flex items-center gap-3">
-              <Mail className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
+              <Mail className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
               <span className="text-[color:var(--color-ink-primary)]">
                 {data.guestEmail}
               </span>
@@ -194,7 +216,7 @@ export function StepConfirm({
 
           {data.guestPhone && (
             <div className="flex items-center gap-3">
-              <Phone className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
+              <Phone className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
               <span className="text-[color:var(--color-ink-primary)]">
                 {data.guestPhone}
               </span>
@@ -207,7 +229,7 @@ export function StepConfirm({
           <div className="p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Gamepad2 className="w-5 h-5 text-purple-600" />
+                <Gamepad2 className="w-5 h-5 text-purple-600" aria-hidden="true" />
               </div>
               <div>
                 <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
@@ -225,7 +247,7 @@ export function StepConfirm({
         {data.notes && (
           <div className="p-4">
             <div className="flex items-start gap-3">
-              <StickyNote className="w-5 h-5 text-[color:var(--color-ink-secondary)] flex-shrink-0 mt-0.5" />
+              <StickyNote className="w-5 h-5 text-[color:var(--color-ink-secondary)] flex-shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)] mb-1">
                   Special Requests
@@ -239,13 +261,24 @@ export function StepConfirm({
         )}
       </div>
 
-      {/* Duration Note */}
-      <p className="text-xs text-[color:var(--color-ink-secondary)] text-center">
-        Your table is reserved for {settings.default_duration_minutes} minutes.
-        {settings.confirmation_message_template && (
-          <span className="block mt-1">{settings.confirmation_message_template}</span>
-        )}
-      </p>
+      {/* Cancellation Policy */}
+      <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-token border border-amber-200">
+        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+        <div>
+          <p className="font-medium text-amber-900 text-sm">Cancellation Policy</p>
+          <p className="text-sm text-amber-800 mt-1">
+            Free cancellation up to 2 hours before your reservation.
+            No-shows may affect future bookings.
+          </p>
+        </div>
+      </div>
+
+      {/* Confirmation Message */}
+      {settings.confirmation_message_template && (
+        <p className="text-xs text-[color:var(--color-ink-secondary)] text-center">
+          {settings.confirmation_message_template}
+        </p>
+      )}
 
       {/* Navigation Buttons */}
       <div className="flex gap-3 pt-2">
@@ -253,22 +286,25 @@ export function StepConfirm({
           type="button"
           onClick={onBack}
           disabled={isPending}
+          aria-disabled={isPending}
           className={cn(
-            'flex-1 py-3 rounded-token font-medium text-base flex items-center justify-center gap-2 transition-colors touch-manipulation border border-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)]',
+            'flex-1 py-3 rounded-token font-medium text-base flex items-center justify-center gap-2 transition-colors touch-manipulation border border-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)] min-h-[48px]',
             isPending
               ? 'opacity-50 cursor-not-allowed'
               : 'hover:bg-[color:var(--color-muted)]'
           )}
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-5 h-5" aria-hidden="true" />
           Back
         </button>
         <button
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
+          aria-disabled={isPending}
+          aria-busy={isPending}
           className={cn(
-            'flex-[2] py-3 rounded-token font-semibold text-base flex items-center justify-center gap-2 transition-colors touch-manipulation',
+            'flex-[2] py-3 rounded-token font-semibold text-base flex items-center justify-center gap-2 transition-colors touch-manipulation min-h-[48px]',
             isPending
               ? 'bg-teal-400 cursor-not-allowed'
               : 'bg-teal-500 hover:bg-teal-600 active:scale-[0.98]',
@@ -277,13 +313,13 @@ export function StepConfirm({
         >
           {isPending ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Booking...
+              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+              <span>Booking...</span>
             </>
           ) : (
             <>
-              <Send className="w-5 h-5" />
-              Confirm Booking
+              <Send className="w-5 h-5" aria-hidden="true" />
+              <span>Confirm Booking</span>
             </>
           )}
         </button>

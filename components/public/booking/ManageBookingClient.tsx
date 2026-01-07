@@ -69,7 +69,7 @@ export function ManageBookingClient({
         <CardContent className="space-y-4">
           {/* Date & Time */}
           <div className="flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-[color:var(--color-ink-secondary)] mt-0.5" />
+            <Calendar className="w-5 h-5 text-[color:var(--color-ink-secondary)] mt-0.5" aria-hidden="true" />
             <div>
               <div className="font-medium text-[color:var(--color-ink-primary)]">
                 {formatDateDisplay(booking.booking_date)}
@@ -82,7 +82,7 @@ export function ManageBookingClient({
 
           {/* Party Size */}
           <div className="flex items-center gap-3">
-            <Users className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
+            <Users className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
             <div>
               <span className="font-medium text-[color:var(--color-ink-primary)]">{booking.party_size}</span>
               <span className="text-[color:var(--color-ink-secondary)]">
@@ -95,7 +95,7 @@ export function ManageBookingClient({
           {/* Table */}
           {booking.venue_table && (
             <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
+              <MapPin className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
               <div>
                 <span className="font-medium text-[color:var(--color-ink-primary)]">
                   {booking.venue_table.label}
@@ -107,7 +107,7 @@ export function ManageBookingClient({
           {/* Game Reservation */}
           {booking.game ? (
             <div className="flex items-start gap-3">
-              <Gamepad2 className="w-5 h-5 text-teal-600 mt-0.5" />
+              <Gamepad2 className="w-5 h-5 text-teal-600 mt-0.5" aria-hidden="true" />
               <div>
                 <div className="font-medium text-teal-700">{booking.game.title}</div>
                 <div className="text-sm text-[color:var(--color-ink-secondary)]">
@@ -118,9 +118,9 @@ export function ManageBookingClient({
           ) : isModifiable && !isPast ? (
             <button
               onClick={() => setShowAddGameModal(true)}
-              className="flex items-center gap-3 w-full p-3 rounded-lg border border-dashed border-[color:var(--color-structure)] hover:border-teal-400 hover:bg-teal-50 transition-colors"
+              className="flex items-center gap-3 w-full p-3 rounded-lg border border-dashed border-[color:var(--color-structure)] hover:border-teal-400 hover:bg-teal-50 transition-colors min-h-[48px]"
             >
-              <Gamepad2 className="w-5 h-5 text-[color:var(--color-ink-secondary)]" />
+              <Gamepad2 className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
               <span className="text-sm text-[color:var(--color-ink-secondary)]">
                 Reserve a game for your visit
               </span>
@@ -150,14 +150,14 @@ export function ManageBookingClient({
 
           {booking.guest_email && (
             <div className="flex items-center gap-2 text-sm text-[color:var(--color-ink-secondary)]">
-              <Mail className="w-4 h-4" />
+              <Mail className="w-4 h-4" aria-hidden="true" />
               {booking.guest_email}
             </div>
           )}
 
           {booking.guest_phone && (
             <div className="flex items-center gap-2 text-sm text-[color:var(--color-ink-secondary)]">
-              <Phone className="w-4 h-4" />
+              <Phone className="w-4 h-4" aria-hidden="true" />
               {booking.guest_phone}
             </div>
           )}
@@ -170,10 +170,10 @@ export function ManageBookingClient({
           {isModifiable && (
             <Button
               variant="secondary"
-              className="w-full"
+              className="w-full min-h-[48px]"
               onClick={() => setShowModifyModal(true)}
             >
-              <Pencil className="w-4 h-4 mr-2" />
+              <Pencil className="w-4 h-4 mr-2" aria-hidden="true" />
               Modify Reservation
             </Button>
           )}
@@ -181,10 +181,10 @@ export function ManageBookingClient({
           {isCancellable && (
             <Button
               variant="ghost"
-              className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 min-h-[48px]"
               onClick={() => setShowCancelDialog(true)}
             >
-              <X className="w-4 h-4 mr-2" />
+              <X className="w-4 h-4 mr-2" aria-hidden="true" />
               Cancel Reservation
             </Button>
           )}
@@ -313,9 +313,9 @@ function StatusBanner({ status }: { status: string }) {
   const Icon = statusConfig.icon;
 
   return (
-    <div className={cn('p-4 rounded-lg border', statusConfig.bg)}>
+    <div className={cn('p-4 rounded-lg border', statusConfig.bg)} role="status">
       <div className="flex items-center gap-3">
-        <Icon className={cn('w-5 h-5', statusConfig.iconColor)} />
+        <Icon className={cn('w-5 h-5', statusConfig.iconColor)} aria-hidden="true" />
         <div>
           <div className="font-medium text-[color:var(--color-ink-primary)]">{statusConfig.title}</div>
           {statusConfig.message && (
