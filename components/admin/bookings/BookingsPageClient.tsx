@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { Timeline } from './Timeline';
 import { BookingDetailDrawer } from './BookingDetailDrawer';
 import { CreateBookingModal } from './CreateBookingModal';
+import { BookingsList } from './BookingsList';
 import { Button } from '@/components/ui/button';
 import { Plus, Calendar, List, LayoutGrid, Clock, Users, Check, UserCheck } from '@/components/icons';
 import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
@@ -210,146 +211,6 @@ function BookingsDisabledState({ venueId }: { venueId: string }) {
 }
 
 // =============================================================================
-// BookingsList Component (placeholder for list view)
-// =============================================================================
-
-interface BookingsListProps {
-  venueId: string;
-  date: Date;
-  onDateChange: (date: Date) => void;
-  onBookingClick: (booking: BookingWithDetails) => void;
-}
-
-function BookingsList({ venueId, date, onDateChange, onBookingClick }: BookingsListProps) {
-  const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchBookings() {
-      setIsLoading(true);
-      try {
-        const dateStr = format(date, 'yyyy-MM-dd');
-        const response = await fetch(
-          `/api/bookings?venueId=${venueId}&date=${dateStr}`
-        );
-        if (!response.ok) throw new Error('Failed to fetch bookings');
-        const data = await response.json();
-        if (!cancelled) {
-          setBookings(data.bookings || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch bookings:', error);
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchBookings();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [venueId, date]);
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'pm' : 'am';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes}${ampm}`;
-  };
-
-  const getStatusColor = (status: BookingStatus) => {
-    switch (status) {
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-700';
-      case 'arrived':
-        return 'bg-teal-100 text-teal-700';
-      case 'seated':
-        return 'bg-green-100 text-green-700';
-      case 'completed':
-        return 'bg-stone-100 text-stone-700';
-      case 'pending':
-        return 'bg-amber-100 text-amber-700';
-      case 'no_show':
-        return 'bg-red-100 text-red-700';
-      case 'cancelled_by_guest':
-      case 'cancelled_by_venue':
-        return 'bg-stone-100 text-stone-500';
-      default:
-        return 'bg-stone-100 text-stone-700';
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="animate-pulse h-16 bg-stone-100 rounded-lg" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (bookings.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <Calendar className="w-12 h-12 text-stone-300 mb-3" />
-        <h3 className="font-medium text-stone-900 mb-1">No bookings</h3>
-        <p className="text-sm text-stone-500">
-          No reservations for {format(date, 'MMMM d, yyyy')}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-6">
-      <div className="space-y-2">
-        {bookings.map((booking) => (
-          <button
-            key={booking.id}
-            onClick={() => onBookingClick(booking)}
-            className="w-full text-left bg-white border border-stone-200 rounded-lg p-4 hover:border-stone-300 hover:shadow-sm transition-all"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="text-center min-w-[60px]">
-                  <p className="text-lg font-semibold text-stone-900 font-mono">
-                    {formatTime(booking.start_time)}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium text-stone-900">{booking.guest_name}</p>
-                  <p className="text-sm text-stone-500">
-                    {booking.venue_table?.label || 'No table'} &middot;{' '}
-                    {booking.party_size} guests
-                  </p>
-                </div>
-              </div>
-              <span
-                className={cn(
-                  'px-2 py-1 rounded-full text-xs font-medium capitalize',
-                  getStatusColor(booking.status)
-                )}
-              >
-                {booking.status.replace(/_/g, ' ')}
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
 // Main BookingsPageClient Component
 // =============================================================================
 
@@ -469,11 +330,11 @@ export function BookingsPageClient({
             />
           ) : (
             <BookingsList
-              key={refreshKey}
               venueId={venueId}
               date={selectedDate}
               onDateChange={setSelectedDate}
               onBookingClick={handleBookingClick}
+              onAction={handleBlockAction}
             />
           )}
         </div>

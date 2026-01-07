@@ -11,3 +11,5 @@ export {
 export { BookingDetailDrawer } from './BookingDetailDrawer';
 export { CreateBookingModal } from './CreateBookingModal';
 export { BookingsPageClient } from './BookingsPageClient';
+export { BookingsList } from './BookingsList';
+export { StatusBadge } from './StatusBadge';
