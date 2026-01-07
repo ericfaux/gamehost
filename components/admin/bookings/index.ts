@@ -8,3 +8,4 @@ export {
   BufferZone,
   EnhancedConflictLayer,
 } from './TimelineConflicts';
+export { BookingDetailDrawer } from './BookingDetailDrawer';
