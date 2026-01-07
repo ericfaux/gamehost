@@ -115,17 +115,72 @@ export {
 
 // Booking queries
 export {
+  // Core queries
   getBookingById,
   getBookingsForVenue,
   getBookingsByTable,
   getUpcomingBookings,
   getBookingsByGuestEmail,
+  // Conflict Engine RPC wrappers
+  getAvailableSlotsRPC,
+  getAvailableTablesRPC,
+  checkTableAvailabilityRPC,
+  checkBookingConflictsRPC,
+  // Local availability functions
+  checkTableAvailability,
+  getAvailableTables,
+  getAvailableSlots,
+  checkGameAvailability,
+  // Atomic CRUD operations
+  createBookingAtomic,
+  seatParty,
+  updateBookingStatus,
+  cancelBooking,
+  markNoShow,
+  markArrived,
+  // Host queries
+  getBookingsForDate,
+  getBookingsForDateRange,
+  getNoShowCandidates,
+  getTodaysBookingStats,
+  // Guest queries
+  getBookingByIdAndEmail,
+  getGuestBookingHistory,
+  // Settings
   getVenueBookingSettings,
   createVenueBookingSettings,
   updateVenueBookingSettings,
   getOrCreateVenueBookingSettings,
+  upsertVenueBookingSettings,
+  getVenueOperatingHours,
+  upsertVenueOperatingHours,
+  // Waitlist
+  addToWaitlist,
+  getPendingWaitlistEntries,
+  updateWaitlistStatus,
+  // Turnover risks
+  getTurnoverRisks,
+  turnoverRiskToAlert,
+  // Constants
   BOOKING_SETTINGS_DEFAULTS,
+  // Types
   type BookingQueryOptions,
+  type CreateBookingAtomicParams,
+  type WaitlistEntryParams,
+  type BookingStats,
+  type OperatingHoursInput,
+  type CheckAvailabilityParams,
+  type AvailabilityResult,
+  type TableAvailabilityParams,
+  type AvailableTableWithFit,
+  type SlotQueryParams,
+  type AvailableSlotWithTables,
+  type GameAvailabilityParams,
+  type GameAvailabilityResult,
+  type TurnoverRisk,
+  type TurnoverRiskSeverity,
+  type TurnoverRiskAlertAction,
+  type TurnoverRiskAlertItem,
 } from './bookings';
 
 // Timeline data (for Gantt view)
@@ -169,5 +224,13 @@ export type {
   BookingWithDetails,
   BookingStatus,
   BookingSource,
+  BookingConflict,
   VenueBookingSettings,
+  VenueOperatingHours,
+  BookingWaitlistEntry,
+  WaitlistStatus,
+  // RPC return types
+  AvailableSlotRPC,
+  AvailableTableRPC,
+  BookingConflictRPC,
 } from '@/lib/db/types';
