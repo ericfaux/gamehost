@@ -62,7 +62,7 @@ export function DialogContent({
   );
 }
 
-interface DialogHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+type DialogHeaderProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function DialogHeader({ className, ...props }: DialogHeaderProps) {
   return (
@@ -76,7 +76,7 @@ export function DialogHeader({ className, ...props }: DialogHeaderProps) {
   );
 }
 
-interface DialogTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
+type DialogTitleProps = React.HTMLAttributes<HTMLHeadingElement>;
 
 export function DialogTitle({ className, ...props }: DialogTitleProps) {
   return (
@@ -90,7 +90,7 @@ export function DialogTitle({ className, ...props }: DialogTitleProps) {
   );
 }
 
-interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
+type DialogFooterProps = React.HTMLAttributes<HTMLDivElement>;
 
 export function DialogFooter({ className, ...props }: DialogFooterProps) {
   return (
@@ -104,7 +104,7 @@ export function DialogFooter({ className, ...props }: DialogFooterProps) {
   );
 }
 
-interface DialogCloseProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+type DialogCloseProps = React.ButtonHTMLAttributes<HTMLButtonElement>;
 
 export function DialogClose({ className, ...props }: DialogCloseProps) {
   return (
