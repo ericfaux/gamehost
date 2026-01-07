@@ -471,3 +471,96 @@ export interface UpcomingArrival {
   notes: string | null;
   minutes_until_arrival: number;
 }
+
+// -----------------------------------------------------------------------------
+// Waitlist Types
+// -----------------------------------------------------------------------------
+
+/**
+ * Status for waitlist entries.
+ */
+export type WaitlistStatus = 'pending' | 'notified' | 'converted' | 'expired' | 'cancelled';
+
+/**
+ * Represents a row in the `booking_waitlist` table.
+ * Guests can be added to the waitlist when no slots are available.
+ */
+export interface BookingWaitlistEntry {
+  id: string;
+  venue_id: string;
+  guest_name: string;
+  guest_email: string;
+  guest_phone: string | null;
+  party_size: number;
+  requested_date: string; // YYYY-MM-DD format
+  preferred_time_start: string | null; // HH:MM:SS format
+  preferred_time_end: string | null; // HH:MM:SS format
+  flexibility_minutes: number;
+  notes: string | null;
+  status: WaitlistStatus;
+  notified_at: string | null;
+  converted_booking_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// -----------------------------------------------------------------------------
+// Venue Operating Hours
+// -----------------------------------------------------------------------------
+
+/**
+ * Represents a row in the `venue_operating_hours` table.
+ * Defines when a venue is open for bookings on each day of the week.
+ */
+export interface VenueOperatingHours {
+  id: string;
+  venue_id: string;
+  day_of_week: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  is_closed: boolean;
+  open_time: string | null; // HH:MM:SS format
+  close_time: string | null; // HH:MM:SS format
+  created_at: string;
+  updated_at: string;
+}
+
+// -----------------------------------------------------------------------------
+// RPC Return Types (Conflict Engine)
+// -----------------------------------------------------------------------------
+
+/**
+ * Return type from get_available_slots RPC.
+ * Represents a single time slot with availability info.
+ */
+export interface AvailableSlotRPC {
+  slot_start: string; // HH:MM:SS format
+  slot_end: string; // HH:MM:SS format
+  available_table_count: number;
+  best_table_id: string | null;
+  best_table_label: string | null;
+}
+
+/**
+ * Return type from get_available_tables RPC.
+ * Represents a table available for a specific time slot.
+ */
+export interface AvailableTableRPC {
+  table_id: string;
+  label: string;
+  capacity: number | null;
+  zone_id: string | null;
+  is_exact_fit: boolean;
+  is_tight_fit: boolean;
+}
+
+/**
+ * Return type from check_booking_conflicts RPC.
+ * Represents a conflict with an existing booking.
+ */
+export interface BookingConflictRPC {
+  conflict_type: string;
+  conflict_booking_id: string;
+  conflict_guest_name: string;
+  conflict_start_time: string; // HH:MM:SS format
+  conflict_end_time: string; // HH:MM:SS format
+  overlap_minutes: number;
+}

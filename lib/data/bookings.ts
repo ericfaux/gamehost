@@ -18,8 +18,15 @@ import type {
   BookingWithTable,
   BookingWithDetails,
   BookingStatus,
+  BookingSource,
   BookingConflict,
   VenueBookingSettings,
+  VenueOperatingHours,
+  BookingWaitlistEntry,
+  WaitlistStatus,
+  AvailableSlotRPC,
+  AvailableTableRPC,
+  BookingConflictRPC,
 } from '@/lib/db/types';
 
 // -----------------------------------------------------------------------------
@@ -1501,4 +1508,863 @@ export function turnoverRiskToAlert(risk: TurnoverRisk): TurnoverRiskAlertItem {
     ],
     timestamp: new Date().toISOString(),
   };
+}
+
+// =============================================================================
+// RPC WRAPPERS - Conflict Engine
+// =============================================================================
+
+/**
+ * Gets available time slots for guest booking wizard using the database RPC.
+ * Returns slots with best table recommendations.
+ *
+ * @param venueId - The venue UUID
+ * @param date - Date in YYYY-MM-DD format
+ * @param partySize - Number of guests (default: 2)
+ * @param durationMinutes - Booking duration in minutes (default: 120)
+ * @param slotIntervalMinutes - Minutes between slot starts (default: 30)
+ * @returns Array of available slots from the RPC
+ */
+export async function getAvailableSlotsRPC(
+  venueId: string,
+  date: string,
+  partySize: number = 2,
+  durationMinutes: number = 120,
+  slotIntervalMinutes: number = 30
+): Promise<AvailableSlotRPC[]> {
+  const { data, error } = await getSupabaseAdmin().rpc('get_available_slots', {
+    p_venue_id: venueId,
+    p_date: date,
+    p_party_size: partySize,
+    p_duration_minutes: durationMinutes,
+    p_slot_interval_minutes: slotIntervalMinutes,
+  });
+
+  if (error) {
+    console.error('Error calling get_available_slots RPC:', error);
+    return [];
+  }
+
+  return (data ?? []) as AvailableSlotRPC[];
+}
+
+/**
+ * Gets available tables for a specific time slot using the database RPC.
+ * Tables are sorted by best fit (exact fit, then tight fit, then by capacity).
+ *
+ * @param venueId - The venue UUID
+ * @param date - Date in YYYY-MM-DD format
+ * @param startTime - Start time in HH:MM or HH:MM:SS format
+ * @param endTime - End time in HH:MM or HH:MM:SS format
+ * @param partySize - Number of guests (default: 1)
+ * @returns Array of available tables from the RPC
+ */
+export async function getAvailableTablesRPC(
+  venueId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  partySize: number = 1
+): Promise<AvailableTableRPC[]> {
+  const { data, error } = await getSupabaseAdmin().rpc('get_available_tables', {
+    p_venue_id: venueId,
+    p_date: date,
+    p_start_time: startTime,
+    p_end_time: endTime,
+    p_party_size: partySize,
+  });
+
+  if (error) {
+    console.error('Error calling get_available_tables RPC:', error);
+    return [];
+  }
+
+  return (data ?? []) as AvailableTableRPC[];
+}
+
+/**
+ * Quick boolean check if a table is available using the database RPC.
+ *
+ * @param tableId - The table UUID
+ * @param date - Date in YYYY-MM-DD format
+ * @param startTime - Start time in HH:MM or HH:MM:SS format
+ * @param endTime - End time in HH:MM or HH:MM:SS format
+ * @param excludeBookingId - Optional booking ID to exclude (for editing)
+ * @returns true if table is available, false otherwise
+ */
+export async function checkTableAvailabilityRPC(
+  tableId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  excludeBookingId?: string
+): Promise<boolean> {
+  const { data, error } = await getSupabaseAdmin().rpc('check_table_availability', {
+    p_table_id: tableId,
+    p_date: date,
+    p_start_time: startTime,
+    p_end_time: endTime,
+    p_exclude_booking_id: excludeBookingId ?? null,
+  });
+
+  if (error) {
+    console.error('Error calling check_table_availability RPC:', error);
+    return false;
+  }
+
+  return data === true;
+}
+
+/**
+ * Gets detailed conflict info for host UI using the database RPC.
+ *
+ * @param tableId - The table UUID
+ * @param date - Date in YYYY-MM-DD format
+ * @param startTime - Start time in HH:MM or HH:MM:SS format
+ * @param endTime - End time in HH:MM or HH:MM:SS format
+ * @param excludeBookingId - Optional booking ID to exclude (for editing)
+ * @returns Array of conflicts with booking details
+ */
+export async function checkBookingConflictsRPC(
+  tableId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  excludeBookingId?: string
+): Promise<BookingConflictRPC[]> {
+  const { data, error } = await getSupabaseAdmin().rpc('check_booking_conflicts', {
+    p_table_id: tableId,
+    p_date: date,
+    p_start_time: startTime,
+    p_end_time: endTime,
+    p_exclude_booking_id: excludeBookingId ?? null,
+  });
+
+  if (error) {
+    console.error('Error calling check_booking_conflicts RPC:', error);
+    return [];
+  }
+
+  return (data ?? []) as BookingConflictRPC[];
+}
+
+// =============================================================================
+// BOOKING CRUD - Atomic Operations
+// =============================================================================
+
+/**
+ * Parameters for creating a new booking atomically.
+ */
+export interface CreateBookingAtomicParams {
+  venueId: string;
+  tableId: string;
+  guestName: string;
+  guestEmail: string | null;
+  guestPhone: string | null;
+  partySize: number;
+  bookingDate: string; // YYYY-MM-DD format
+  startTime: string; // HH:MM or HH:MM:SS format
+  durationMinutes: number;
+  notes?: string | null;
+  gameId?: string | null;
+  source?: BookingSource;
+  createdBy?: string | null;
+}
+
+/**
+ * Creates a booking with atomic locking to prevent race conditions.
+ * Uses the database RPC which acquires a lock on the table before inserting.
+ *
+ * @param params - Booking creation parameters
+ * @returns The created booking ID
+ * @throws Error with user-friendly message if slot is no longer available
+ */
+export async function createBookingAtomic(
+  params: CreateBookingAtomicParams
+): Promise<string> {
+  const {
+    venueId,
+    tableId,
+    guestName,
+    guestEmail,
+    guestPhone,
+    partySize,
+    bookingDate,
+    startTime,
+    durationMinutes,
+    notes,
+    gameId,
+    source = 'online',
+    createdBy,
+  } = params;
+
+  const { data, error } = await getSupabaseAdmin().rpc('create_booking_atomic', {
+    p_venue_id: venueId,
+    p_table_id: tableId,
+    p_guest_name: guestName,
+    p_guest_email: guestEmail ?? null,
+    p_guest_phone: guestPhone ?? null,
+    p_party_size: partySize,
+    p_booking_date: bookingDate,
+    p_start_time: startTime,
+    p_duration_minutes: durationMinutes,
+    p_notes: notes ?? null,
+    p_game_id: gameId ?? null,
+    p_source: source,
+    p_created_by: createdBy ?? null,
+  });
+
+  if (error) {
+    // Handle specific error codes
+    if (error.code === 'P0001') {
+      throw new Error('Sorry, this time slot is no longer available. Please select a different time.');
+    }
+    console.error('Error creating booking:', error);
+    throw new Error(`Failed to create booking: ${error.message}`);
+  }
+
+  return data as string;
+}
+
+/**
+ * Transitions a booking to seated status and creates a session.
+ * Uses the database RPC for atomic state transition.
+ *
+ * @param bookingId - The booking UUID
+ * @returns The created session ID
+ * @throws Error if booking not found or in invalid status
+ */
+export async function seatParty(bookingId: string): Promise<string> {
+  const { data, error } = await getSupabaseAdmin().rpc('seat_party', {
+    p_booking_id: bookingId,
+  });
+
+  if (error) {
+    // Handle specific error codes
+    if (error.code === 'P0002') {
+      throw new Error('Booking not found.');
+    }
+    if (error.code === 'P0003') {
+      throw new Error('Booking is not in a valid status to be seated. Expected confirmed or arrived.');
+    }
+    console.error('Error seating party:', error);
+    throw new Error(`Failed to seat party: ${error.message}`);
+  }
+
+  return data as string;
+}
+
+/**
+ * Updates a booking's status with the appropriate timestamp.
+ *
+ * @param bookingId - The booking UUID
+ * @param status - The new booking status
+ * @param reason - Optional cancellation reason (for cancelled statuses)
+ * @returns The updated booking
+ * @throws Error if update fails
+ */
+export async function updateBookingStatus(
+  bookingId: string,
+  status: BookingStatus,
+  reason?: string
+): Promise<Booking> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  // Build update payload with appropriate timestamp
+  const updatePayload: Record<string, unknown> = {
+    status,
+    updated_at: now,
+  };
+
+  // Set the appropriate timestamp based on status
+  switch (status) {
+    case 'confirmed':
+      updatePayload.confirmed_at = now;
+      break;
+    case 'arrived':
+      updatePayload.arrived_at = now;
+      break;
+    case 'seated':
+      updatePayload.seated_at = now;
+      break;
+    case 'completed':
+      updatePayload.completed_at = now;
+      break;
+    case 'no_show':
+      updatePayload.no_show_at = now;
+      break;
+    case 'cancelled_by_guest':
+    case 'cancelled_by_venue':
+      updatePayload.cancelled_at = now;
+      if (reason) {
+        updatePayload.cancellation_reason = reason;
+      }
+      break;
+  }
+
+  const { data, error } = await supabase
+    .from('bookings')
+    .update(updatePayload)
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error updating booking status:', error);
+    throw new Error(`Failed to update booking status: ${error.message}`);
+  }
+
+  return data as Booking;
+}
+
+/**
+ * Cancels a booking.
+ *
+ * @param bookingId - The booking UUID
+ * @param cancelledBy - Who cancelled ('guest' | 'venue')
+ * @param reason - Optional cancellation reason
+ * @returns The updated booking
+ */
+export async function cancelBooking(
+  bookingId: string,
+  cancelledBy: 'guest' | 'venue',
+  reason?: string
+): Promise<Booking> {
+  const status: BookingStatus = cancelledBy === 'guest' ? 'cancelled_by_guest' : 'cancelled_by_venue';
+  return updateBookingStatus(bookingId, status, reason);
+}
+
+/**
+ * Marks a booking as no-show.
+ *
+ * @param bookingId - The booking UUID
+ * @returns The updated booking
+ */
+export async function markNoShow(bookingId: string): Promise<Booking> {
+  return updateBookingStatus(bookingId, 'no_show');
+}
+
+/**
+ * Marks a guest as arrived (holding state before seating).
+ *
+ * @param bookingId - The booking UUID
+ * @returns The updated booking
+ */
+export async function markArrived(bookingId: string): Promise<Booking> {
+  return updateBookingStatus(bookingId, 'arrived');
+}
+
+// =============================================================================
+// HOST QUERIES
+// =============================================================================
+
+/**
+ * Gets all bookings for a specific date.
+ * Used for Timeline/Gantt view.
+ *
+ * @param venueId - The venue UUID
+ * @param date - Date in YYYY-MM-DD format
+ * @returns Array of bookings with table and game details
+ */
+export async function getBookingsForDate(
+  venueId: string,
+  date: string
+): Promise<BookingWithDetails[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('bookings')
+    .select(`
+      *,
+      venue_tables:table_id (id, label, capacity),
+      games:game_id (id, title, cover_image_url)
+    `)
+    .eq('venue_id', venueId)
+    .eq('booking_date', date)
+    .not('status', 'in', `(${CANCELLED_STATUSES.join(',')})`)
+    .order('start_time', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching bookings for date:', error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => transformBookingWithDetails(row as Record<string, unknown>));
+}
+
+/**
+ * Gets all bookings for a date range.
+ * Used for multi-day views.
+ *
+ * @param venueId - The venue UUID
+ * @param startDate - Start date in YYYY-MM-DD format
+ * @param endDate - End date in YYYY-MM-DD format
+ * @returns Array of bookings with table and game details
+ */
+export async function getBookingsForDateRange(
+  venueId: string,
+  startDate: string,
+  endDate: string
+): Promise<BookingWithDetails[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('bookings')
+    .select(`
+      *,
+      venue_tables:table_id (id, label, capacity),
+      games:game_id (id, title, cover_image_url)
+    `)
+    .eq('venue_id', venueId)
+    .gte('booking_date', startDate)
+    .lte('booking_date', endDate)
+    .not('status', 'in', `(${CANCELLED_STATUSES.join(',')})`)
+    .order('booking_date', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching bookings for date range:', error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => transformBookingWithDetails(row as Record<string, unknown>));
+}
+
+/**
+ * Finds confirmed bookings that are overdue (no-show candidates).
+ *
+ * @param venueId - The venue UUID
+ * @param graceMinutes - Minutes past start time before flagging (default: 15)
+ * @returns Array of overdue bookings
+ */
+export async function getNoShowCandidates(
+  venueId: string,
+  graceMinutes: number = 15
+): Promise<BookingWithDetails[]> {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
+  // Calculate cutoff time (current time minus grace period)
+  const cutoffDate = new Date(now.getTime() - graceMinutes * 60 * 1000);
+  const cutoffTime = cutoffDate.toTimeString().split(' ')[0]; // HH:MM:SS
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('bookings')
+    .select(`
+      *,
+      venue_tables:table_id (id, label, capacity),
+      games:game_id (id, title, cover_image_url)
+    `)
+    .eq('venue_id', venueId)
+    .eq('booking_date', today)
+    .eq('status', 'confirmed')
+    .lt('start_time', cutoffTime)
+    .order('start_time', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching no-show candidates:', error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => transformBookingWithDetails(row as Record<string, unknown>));
+}
+
+/**
+ * Statistics for today's bookings.
+ */
+export interface BookingStats {
+  total: number;
+  confirmed: number;
+  arrived: number;
+  seated: number;
+  completed: number;
+  noShow: number;
+  cancelled: number;
+}
+
+/**
+ * Gets quick stats for today's bookings.
+ *
+ * @param venueId - The venue UUID
+ * @returns Booking statistics for today
+ */
+export async function getTodaysBookingStats(venueId: string): Promise<BookingStats> {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('bookings')
+    .select('status')
+    .eq('venue_id', venueId)
+    .eq('booking_date', today);
+
+  if (error) {
+    console.error('Error fetching booking stats:', error);
+    return {
+      total: 0,
+      confirmed: 0,
+      arrived: 0,
+      seated: 0,
+      completed: 0,
+      noShow: 0,
+      cancelled: 0,
+    };
+  }
+
+  const stats: BookingStats = {
+    total: data?.length ?? 0,
+    confirmed: 0,
+    arrived: 0,
+    seated: 0,
+    completed: 0,
+    noShow: 0,
+    cancelled: 0,
+  };
+
+  for (const booking of data ?? []) {
+    switch (booking.status as BookingStatus) {
+      case 'confirmed':
+        stats.confirmed++;
+        break;
+      case 'arrived':
+        stats.arrived++;
+        break;
+      case 'seated':
+        stats.seated++;
+        break;
+      case 'completed':
+        stats.completed++;
+        break;
+      case 'no_show':
+        stats.noShow++;
+        break;
+      case 'cancelled_by_guest':
+      case 'cancelled_by_venue':
+        stats.cancelled++;
+        break;
+    }
+  }
+
+  return stats;
+}
+
+// =============================================================================
+// GUEST QUERIES
+// =============================================================================
+
+/**
+ * Gets a booking by ID and email for guest verification.
+ * Used on manage-booking pages to ensure guests can only access their own bookings.
+ *
+ * @param bookingId - The booking UUID
+ * @param email - The guest's email address (case-insensitive)
+ * @returns The booking if found and email matches, null otherwise
+ */
+export async function getBookingByIdAndEmail(
+  bookingId: string,
+  email: string
+): Promise<BookingWithDetails | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('bookings')
+    .select(`
+      *,
+      venue_tables:table_id (id, label, capacity),
+      games:game_id (id, title, cover_image_url)
+    `)
+    .eq('id', bookingId)
+    .ilike('guest_email', email)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching booking by ID and email:', error);
+    return null;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return transformBookingWithDetails(data as Record<string, unknown>);
+}
+
+/**
+ * Gets a guest's booking history.
+ *
+ * @param email - The guest's email address
+ * @param venueId - Optional venue filter
+ * @returns Array of bookings ordered by date DESC
+ */
+export async function getGuestBookingHistory(
+  email: string,
+  venueId?: string
+): Promise<BookingWithDetails[]> {
+  let query = getSupabaseAdmin()
+    .from('bookings')
+    .select(`
+      *,
+      venue_tables:table_id (id, label, capacity),
+      games:game_id (id, title, cover_image_url)
+    `)
+    .ilike('guest_email', email)
+    .order('booking_date', { ascending: false })
+    .order('start_time', { ascending: false });
+
+  if (venueId) {
+    query = query.eq('venue_id', venueId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching guest booking history:', error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => transformBookingWithDetails(row as Record<string, unknown>));
+}
+
+// =============================================================================
+// VENUE SETTINGS - Operating Hours
+// =============================================================================
+
+/**
+ * Gets operating hours for a venue.
+ *
+ * @param venueId - The venue UUID
+ * @returns Array of operating hours for each day of the week
+ */
+export async function getVenueOperatingHours(
+  venueId: string
+): Promise<VenueOperatingHours[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('venue_operating_hours')
+    .select('*')
+    .eq('venue_id', venueId)
+    .order('day_of_week', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching venue operating hours:', error);
+    return [];
+  }
+
+  return (data ?? []) as VenueOperatingHours[];
+}
+
+/**
+ * Operating hours input for upsert.
+ */
+export interface OperatingHoursInput {
+  day_of_week: number; // 0-6, Sunday = 0
+  is_closed: boolean;
+  open_time: string | null; // HH:MM or HH:MM:SS
+  close_time: string | null; // HH:MM or HH:MM:SS
+}
+
+/**
+ * Sets operating hours for a venue.
+ * Deletes existing hours and inserts new ones atomically.
+ *
+ * @param venueId - The venue UUID
+ * @param hours - Array of operating hours for each day
+ * @returns The inserted operating hours
+ */
+export async function upsertVenueOperatingHours(
+  venueId: string,
+  hours: OperatingHoursInput[]
+): Promise<VenueOperatingHours[]> {
+  const supabase = getSupabaseAdmin();
+
+  // Delete existing hours
+  const { error: deleteError } = await supabase
+    .from('venue_operating_hours')
+    .delete()
+    .eq('venue_id', venueId);
+
+  if (deleteError) {
+    console.error('Error deleting existing operating hours:', deleteError);
+    throw new Error(`Failed to update operating hours: ${deleteError.message}`);
+  }
+
+  // Insert new hours
+  const insertData = hours.map((h) => ({
+    venue_id: venueId,
+    day_of_week: h.day_of_week,
+    is_closed: h.is_closed,
+    open_time: h.open_time,
+    close_time: h.close_time,
+  }));
+
+  const { data, error: insertError } = await supabase
+    .from('venue_operating_hours')
+    .insert(insertData)
+    .select('*')
+    .order('day_of_week', { ascending: true });
+
+  if (insertError) {
+    console.error('Error inserting operating hours:', insertError);
+    throw new Error(`Failed to update operating hours: ${insertError.message}`);
+  }
+
+  return (data ?? []) as VenueOperatingHours[];
+}
+
+/**
+ * Creates or updates booking settings for a venue using upsert.
+ *
+ * @param venueId - The venue UUID
+ * @param settings - Partial settings to upsert
+ * @returns The upserted settings
+ */
+export async function upsertVenueBookingSettings(
+  venueId: string,
+  settings: Partial<Omit<VenueBookingSettings, 'id' | 'venue_id' | 'created_at' | 'updated_at'>>
+): Promise<VenueBookingSettings> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('venue_booking_settings')
+    .upsert(
+      {
+        venue_id: venueId,
+        ...settings,
+      },
+      { onConflict: 'venue_id' }
+    )
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error upserting venue booking settings:', error);
+    throw new Error(`Failed to update booking settings: ${error.message}`);
+  }
+
+  return data as VenueBookingSettings;
+}
+
+// =============================================================================
+// WAITLIST
+// =============================================================================
+
+/**
+ * Parameters for adding a guest to the waitlist.
+ */
+export interface WaitlistEntryParams {
+  venueId: string;
+  guestName: string;
+  guestEmail: string;
+  guestPhone?: string | null;
+  partySize: number;
+  requestedDate: string; // YYYY-MM-DD format
+  preferredTimeStart?: string | null; // HH:MM format
+  preferredTimeEnd?: string | null; // HH:MM format
+  flexibilityMinutes?: number;
+  notes?: string | null;
+}
+
+/**
+ * Adds a guest to the waitlist when no slots are available.
+ *
+ * @param params - Waitlist entry parameters
+ * @returns The created waitlist entry ID
+ */
+export async function addToWaitlist(params: WaitlistEntryParams): Promise<string> {
+  const {
+    venueId,
+    guestName,
+    guestEmail,
+    guestPhone,
+    partySize,
+    requestedDate,
+    preferredTimeStart,
+    preferredTimeEnd,
+    flexibilityMinutes = 30,
+    notes,
+  } = params;
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('booking_waitlist')
+    .insert({
+      venue_id: venueId,
+      guest_name: guestName,
+      guest_email: guestEmail,
+      guest_phone: guestPhone ?? null,
+      party_size: partySize,
+      requested_date: requestedDate,
+      preferred_time_start: preferredTimeStart ?? null,
+      preferred_time_end: preferredTimeEnd ?? null,
+      flexibility_minutes: flexibilityMinutes,
+      notes: notes ?? null,
+      status: 'pending',
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('Error adding to waitlist:', error);
+    throw new Error(`Failed to add to waitlist: ${error.message}`);
+  }
+
+  return data.id as string;
+}
+
+/**
+ * Gets pending waitlist entries for a venue and date.
+ *
+ * @param venueId - The venue UUID
+ * @param date - Date in YYYY-MM-DD format
+ * @returns Array of pending waitlist entries
+ */
+export async function getPendingWaitlistEntries(
+  venueId: string,
+  date: string
+): Promise<BookingWaitlistEntry[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('booking_waitlist')
+    .select('*')
+    .eq('venue_id', venueId)
+    .eq('requested_date', date)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching pending waitlist entries:', error);
+    return [];
+  }
+
+  return (data ?? []) as BookingWaitlistEntry[];
+}
+
+/**
+ * Updates a waitlist entry's status.
+ *
+ * @param entryId - The waitlist entry UUID
+ * @param status - The new status
+ * @param convertedBookingId - Optional booking ID if converted
+ * @returns The updated waitlist entry
+ */
+export async function updateWaitlistStatus(
+  entryId: string,
+  status: WaitlistStatus,
+  convertedBookingId?: string
+): Promise<BookingWaitlistEntry> {
+  const updatePayload: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (status === 'notified') {
+    updatePayload.notified_at = new Date().toISOString();
+  }
+
+  if (status === 'converted' && convertedBookingId) {
+    updatePayload.converted_booking_id = convertedBookingId;
+  }
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('booking_waitlist')
+    .update(updatePayload)
+    .eq('id', entryId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error updating waitlist status:', error);
+    throw new Error(`Failed to update waitlist status: ${error.message}`);
+  }
+
+  return data as BookingWaitlistEntry;
 }
