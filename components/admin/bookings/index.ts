@@ -13,3 +13,4 @@ export { CreateBookingModal } from './CreateBookingModal';
 export { BookingsPageClient } from './BookingsPageClient';
 export { BookingsList } from './BookingsList';
 export { StatusBadge } from './StatusBadge';
+export { ArrivalsBoard } from './ArrivalsBoard';
