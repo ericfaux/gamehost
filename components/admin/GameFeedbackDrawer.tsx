@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useTransition } from 'react';
+import Link from 'next/link';
 import {
   X,
   Star,
@@ -21,6 +22,7 @@ import {
   Repeat,
   MessageSquare,
   Loader2,
+  ExternalLink,
 } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/AppShell';
@@ -342,7 +344,14 @@ export function GameFeedbackDrawer({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-[color:var(--color-structure)] bg-[color:var(--color-elevated)]">
+        <div className="p-4 border-t border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] space-y-3">
+          <Link
+            href={`/admin/feedback?q=${encodeURIComponent(game.title)}&range=90d`}
+            className="text-sm text-[color:var(--color-accent)] hover:underline flex items-center justify-center gap-1"
+          >
+            View full history
+            <ExternalLink className="h-3 w-3" />
+          </Link>
           <Button
             variant="secondary"
             className="w-full"

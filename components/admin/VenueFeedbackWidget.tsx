@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Heart, Star, ThumbsUp, Meh, ThumbsDown, MessageSquare } from '@/components/icons';
+import { Heart, Star, ThumbsUp, Meh, ThumbsDown, MessageSquare, ArrowRight } from '@/components/icons';
 import type { DashboardData } from '@/lib/data';
 
 interface VenueFeedbackWidgetProps {
@@ -51,7 +52,7 @@ export function VenueFeedbackWidget({ feedback }: VenueFeedbackWidgetProps) {
 
   return (
     <Card className="panel-surface">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
           <Heart className="h-5 w-5 text-pink-500" />
           Venue Feedback
@@ -59,6 +60,13 @@ export function VenueFeedbackWidget({ feedback }: VenueFeedbackWidgetProps) {
             (Last 30 days)
           </span>
         </CardTitle>
+        <Link
+          href="/admin/feedback?range=30d"
+          className="text-sm text-[color:var(--color-accent)] hover:underline flex items-center gap-1"
+        >
+          View all
+          <ArrowRight className="h-3 w-3" />
+        </Link>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Summary Row */}

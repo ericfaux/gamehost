@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { Plus, Play, Pencil, Star, Eye, Gamepad2, Download, Loader2 } from "@/components/icons";
 import { TokenChip, useToast } from '@/components/AppShell';
@@ -254,7 +255,11 @@ export function LibraryClient({
               )}
             </div>
             {feedback && feedback.responseCount > 0 && (
-              <div className="flex items-center gap-1.5 text-xs">
+              <Link
+                href={`/admin/feedback?q=${encodeURIComponent(row.title)}&range=90d`}
+                className="flex items-center gap-1.5 text-xs hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Star className="h-3 w-3 text-amber-500" />
                 <span className="font-medium text-[color:var(--color-ink-primary)]">
                   {feedback.avgRating !== null ? feedback.avgRating.toFixed(1) : '—'}
@@ -262,7 +267,7 @@ export function LibraryClient({
                 <span className="text-[color:var(--color-ink-secondary)]">
                   ({feedback.responseCount})
                 </span>
-              </div>
+              </Link>
             )}
           </div>
         );
