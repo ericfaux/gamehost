@@ -417,13 +417,22 @@ export async function endAllActiveSessionsForTable(tableId: string): Promise<num
 }
 
 /**
+ * Session with joined game and venue_tables details.
+ * Used when fetching sessions that include related data via Supabase joins.
+ */
+export interface SessionWithDetails extends Session {
+  games: { title: string } | null;
+  venue_tables: { label: string } | null;
+}
+
+/**
  * Gets all active sessions for a venue.
  * Used by Admin UI to display session status using admin client (bypasses RLS).
  *
  * @param venueId - The venue ID
  * @returns Array of active sessions with game and table details
  */
-export async function getActiveSessionsForVenue(venueId: string): Promise<Session[]> {
+export async function getActiveSessionsForVenue(venueId: string): Promise<SessionWithDetails[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('sessions')
     .select('*, games(title), venue_tables(label)')
@@ -436,7 +445,7 @@ export async function getActiveSessionsForVenue(venueId: string): Promise<Sessio
     return [];
   }
 
-  return (data ?? []) as Session[];
+  return (data ?? []) as SessionWithDetails[];
 }
 
 /**
