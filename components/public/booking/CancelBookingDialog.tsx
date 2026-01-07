@@ -48,7 +48,7 @@ export function CancelBookingDialog({
       } else {
         setError(result.error ?? 'Failed to cancel booking');
       }
-    } catch (e) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
