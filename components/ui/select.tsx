@@ -36,11 +36,10 @@ export function Select({
   // Find the selected item's label
   const childArray = React.Children.toArray(children);
   const selectedChild = childArray.find(
-    (child) => React.isValidElement(child) && child.props.value === value
+    (child): child is React.ReactElement<SelectItemProps> =>
+      React.isValidElement<SelectItemProps>(child) && child.props.value === value
   );
-  const displayValue = React.isValidElement(selectedChild)
-    ? selectedChild.props.children
-    : placeholder;
+  const displayValue = selectedChild ? selectedChild.props.children : placeholder;
 
   // Close on click outside
   React.useEffect(() => {
