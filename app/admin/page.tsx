@@ -38,14 +38,10 @@ export default async function AdminDashboard() {
   // Extract browsing sessions (no game assigned) with table labels
   const browsingSessions: BrowsingSession[] = activeSessions
     .filter((session) => session.game_id === null)
-    .map((session) => {
-      // Supabase relations return as arrays - access first element
-      const venueTables = (session as unknown as { venue_tables?: { label: string }[] }).venue_tables;
-      return {
-        ...session,
-        tableLabel: venueTables?.[0]?.label ?? 'Unknown Table',
-      };
-    });
+    .map((session) => ({
+      ...session,
+      tableLabel: session.venue_tables?.label ?? 'Unknown Table',
+    }));
 
   // Get available games (in rotation)
   const availableGames = allGames.filter((game) => game.status === 'in_rotation');
