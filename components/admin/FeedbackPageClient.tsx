@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useTransition, useEffect } from 'react';
+import { useState, useCallback, useTransition, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import type { FeedbackFilters, FeedbackHistoryResult } from '@/lib/db/types';
 import { fetchFeedback } from '@/app/admin/feedback/actions';
@@ -119,6 +119,21 @@ export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientP
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  // Check if any filters are active (for contextual empty state)
+  const hasActiveFilters = useMemo(() => {
+    return (
+      filters.dateRangePreset !== '30d' ||
+      filters.startDate != null ||
+      filters.endDate != null ||
+      filters.sentiment != null ||
+      (filters.ratingType != null && filters.ratingType !== 'all') ||
+      filters.hasComment === true ||
+      filters.source != null ||
+      (filters.search && filters.search.length > 0)
+    );
+  }, [filters]);
+
+
   // Sync URL → State when URL changes externally (back/forward navigation)
   useEffect(() => {
     const urlFilters = parseFiltersFromURL(searchParams);
@@ -162,6 +177,11 @@ export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientP
     });
   }, [pathname, router]);
 
+  // Handler to clear all filters
+  const handleClearFilters = useCallback(() => {
+    handleFiltersChange({ dateRangePreset: '30d' });
+  }, [handleFiltersChange]);
+
   // Handle pagination - append more rows
   const handleLoadMore = useCallback(() => {
     if (!data.nextCursor || isPending) return;
@@ -183,6 +203,14 @@ export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientP
 
   return (
     <div className="grid gap-4">
+      {/* Screen reader announcement for filter changes */}
+      <div aria-live="polite" className="sr-only">
+        {isPending
+          ? 'Loading feedback...'
+          : `Showing ${data.rows.length} of ${data.totalCount} feedback responses`
+        }
+      </div>
+
       {/* Error banner */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
@@ -203,13 +231,22 @@ export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientP
         isLoading={isPending}
       />
 
-      {/* Results table */}
-      <FeedbackTable
-        rows={data.rows}
-        isLoading={isPending}
-        hasMore={!!data.nextCursor}
-        onLoadMore={handleLoadMore}
-      />
+      {/* Results table - fade transition when data updates */}
+      <div
+        className={`
+          transition-opacity duration-150 motion-reduce:transition-none
+          ${isPending ? 'opacity-60' : 'opacity-100'}
+        `}
+      >
+        <FeedbackTable
+          rows={data.rows}
+          isLoading={isPending}
+          hasMore={!!data.nextCursor}
+          onLoadMore={handleLoadMore}
+          hasFilters={hasActiveFilters}
+          onClearFilters={handleClearFilters}
+        />
+      </div>
     </div>
   );
 }

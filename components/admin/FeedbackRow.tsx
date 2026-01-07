@@ -57,12 +57,13 @@ export function FeedbackRow({ row }: FeedbackRowProps) {
   return (
     <>
       <div
-        className="flex items-center gap-4 px-4 py-3 hover:bg-[color:var(--color-muted)] cursor-pointer transition-colors border-b border-[color:var(--color-structure)]"
+        className="flex items-center gap-4 px-4 py-3 hover:bg-[color:var(--color-muted)] cursor-pointer transition-colors border-b border-[color:var(--color-structure)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--color-accent)]"
         onClick={() => setIsExpanded(!isExpanded)}
         onKeyDown={handleKeyDown}
         role="button"
         tabIndex={0}
         aria-expanded={isExpanded}
+        aria-label={`Feedback from ${row.tableLabel || 'unknown table'} on ${format(new Date(row.submittedAt), 'PPP')}${row.gameTitle ? ` for ${row.gameTitle}` : ''}`}
       >
         {/* Date */}
         <div className="w-[140px] shrink-0">
@@ -111,63 +112,70 @@ export function FeedbackRow({ row }: FeedbackRowProps) {
         </div>
       </div>
 
-      {/* Expanded Detail Panel */}
-      {isExpanded && (
-        <div className="px-4 py-4 bg-[color:var(--color-muted)] border-b border-[color:var(--color-structure)]">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Session Duration */}
-            <div>
-              <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Duration</p>
-              <p className="text-sm text-ink-primary">
-                {formatDuration(row.startedAt, row.endedAt)}
-              </p>
-            </div>
-
-            {/* Complexity Felt (if game feedback) */}
-            {row.complexity && (
+      {/* Expanded Detail Panel - uses CSS grid for smooth height animation */}
+      <div
+        className={`
+          grid transition-all duration-200 ease-out motion-reduce:transition-none
+          ${isExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}
+        `}
+      >
+        <div className="overflow-hidden">
+          <div className="px-4 py-4 bg-[color:var(--color-muted)] border-b border-[color:var(--color-structure)]">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Session Duration */}
               <div>
-                <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Complexity felt</p>
-                <p className="text-sm text-ink-primary capitalize">
-                  {row.complexity.replace('_', ' ')}
+                <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Duration</p>
+                <p className="text-sm text-ink-primary">
+                  {formatDuration(row.startedAt, row.endedAt)}
                 </p>
               </div>
-            )}
 
-            {/* Would Play Again (if game feedback) */}
-            {row.replay && (
+              {/* Complexity Felt (if game feedback) */}
+              {row.complexity && (
+                <div>
+                  <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Complexity felt</p>
+                  <p className="text-sm text-ink-primary capitalize">
+                    {row.complexity.replace('_', ' ')}
+                  </p>
+                </div>
+              )}
+
+              {/* Would Play Again (if game feedback) */}
+              {row.replay && (
+                <div>
+                  <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Play again?</p>
+                  <p className="text-sm text-ink-primary capitalize">{row.replay}</p>
+                </div>
+              )}
+
+              {/* Source */}
               <div>
-                <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Play again?</p>
-                <p className="text-sm text-ink-primary capitalize">{row.replay}</p>
+                <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Source</p>
+                <TokenChip tone="muted">
+                  {row.source === 'end_sheet' ? 'Guest checkout' :
+                    row.source === 'staff_prompt' ? 'Staff prompt' : 'Timer prompt'}
+                </TokenChip>
+              </div>
+            </div>
+
+            {/* Full Comment */}
+            {row.comment && (
+              <div className="mt-4">
+                <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Game Comment</p>
+                <p className="text-sm text-ink-primary whitespace-pre-wrap">{row.comment}</p>
               </div>
             )}
 
-            {/* Source */}
-            <div>
-              <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Source</p>
-              <TokenChip tone="muted">
-                {row.source === 'end_sheet' ? 'Guest checkout' :
-                  row.source === 'staff_prompt' ? 'Staff prompt' : 'Timer prompt'}
-              </TokenChip>
-            </div>
+            {/* Venue Comment */}
+            {row.venueComment && (
+              <div className="mt-4">
+                <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Venue Comment</p>
+                <p className="text-sm text-ink-primary whitespace-pre-wrap">{row.venueComment}</p>
+              </div>
+            )}
           </div>
-
-          {/* Full Comment */}
-          {row.comment && (
-            <div className="mt-4">
-              <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Game Comment</p>
-              <p className="text-sm text-ink-primary whitespace-pre-wrap">{row.comment}</p>
-            </div>
-          )}
-
-          {/* Venue Comment */}
-          {row.venueComment && (
-            <div className="mt-4">
-              <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Venue Comment</p>
-              <p className="text-sm text-ink-primary whitespace-pre-wrap">{row.venueComment}</p>
-            </div>
-          )}
         </div>
-      )}
+      </div>
     </>
   );
 }
