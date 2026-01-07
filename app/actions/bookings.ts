@@ -16,7 +16,11 @@ import type {
   BookingWithDetails,
   BookingSource,
   BookingStatus,
+  Session,
 } from '@/lib/db/types';
+import {
+  endAllActiveSessionsForTable,
+} from '@/lib/data/sessions';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -113,6 +117,8 @@ export interface UpdateBookingActionParams {
  *
  * State machine diagram:
  * pending ──┬──→ confirmed ──┬──→ arrived ──→ seated ──→ completed
+ *           │                │                  ↑
+ *           │                └──────────────────┘ (seatParty: direct seating)
  *           │                │
  *           └──→ cancelled   └──→ no_show
  *                (by_guest)
@@ -120,7 +126,7 @@ export interface UpdateBookingActionParams {
  */
 const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
   pending: ['confirmed', 'cancelled_by_guest', 'cancelled_by_venue'],
-  confirmed: ['arrived', 'cancelled_by_guest', 'cancelled_by_venue', 'no_show'],
+  confirmed: ['arrived', 'seated', 'cancelled_by_guest', 'cancelled_by_venue', 'no_show'],
   arrived: ['seated', 'cancelled_by_venue', 'no_show'],
   seated: ['completed'],
   completed: [],
@@ -1430,5 +1436,441 @@ export async function updateBooking(
   return {
     success: true,
     data: data as Booking,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Seat Party Action (Bridge Reservations to Sessions)
+// -----------------------------------------------------------------------------
+
+/**
+ * Result type for the seatParty action.
+ * Contains both the updated booking and the created session.
+ */
+export interface SeatPartyResult {
+  booking: Booking;
+  session: Session;
+  warning?: string;
+}
+
+/**
+ * Early seating threshold in minutes.
+ * If booking starts more than this many minutes in the future, a warning is included.
+ */
+const EARLY_SEATING_THRESHOLD_MINUTES = 15;
+
+/**
+ * Seats a party by bridging a booking to a live session.
+ * This is the core "one-click" action that:
+ * 1. Marks the guest as seated
+ * 2. Creates a new Session on that table
+ * 3. Links the booking to the session
+ * 4. Optionally pre-loads the reserved game
+ *
+ * Valid from: 'confirmed' or 'arrived'
+ * Sets: status='seated', seated_at=now(), session_id=new session ID
+ * If was 'confirmed', also sets arrived_at=now()
+ *
+ * Edge cases handled:
+ * - If table has active session: Ends it first
+ * - If booking is for future time (>15 min away): Allows with warning
+ *
+ * @param bookingId - The booking's UUID
+ * @returns ActionResult with SeatPartyResult (booking + session) or error
+ */
+export async function seatParty(
+  bookingId: string
+): Promise<ActionResult<SeatPartyResult>> {
+  const supabase = getSupabaseAdmin();
+
+  // --- Step 1: Fetch the booking with table and game info ---
+  const booking = await getBookingById(bookingId);
+
+  if (!booking) {
+    return {
+      success: false,
+      error: 'Booking not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // --- Step 2: Validate state transition ---
+  // seatParty can transition from 'confirmed' or 'arrived' to 'seated'
+  const targetStatus: BookingStatus = 'seated';
+  if (!canTransition(booking.status, targetStatus)) {
+    // Provide specific error messages for common cases
+    if (booking.status === 'seated') {
+      return {
+        success: false,
+        error: 'This booking has already been seated.',
+        code: 'INVALID_TRANSITION',
+      };
+    }
+    if (booking.status === 'completed') {
+      return {
+        success: false,
+        error: 'This booking has already been completed.',
+        code: 'INVALID_TRANSITION',
+      };
+    }
+    if (booking.status === 'pending') {
+      return {
+        success: false,
+        error: 'This booking must be confirmed before seating. Please confirm the booking first.',
+        code: 'INVALID_TRANSITION',
+      };
+    }
+    return {
+      success: false,
+      error: `Cannot ${STATUS_ACTION_NAMES[targetStatus]} a booking that is ${booking.status.replace(/_/g, ' ')}.`,
+      code: 'INVALID_TRANSITION',
+    };
+  }
+
+  // --- Step 3: Validate table exists and is active ---
+  if (!booking.table_id) {
+    return {
+      success: false,
+      error: 'This booking has no table assigned. Please assign a table before seating.',
+      code: 'VALIDATION',
+    };
+  }
+
+  const { data: table, error: tableError } = await supabase
+    .from('venue_tables')
+    .select('id, venue_id, label, is_active')
+    .eq('id', booking.table_id)
+    .single();
+
+  if (tableError || !table) {
+    return {
+      success: false,
+      error: 'The assigned table was not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  if (!table.is_active) {
+    return {
+      success: false,
+      error: `Table "${table.label}" is not currently active. Please assign a different table.`,
+      code: 'VALIDATION',
+    };
+  }
+
+  // --- Step 4: Check for early seating and generate warning ---
+  let warning: string | undefined;
+  const now = new Date();
+  const bookingDateStr = booking.booking_date;
+  const bookingTimeStr = booking.start_time;
+
+  // Parse the booking date and time
+  const [year, month, day] = bookingDateStr.split('-').map(Number);
+  const timeParts = bookingTimeStr.split(':').map(Number);
+  const hours = timeParts[0];
+  const minutes = timeParts[1];
+
+  const bookingDateTime = new Date(year, month - 1, day, hours, minutes);
+  const minutesUntilBooking = (bookingDateTime.getTime() - now.getTime()) / (60 * 1000);
+
+  if (minutesUntilBooking > EARLY_SEATING_THRESHOLD_MINUTES) {
+    const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    warning = `Early seating: This booking is scheduled for ${formattedTime} (${Math.round(minutesUntilBooking)} minutes from now).`;
+  }
+
+  // --- Step 5: Handle existing active session on table ---
+  // End any active sessions to make room for this booking
+  const endedCount = await endAllActiveSessionsForTable(booking.table_id);
+  if (endedCount > 0) {
+    console.log(`[seatParty] Ended ${endedCount} active session(s) on table ${booking.table_id} for booking ${bookingId}`);
+  }
+
+  // --- Step 6: Create new session ---
+  // Insert session directly since we have venue_id from booking
+  const { data: session, error: sessionError } = await supabase
+    .from('sessions')
+    .insert({
+      venue_id: booking.venue_id,
+      table_id: booking.table_id,
+      game_id: booking.game_id ?? null,
+    })
+    .select('*')
+    .single();
+
+  if (sessionError || !session) {
+    console.error('Error creating session for seatParty:', sessionError);
+    return {
+      success: false,
+      error: 'Failed to create session. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // --- Step 7: Update booking ---
+  const updatePayload: Record<string, unknown> = {
+    status: targetStatus,
+    seated_at: now.toISOString(),
+    session_id: session.id,
+  };
+
+  // If transitioning from 'confirmed', also set arrived_at
+  if (booking.status === 'confirmed') {
+    updatePayload.arrived_at = now.toISOString();
+  }
+
+  const { data: updatedBooking, error: updateError } = await supabase
+    .from('bookings')
+    .update(updatePayload)
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (updateError || !updatedBooking) {
+    // Attempt to clean up the session we just created
+    console.error('Error updating booking for seatParty:', updateError);
+    await supabase
+      .from('sessions')
+      .update({ ended_at: now.toISOString() })
+      .eq('id', session.id);
+
+    return {
+      success: false,
+      error: 'Failed to update booking. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // --- Step 8: Revalidate paths ---
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/dashboard');
+  revalidatePath('/admin/floorplan');
+  revalidatePath('/admin/sessions');
+
+  // --- Success! ---
+  const result: SeatPartyResult = {
+    booking: updatedBooking as Booking,
+    session: session as Session,
+  };
+
+  if (warning) {
+    result.warning = warning;
+  }
+
+  return {
+    success: true,
+    data: result,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Complete Booking Action
+// -----------------------------------------------------------------------------
+
+/**
+ * Completes a booking after the session ends.
+ * Can be triggered when a session ends, or manually by staff.
+ *
+ * Valid from: 'seated'
+ * Sets: status='completed', completed_at=now()
+ *
+ * @param bookingId - The booking's UUID
+ * @returns ActionResult with updated booking or error
+ */
+export async function completeBooking(
+  bookingId: string
+): Promise<ActionResult<Booking>> {
+  const supabase = getSupabaseAdmin();
+
+  // Fetch the current booking
+  const booking = await getBookingById(bookingId);
+
+  if (!booking) {
+    return {
+      success: false,
+      error: 'Booking not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // Validate state transition
+  const targetStatus: BookingStatus = 'completed';
+  if (!canTransition(booking.status, targetStatus)) {
+    if (booking.status === 'completed') {
+      return {
+        success: false,
+        error: 'This booking has already been completed.',
+        code: 'INVALID_TRANSITION',
+      };
+    }
+    return {
+      success: false,
+      error: `Cannot ${STATUS_ACTION_NAMES[targetStatus]} a booking that is ${booking.status.replace(/_/g, ' ')}.`,
+      code: 'INVALID_TRANSITION',
+    };
+  }
+
+  // Update the booking
+  const nowStr = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({
+      status: targetStatus,
+      completed_at: nowStr,
+    })
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error completing booking:', error);
+    return {
+      success: false,
+      error: 'Failed to complete booking. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // Revalidate paths
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/dashboard');
+  revalidatePath('/admin/sessions');
+
+  return {
+    success: true,
+    data: data as Booking,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// End Session and Complete Booking Integration
+// -----------------------------------------------------------------------------
+
+/**
+ * Result type for the endSessionAndCompleteBooking action.
+ */
+export interface EndSessionAndCompleteBookingResult {
+  session: Session;
+  booking: Booking | null;
+}
+
+/**
+ * Ends a session and automatically completes any associated booking.
+ * This provides a clean integration hook for when a session ends.
+ *
+ * Steps:
+ * 1. End the session (set ended_at)
+ * 2. Find booking with this session_id
+ * 3. If found and status is 'seated', mark as completed
+ *
+ * @param sessionId - The session's UUID
+ * @returns ActionResult with session and optional booking, or error
+ */
+export async function endSessionAndCompleteBooking(
+  sessionId: string
+): Promise<ActionResult<EndSessionAndCompleteBookingResult>> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  // --- Step 1: End the session ---
+  const { data: session, error: sessionError } = await supabase
+    .from('sessions')
+    .update({ ended_at: now })
+    .eq('id', sessionId)
+    .is('ended_at', null) // Only update if not already ended
+    .select('*')
+    .single();
+
+  if (sessionError) {
+    // Check if session was already ended or doesn't exist
+    const { data: existingSession } = await supabase
+      .from('sessions')
+      .select('id, ended_at')
+      .eq('id', sessionId)
+      .single();
+
+    if (!existingSession) {
+      return {
+        success: false,
+        error: 'Session not found.',
+        code: 'NOT_FOUND',
+      };
+    }
+
+    if (existingSession.ended_at) {
+      return {
+        success: false,
+        error: 'Session has already ended.',
+        code: 'INVALID_TRANSITION',
+      };
+    }
+
+    console.error('Error ending session:', sessionError);
+    return {
+      success: false,
+      error: 'Failed to end session. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // --- Step 2: Find booking associated with this session ---
+  const { data: bookings, error: bookingQueryError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('session_id', sessionId)
+    .limit(1);
+
+  if (bookingQueryError) {
+    console.error('Error finding booking for session:', bookingQueryError);
+    // Session was ended, so return success but note we couldn't find booking
+    return {
+      success: true,
+      data: {
+        session: session as Session,
+        booking: null,
+      },
+    };
+  }
+
+  let updatedBooking: Booking | null = null;
+
+  // --- Step 3: Complete booking if found and in 'seated' status ---
+  if (bookings && bookings.length > 0) {
+    const booking = bookings[0];
+
+    if (booking.status === 'seated') {
+      const { data: completedBooking, error: completeError } = await supabase
+        .from('bookings')
+        .update({
+          status: 'completed',
+          completed_at: now,
+        })
+        .eq('id', booking.id)
+        .select('*')
+        .single();
+
+      if (completeError) {
+        console.error('Error completing booking after session end:', completeError);
+        // Session was ended, so still return success
+      } else {
+        updatedBooking = completedBooking as Booking;
+      }
+    } else {
+      // Booking exists but is not in 'seated' status - just return it as-is
+      updatedBooking = booking as Booking;
+    }
+  }
+
+  // --- Step 4: Revalidate paths ---
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/dashboard');
+  revalidatePath('/admin/floorplan');
+  revalidatePath('/admin/sessions');
+
+  return {
+    success: true,
+    data: {
+      session: session as Session,
+      booking: updatedBooking,
+    },
   };
 }
