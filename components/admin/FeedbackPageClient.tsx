@@ -3,6 +3,7 @@
 import type { FeedbackHistoryResult } from '@/lib/db/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare } from '@/components/icons';
+import { FeedbackSummaryHeader } from './FeedbackSummaryHeader';
 
 interface FeedbackPageClientProps {
   venueId: string;
@@ -12,6 +13,9 @@ interface FeedbackPageClientProps {
 export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientProps) {
   return (
     <div className="grid gap-4">
+      {/* Summary Header */}
+      <FeedbackSummaryHeader stats={initialData.stats} />
+
       {/* Placeholder - will be built out in subsequent prompts */}
       <Card className="panel-surface">
         <CardHeader>
