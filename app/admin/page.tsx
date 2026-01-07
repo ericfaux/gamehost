@@ -48,6 +48,7 @@ export default async function AdminDashboard() {
 
   return (
     <DashboardClient
+      venueId={venue.id}
       dashboardData={dashboardData}
       availableGames={availableGames}
       browsingSessions={browsingSessions}

@@ -12,6 +12,8 @@ import {
   BottleneckWidget,
   ActivityFeed,
 } from '@/components/admin/dashboard';
+import { ArrivalsBoard } from '@/components/admin/bookings/ArrivalsBoard';
+import { Card, CardFooter } from '@/components/ui/card';
 import { VenueFeedbackWidget } from '@/components/admin/VenueFeedbackWidget';
 import {
   AssignGameToSessionModal,
@@ -21,6 +23,7 @@ import type { DashboardData, Alert } from '@/lib/data/dashboard';
 import type { Game } from '@/lib/db/types';
 
 export interface DashboardClientProps {
+  venueId: string;
   dashboardData: DashboardData;
   availableGames: Game[];
   browsingSessions: BrowsingSession[];
@@ -44,6 +47,7 @@ export interface DashboardClientProps {
  * - Assign game to session modal
  */
 export function DashboardClient({
+  venueId,
   dashboardData,
   availableGames,
   browsingSessions,
@@ -156,6 +160,24 @@ export function DashboardClient({
     router.refresh();
   }, [router]);
 
+  const handleSeatParty = useCallback(async (bookingId: string) => {
+    // Navigate to bookings page with the booking highlighted for seating
+    router.push(`/admin/bookings?seat=${bookingId}`);
+  }, [router]);
+
+  const handleMarkArrived = useCallback(async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/arrive`, {
+        method: 'POST',
+      });
+      if (response.ok) {
+        router.refresh();
+      }
+    } catch (error) {
+      console.error('Error marking booking as arrived:', error);
+    }
+  }, [router]);
+
   return (
     <div className="max-w-6xl space-y-6">
       {/* Header row: "DASHBOARD > Overview" with refresh button */}
@@ -245,7 +267,7 @@ export function DashboardClient({
       {/* Two-column grid: AlertQueue on left, QuickActions/Bottleneck/Activity on right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Alert Queue */}
-        <div className="lg:col-span-7">
+        <div className="lg:col-span-7 flex flex-col gap-6">
           <AlertQueue
             alerts={dashboardData.alerts}
             onAction={handleAlertAction}
@@ -253,8 +275,26 @@ export function DashboardClient({
           />
         </div>
 
-        {/* Right Column: QuickActions, Bottleneck Widget, Activity Feed */}
+        {/* Right Column: ArrivalsBoard, QuickActions, Bottleneck Widget, Activity Feed */}
         <div className="lg:col-span-5 flex flex-col gap-6">
+          {/* Arrivals Board Card */}
+          <Card className="h-[400px] flex flex-col overflow-hidden">
+            <ArrivalsBoard
+              venueId={venueId}
+              minutesAhead={60}
+              onSeatParty={handleSeatParty}
+              onMarkArrived={handleMarkArrived}
+            />
+            <CardFooter className="mt-auto">
+              <Link
+                href="/admin/bookings"
+                className="text-sm text-teal-600 hover:underline"
+              >
+                View all bookings →
+              </Link>
+            </CardFooter>
+          </Card>
+
           <QuickActions
             browsingCount={dashboardData.browsingSessionsCount}
             onAssignGame={handleAssignGame}
