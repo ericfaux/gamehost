@@ -192,7 +192,7 @@ export function NotifyTableModal({
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[color:var(--color-structure)]">
-          <Button variant="outline" size="sm" onClick={handleCopy}>
+          <Button variant="secondary" size="sm" onClick={handleCopy}>
             {copied ? (
               <>
                 <Check className="h-4 w-4 mr-1.5" />
