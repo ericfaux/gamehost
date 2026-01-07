@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
+import Link from "next/link";
 import {
   Clock3,
   StopCircle,
@@ -17,6 +18,7 @@ import {
   Heart,
   MessageSquare,
   ThumbsDown,
+  ArrowRight,
 } from "@/components/icons";
 import { StatusBadge, TokenChip, useToast } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -799,16 +801,25 @@ export function SessionsClient({
                     </>
                   )}
                 </div>
-                {venuePulse.commentCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setVenueCommentsOpen(true)}
+                <div className="flex items-center gap-2">
+                  {venuePulse.commentCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setVenueCommentsOpen(true)}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-1" />
+                      {venuePulse.commentCount} comments
+                    </Button>
+                  )}
+                  <Link
+                    href="/admin/feedback?range=7d"
+                    className="text-sm text-[color:var(--color-accent)] hover:underline flex items-center gap-1"
                   >
-                    <MessageSquare className="h-4 w-4 mr-1" />
-                    {venuePulse.commentCount} comments
-                  </Button>
-                )}
+                    View all
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
               </div>
             </CardContent>
           </Card>
