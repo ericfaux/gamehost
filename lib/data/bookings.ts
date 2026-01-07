@@ -267,6 +267,46 @@ export async function getBookingsByTable(
 }
 
 /**
+ * Fetches the count of upcoming bookings starting within the next N minutes.
+ * Used for the sidebar badge display.
+ *
+ * @param venueId - The venue's UUID
+ * @param minutesAhead - How many minutes ahead to look (default: 60)
+ * @returns Count of upcoming bookings
+ */
+export async function getUpcomingBookingsCount(
+  venueId: string,
+  minutesAhead: number = 60
+): Promise<number> {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
+  // Calculate the current time and cutoff time in HH:MM:SS format
+  const currentTime = now.toTimeString().split(' ')[0];
+  const cutoffDate = new Date(now.getTime() + minutesAhead * 60 * 1000);
+  const cutoffTime = cutoffDate.toTimeString().split(' ')[0];
+
+  // Only include confirmed or arrived bookings
+  const validStatuses: BookingStatus[] = ['confirmed', 'arrived'];
+
+  const { count, error } = await getSupabaseAdmin()
+    .from('bookings')
+    .select('*', { count: 'exact', head: true })
+    .eq('venue_id', venueId)
+    .eq('booking_date', today)
+    .in('status', validStatuses)
+    .gte('start_time', currentTime)
+    .lte('start_time', cutoffTime);
+
+  if (error) {
+    console.error('Error fetching upcoming bookings count:', error);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
+/**
  * Fetches upcoming bookings starting within the next N minutes.
  * Used for the Arrivals Board display.
  *

@@ -41,7 +41,7 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
           openMobile ? 'block' : 'hidden'
         )}
       >
-        <Sidebar />
+        <Sidebar venueId={venueId} />
         {/* Mobile overlay */}
         {openMobile && (
           <div

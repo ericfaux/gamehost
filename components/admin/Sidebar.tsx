@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
@@ -24,6 +25,12 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   subItems?: SubNavItem[];
+  /** Key identifier for items that can have badges */
+  badgeKey?: string;
+}
+
+interface SidebarProps {
+  venueId?: string;
 }
 
 interface SubNavItem {
@@ -47,7 +54,8 @@ const navItems: NavItem[] = [
   {
     href: '/admin/bookings',
     label: 'Bookings',
-    icon: CalendarDays
+    icon: CalendarDays,
+    badgeKey: 'arrivals',
   },
   {
     href: '/admin/library',
@@ -99,12 +107,35 @@ const navItems: NavItem[] = [
 // COMPONENT
 // =============================================================================
 
-export function Sidebar() {
+export function Sidebar({ venueId }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [arrivalCount, setArrivalCount] = useState(0);
 
   // Get current view param for Floor Plan
   const currentView = searchParams.get('view');
+
+  // Fetch upcoming arrivals count for badge
+  const fetchArrivalCount = useCallback(async () => {
+    if (!venueId) return;
+    try {
+      const response = await fetch(
+        `/api/venues/${venueId}/arrivals/count?minutesAhead=60`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setArrivalCount(data.count ?? 0);
+      }
+    } catch (error) {
+      console.error('Error fetching arrival count:', error);
+    }
+  }, [venueId]);
+
+  useEffect(() => {
+    fetchArrivalCount();
+    const interval = setInterval(fetchArrivalCount, 60000); // Refresh every minute
+    return () => clearInterval(interval);
+  }, [fetchArrivalCount]);
 
   /**
    * Determine if a nav item is active.
@@ -189,6 +220,12 @@ export function Sidebar() {
 
                 <Icon className={cn('h-5 w-5', active ? 'text-orange-600' : '')} />
                 <span className="text-sm">{item.label}</span>
+                {/* Badge for items that support it */}
+                {item.badgeKey === 'arrivals' && arrivalCount > 0 && (
+                  <span className="ml-auto bg-teal-500 text-white text-xs font-medium rounded-full px-2 py-0.5 min-w-[1.25rem] text-center">
+                    {arrivalCount}
+                  </span>
+                )}
               </Link>
 
               {/* Sub-items (only for Floor Plan) */}
