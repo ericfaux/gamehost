@@ -112,6 +112,17 @@ export {
   type VenueFeedback,
 } from './dashboard';
 
+// Booking queries
+export {
+  getBookingById,
+  getBookingsForVenue,
+  getBookingsByTable,
+  getUpcomingBookings,
+  getBookingsByGuestEmail,
+  getVenueBookingSettings,
+  type BookingQueryOptions,
+} from './bookings';
+
 // Re-export types for convenience
 export type {
   Venue,
@@ -130,4 +141,11 @@ export type {
   VenueZone,
   VenueTableWithLayout,
   TableShape,
+  // Booking types
+  Booking,
+  BookingWithTable,
+  BookingWithDetails,
+  BookingStatus,
+  BookingSource,
+  VenueBookingSettings,
 } from '@/lib/db/types';
