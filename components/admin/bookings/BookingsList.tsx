@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, ChangeEvent, MouseEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, ChangeEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { format, addDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
@@ -492,7 +492,7 @@ export function BookingsList({
                 >
                   <td
                     className="px-4 py-3"
-                    onClick={(e: MouseEvent<HTMLTableCellElement>) => e.stopPropagation()}
+                    onClick={(e: ReactMouseEvent<HTMLTableCellElement>) => e.stopPropagation()}
                   >
                     <Checkbox
                       checked={selectedIds.has(booking.id)}
@@ -529,7 +529,7 @@ export function BookingsList({
                   </td>
                   <td
                     className="px-4 py-3"
-                    onClick={(e: MouseEvent<HTMLTableCellElement>) => e.stopPropagation()}
+                    onClick={(e: ReactMouseEvent<HTMLTableCellElement>) => e.stopPropagation()}
                   >
                     <ActionDropdown booking={booking} onAction={onAction} />
                   </td>
