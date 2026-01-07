@@ -7,6 +7,7 @@ import {
   checkTableAvailability,
   checkGameAvailability,
   getOrCreateVenueBookingSettings,
+  getBookingById,
   timeToMinutes,
   addMinutesToTime,
 } from '@/lib/data/bookings';
@@ -14,6 +15,7 @@ import type {
   Booking,
   BookingWithDetails,
   BookingSource,
+  BookingStatus,
 } from '@/lib/db/types';
 
 // -----------------------------------------------------------------------------
@@ -25,13 +27,15 @@ import type {
  * These allow the UI to handle errors appropriately.
  */
 export type BookingErrorCode =
-  | 'CONFLICT'       // Table or game already booked at this time
-  | 'VALIDATION'     // Input validation failed
-  | 'NOT_FOUND'      // Venue, table, or game not found
-  | 'UNAUTHORIZED'   // User not authorized
-  | 'DISABLED'       // Bookings are disabled for this venue
-  | 'CAPACITY'       // Party size exceeds table capacity
-  | 'UNKNOWN';       // Unexpected error
+  | 'CONFLICT'           // Table or game already booked at this time
+  | 'VALIDATION'         // Input validation failed
+  | 'NOT_FOUND'          // Venue, table, or game not found
+  | 'UNAUTHORIZED'       // User not authorized
+  | 'DISABLED'           // Bookings are disabled for this venue
+  | 'CAPACITY'           // Party size exceeds table capacity
+  | 'INVALID_TRANSITION' // Invalid state transition attempted
+  | 'TOO_EARLY'          // Action attempted before allowed time (e.g., no-show before grace period)
+  | 'UNKNOWN';           // Unexpected error
 
 /**
  * Result type for booking actions.
@@ -72,6 +76,90 @@ interface ValidationResult {
   valid: boolean;
   errors: string[];
 }
+
+/**
+ * Parameters for cancelling a booking.
+ */
+export interface CancelBookingParams {
+  bookingId: string;
+  cancelledBy: 'guest' | 'venue';
+  reason?: string;
+}
+
+/**
+ * Parameters for updating a booking.
+ * All fields are optional for partial updates.
+ */
+export interface UpdateBookingActionParams {
+  guest_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  party_size?: number;
+  booking_date?: string;
+  start_time?: string;
+  duration_minutes?: number;
+  table_id?: string;
+  game_id?: string | null;
+  notes?: string;
+}
+
+// -----------------------------------------------------------------------------
+// State Machine Definitions
+// -----------------------------------------------------------------------------
+
+/**
+ * Valid state transitions for booking status.
+ * This defines the booking lifecycle state machine.
+ *
+ * State machine diagram:
+ * pending ──┬──→ confirmed ──┬──→ arrived ──→ seated ──→ completed
+ *           │                │
+ *           └──→ cancelled   └──→ no_show
+ *                (by_guest)
+ *                (by_venue)
+ */
+const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
+  pending: ['confirmed', 'cancelled_by_guest', 'cancelled_by_venue'],
+  confirmed: ['arrived', 'cancelled_by_guest', 'cancelled_by_venue', 'no_show'],
+  arrived: ['seated', 'cancelled_by_venue', 'no_show'],
+  seated: ['completed'],
+  completed: [],
+  no_show: [],
+  cancelled_by_guest: [],
+  cancelled_by_venue: [],
+};
+
+/**
+ * Checks if a state transition is valid according to the state machine.
+ *
+ * @param from - The current booking status
+ * @param to - The target booking status
+ * @returns true if the transition is allowed
+ */
+function canTransition(from: BookingStatus, to: BookingStatus): boolean {
+  return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/**
+ * Human-readable action names for state transitions.
+ * Used in error messages.
+ */
+const STATUS_ACTION_NAMES: Record<BookingStatus, string> = {
+  pending: 'set to pending',
+  confirmed: 'confirm',
+  arrived: 'mark as arrived',
+  seated: 'seat',
+  completed: 'complete',
+  no_show: 'mark as no-show',
+  cancelled_by_guest: 'cancel',
+  cancelled_by_venue: 'cancel',
+};
+
+/**
+ * Default grace period in minutes for marking a booking as no-show.
+ * The booking time + this grace period must have passed.
+ */
+const NO_SHOW_GRACE_PERIOD_MINUTES = 15;
 
 // -----------------------------------------------------------------------------
 // Validation Helpers
@@ -781,3 +869,566 @@ export async function createBooking(
  *     - booking_date > max_advance_booking_days from today
  *     - Returns "Bookings can only be made up to X days in advance"
  */
+
+// -----------------------------------------------------------------------------
+// State Transition Actions
+// -----------------------------------------------------------------------------
+
+/**
+ * Confirms a pending booking.
+ * Use case: After deposit paid, or manual confirmation.
+ *
+ * Valid from: pending
+ * Sets: status='confirmed', confirmed_at=now()
+ *
+ * @param bookingId - The booking's UUID
+ * @returns ActionResult with updated booking or error
+ */
+export async function confirmBooking(
+  bookingId: string
+): Promise<ActionResult<Booking>> {
+  const supabase = getSupabaseAdmin();
+
+  // Fetch the current booking
+  const booking = await getBookingById(bookingId);
+
+  if (!booking) {
+    return {
+      success: false,
+      error: 'Booking not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // Validate state transition
+  const targetStatus: BookingStatus = 'confirmed';
+  if (!canTransition(booking.status, targetStatus)) {
+    return {
+      success: false,
+      error: `Cannot ${STATUS_ACTION_NAMES[targetStatus]} a booking that is ${booking.status.replace(/_/g, ' ')}.`,
+      code: 'INVALID_TRANSITION',
+    };
+  }
+
+  // Update the booking
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({
+      status: targetStatus,
+      confirmed_at: now,
+    })
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error confirming booking:', error);
+    return {
+      success: false,
+      error: 'Failed to confirm booking. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // Revalidate paths
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/sessions');
+
+  return {
+    success: true,
+    data: data as Booking,
+  };
+}
+
+/**
+ * Cancels a booking by guest or venue.
+ *
+ * Valid from: pending, confirmed, arrived
+ * Sets: status='cancelled_by_guest' or 'cancelled_by_venue', cancelled_at=now(), cancellation_reason
+ *
+ * @param params - Cancel booking parameters including who cancelled and optional reason
+ * @returns ActionResult with updated booking or error
+ */
+export async function cancelBooking(
+  params: CancelBookingParams
+): Promise<ActionResult<Booking>> {
+  const { bookingId, cancelledBy, reason } = params;
+  const supabase = getSupabaseAdmin();
+
+  // Fetch the current booking
+  const booking = await getBookingById(bookingId);
+
+  if (!booking) {
+    return {
+      success: false,
+      error: 'Booking not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // Determine target status based on who is cancelling
+  const targetStatus: BookingStatus = cancelledBy === 'guest'
+    ? 'cancelled_by_guest'
+    : 'cancelled_by_venue';
+
+  // Validate state transition
+  if (!canTransition(booking.status, targetStatus)) {
+    // Provide specific error message for terminal states
+    if (booking.status === 'cancelled_by_guest' || booking.status === 'cancelled_by_venue') {
+      return {
+        success: false,
+        error: 'This booking has already been cancelled.',
+        code: 'INVALID_TRANSITION',
+      };
+    }
+    if (booking.status === 'seated' || booking.status === 'completed') {
+      return {
+        success: false,
+        error: `Cannot cancel a booking that is ${booking.status.replace(/_/g, ' ')}.`,
+        code: 'INVALID_TRANSITION',
+      };
+    }
+    return {
+      success: false,
+      error: `Cannot ${STATUS_ACTION_NAMES[targetStatus]} a booking that is ${booking.status.replace(/_/g, ' ')}.`,
+      code: 'INVALID_TRANSITION',
+    };
+  }
+
+  // Update the booking
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({
+      status: targetStatus,
+      cancelled_at: now,
+      cancellation_reason: reason ?? null,
+    })
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error cancelling booking:', error);
+    return {
+      success: false,
+      error: 'Failed to cancel booking. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // Revalidate paths
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/sessions');
+
+  return {
+    success: true,
+    data: data as Booking,
+  };
+}
+
+/**
+ * Marks a booking as arrived (guest has walked in).
+ *
+ * Valid from: confirmed
+ * Sets: status='arrived', arrived_at=now()
+ *
+ * @param bookingId - The booking's UUID
+ * @returns ActionResult with updated booking or error
+ */
+export async function markArrived(
+  bookingId: string
+): Promise<ActionResult<Booking>> {
+  const supabase = getSupabaseAdmin();
+
+  // Fetch the current booking
+  const booking = await getBookingById(bookingId);
+
+  if (!booking) {
+    return {
+      success: false,
+      error: 'Booking not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // Validate state transition
+  const targetStatus: BookingStatus = 'arrived';
+  if (!canTransition(booking.status, targetStatus)) {
+    return {
+      success: false,
+      error: `Cannot ${STATUS_ACTION_NAMES[targetStatus]} a booking that is ${booking.status.replace(/_/g, ' ')}.`,
+      code: 'INVALID_TRANSITION',
+    };
+  }
+
+  // Update the booking
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({
+      status: targetStatus,
+      arrived_at: now,
+    })
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error marking booking as arrived:', error);
+    return {
+      success: false,
+      error: 'Failed to mark booking as arrived. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // Revalidate paths
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/sessions');
+
+  return {
+    success: true,
+    data: data as Booking,
+  };
+}
+
+/**
+ * Marks a booking as no-show (guest never showed after grace period).
+ *
+ * Valid from: confirmed, arrived
+ * Additional validation: booking time + grace period (15 min) must have passed
+ * Sets: status='no_show', no_show_at=now()
+ *
+ * @param bookingId - The booking's UUID
+ * @returns ActionResult with updated booking or error
+ */
+export async function markNoShow(
+  bookingId: string
+): Promise<ActionResult<Booking>> {
+  const supabase = getSupabaseAdmin();
+
+  // Fetch the current booking
+  const booking = await getBookingById(bookingId);
+
+  if (!booking) {
+    return {
+      success: false,
+      error: 'Booking not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // Validate state transition
+  const targetStatus: BookingStatus = 'no_show';
+  if (!canTransition(booking.status, targetStatus)) {
+    return {
+      success: false,
+      error: `Cannot ${STATUS_ACTION_NAMES[targetStatus]} a booking that is ${booking.status.replace(/_/g, ' ')}.`,
+      code: 'INVALID_TRANSITION',
+    };
+  }
+
+  // Check if grace period has passed
+  const now = new Date();
+  const bookingDateStr = booking.booking_date;
+  const bookingTimeStr = booking.start_time;
+
+  // Parse the booking date and time
+  const [year, month, day] = bookingDateStr.split('-').map(Number);
+  const timeParts = bookingTimeStr.split(':').map(Number);
+  const hours = timeParts[0];
+  const minutes = timeParts[1];
+
+  const bookingDateTime = new Date(year, month - 1, day, hours, minutes);
+  const graceDeadline = new Date(bookingDateTime.getTime() + NO_SHOW_GRACE_PERIOD_MINUTES * 60 * 1000);
+
+  if (now < graceDeadline) {
+    const minutesRemaining = Math.ceil((graceDeadline.getTime() - now.getTime()) / (60 * 1000));
+    return {
+      success: false,
+      error: `Cannot mark as no-show until ${NO_SHOW_GRACE_PERIOD_MINUTES} minutes after booking time. ${minutesRemaining} minute(s) remaining.`,
+      code: 'TOO_EARLY',
+    };
+  }
+
+  // Update the booking
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({
+      status: targetStatus,
+      no_show_at: now.toISOString(),
+    })
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error marking booking as no-show:', error);
+    return {
+      success: false,
+      error: 'Failed to mark booking as no-show. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // Revalidate paths
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/sessions');
+
+  return {
+    success: true,
+    data: data as Booking,
+  };
+}
+
+/**
+ * Updates a booking with partial updates.
+ * Only provided fields are updated.
+ *
+ * Valid from: pending, confirmed
+ * If time/date/table changed: re-validates availability
+ * If party_size changed: re-validates table capacity
+ *
+ * @param bookingId - The booking's UUID
+ * @param updates - Partial update parameters
+ * @returns ActionResult with updated booking or error
+ */
+export async function updateBooking(
+  bookingId: string,
+  updates: UpdateBookingActionParams
+): Promise<ActionResult<Booking>> {
+  const supabase = getSupabaseAdmin();
+
+  // Fetch the current booking
+  const booking = await getBookingById(bookingId);
+
+  if (!booking) {
+    return {
+      success: false,
+      error: 'Booking not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // Validate that booking can be updated (only pending or confirmed)
+  const editableStatuses: BookingStatus[] = ['pending', 'confirmed'];
+  if (!editableStatuses.includes(booking.status)) {
+    return {
+      success: false,
+      error: `Cannot update a booking that is ${booking.status.replace(/_/g, ' ')}. Only pending and confirmed bookings can be modified.`,
+      code: 'INVALID_TRANSITION',
+    };
+  }
+
+  // Build the update object
+  const dbUpdates: Record<string, unknown> = {};
+
+  // Guest info updates (no re-validation needed)
+  if (updates.guest_name !== undefined) {
+    if (!updates.guest_name.trim()) {
+      return {
+        success: false,
+        error: 'Guest name is required.',
+        code: 'VALIDATION',
+      };
+    }
+    dbUpdates.guest_name = updates.guest_name.trim();
+  }
+
+  if (updates.guest_email !== undefined) {
+    if (updates.guest_email && !isValidEmail(updates.guest_email)) {
+      return {
+        success: false,
+        error: 'Invalid email address format.',
+        code: 'VALIDATION',
+      };
+    }
+    dbUpdates.guest_email = updates.guest_email?.trim() || null;
+  }
+
+  if (updates.guest_phone !== undefined) {
+    if (updates.guest_phone && !isValidPhone(updates.guest_phone)) {
+      return {
+        success: false,
+        error: 'Invalid phone number format.',
+        code: 'VALIDATION',
+      };
+    }
+    dbUpdates.guest_phone = updates.guest_phone?.trim() || null;
+  }
+
+  if (updates.notes !== undefined) {
+    dbUpdates.notes = updates.notes?.trim() || null;
+  }
+
+  if (updates.game_id !== undefined) {
+    dbUpdates.game_id = updates.game_id;
+  }
+
+  // Determine if we need to re-validate availability
+  const hasTimeChange = updates.booking_date !== undefined ||
+                        updates.start_time !== undefined ||
+                        updates.duration_minutes !== undefined;
+  const hasTableChange = updates.table_id !== undefined;
+  const hasPartySizeChange = updates.party_size !== undefined;
+
+  // Calculate new values for availability check
+  const newBookingDate = updates.booking_date ?? booking.booking_date;
+  const newStartTime = updates.start_time ?? normalizeTime(booking.start_time);
+
+  // Calculate new end time
+  let newEndTime: string;
+  if (updates.duration_minutes !== undefined) {
+    newEndTime = addMinutesToTime(newStartTime, updates.duration_minutes);
+    dbUpdates.start_time = newStartTime;
+    dbUpdates.end_time = newEndTime;
+  } else if (updates.start_time !== undefined) {
+    // Start time changed but not duration - keep same duration
+    const currentDuration = timeToMinutes(normalizeTime(booking.end_time)) - timeToMinutes(normalizeTime(booking.start_time));
+    newEndTime = addMinutesToTime(newStartTime, currentDuration);
+    dbUpdates.start_time = newStartTime;
+    dbUpdates.end_time = newEndTime;
+  } else {
+    newEndTime = normalizeTime(booking.end_time);
+  }
+
+  if (updates.booking_date !== undefined) {
+    dbUpdates.booking_date = updates.booking_date;
+  }
+
+  const newTableId = updates.table_id ?? booking.table_id;
+  const newPartySize = updates.party_size ?? booking.party_size;
+
+  if (updates.party_size !== undefined) {
+    if (!Number.isInteger(updates.party_size) || updates.party_size <= 0) {
+      return {
+        success: false,
+        error: 'Party size must be a positive whole number.',
+        code: 'VALIDATION',
+      };
+    }
+    dbUpdates.party_size = updates.party_size;
+  }
+
+  if (updates.table_id !== undefined) {
+    dbUpdates.table_id = updates.table_id;
+  }
+
+  // Re-validate table capacity if party size or table changed
+  if ((hasPartySizeChange || hasTableChange) && newTableId) {
+    const { data: table, error: tableError } = await supabase
+      .from('venue_tables')
+      .select('id, capacity, is_active')
+      .eq('id', newTableId)
+      .single();
+
+    if (tableError || !table) {
+      return {
+        success: false,
+        error: 'Table not found.',
+        code: 'NOT_FOUND',
+      };
+    }
+
+    if (!table.is_active) {
+      return {
+        success: false,
+        error: 'This table is not currently available for booking.',
+        code: 'NOT_FOUND',
+      };
+    }
+
+    if (table.capacity !== null && newPartySize > table.capacity) {
+      return {
+        success: false,
+        error: `This table can accommodate up to ${table.capacity} guests. Please choose a larger table or reduce your party size.`,
+        code: 'CAPACITY',
+      };
+    }
+  }
+
+  // Re-validate availability if time/date/table changed
+  if ((hasTimeChange || hasTableChange) && newTableId) {
+    const availabilityResult = await checkTableAvailability({
+      tableId: newTableId,
+      date: newBookingDate,
+      startTime: newStartTime,
+      endTime: newEndTime,
+      excludeBookingId: bookingId, // Exclude current booking from conflict check
+    });
+
+    if (!availabilityResult.available) {
+      return {
+        success: false,
+        error: 'The new time conflicts with another booking. Please choose a different time slot.',
+        code: 'CONFLICT',
+      };
+    }
+  }
+
+  // Re-validate game availability if time/date changed and game is set
+  const effectiveGameId = updates.game_id !== undefined ? updates.game_id : booking.game_id;
+  if (hasTimeChange && effectiveGameId) {
+    const gameAvailability = await checkGameAvailability({
+      gameId: effectiveGameId,
+      date: newBookingDate,
+      startTime: newStartTime,
+      endTime: newEndTime,
+    });
+
+    // Note: This doesn't exclude the current booking, so if the game was already
+    // reserved for this booking, it will count against availability.
+    // A more sophisticated check would exclude the current booking's game reservation.
+    // For now, we allow updates if at least one copy is available.
+    if (!gameAvailability.available) {
+      const { data: game } = await supabase
+        .from('games')
+        .select('title')
+        .eq('id', effectiveGameId)
+        .single();
+
+      return {
+        success: false,
+        error: `All copies of "${game?.title ?? 'the selected game'}" are reserved for this time slot.`,
+        code: 'CONFLICT',
+      };
+    }
+  }
+
+  // Check that we have at least one update
+  if (Object.keys(dbUpdates).length === 0) {
+    return {
+      success: false,
+      error: 'No valid updates provided.',
+      code: 'VALIDATION',
+    };
+  }
+
+  // Perform the update
+  const { data, error } = await supabase
+    .from('bookings')
+    .update(dbUpdates)
+    .eq('id', bookingId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error updating booking:', error);
+    return {
+      success: false,
+      error: 'Failed to update booking. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // Revalidate paths
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/sessions');
+
+  return {
+    success: true,
+    data: data as Booking,
+  };
+}
