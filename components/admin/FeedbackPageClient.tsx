@@ -129,7 +129,7 @@ export function FeedbackPageClient({ venueId, initialData }: FeedbackPageClientP
       (filters.ratingType != null && filters.ratingType !== 'all') ||
       filters.hasComment === true ||
       filters.source != null ||
-      (filters.search && filters.search.length > 0)
+      (filters.search != null && filters.search.length > 0)
     );
   }, [filters]);
 
