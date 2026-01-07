@@ -9,7 +9,7 @@ interface AlertDialogProps {
   children: React.ReactNode;
 }
 
-export function AlertDialog({ open, onOpenChange, children }: AlertDialogProps) {
+export function AlertDialog({ open, onOpenChange: _onOpenChange, children }: AlertDialogProps) {
   React.useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';

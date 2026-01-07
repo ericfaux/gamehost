@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectItem } from '@/components/ui/select';
 import { Loader2, Calendar, Clock, Users } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import type { BookingWithDetails, AvailableSlot, AvailableTable } from '@/lib/db/types';
+import type { BookingWithDetails } from '@/lib/db/types';
 
 interface ModifyBookingModalProps {
   open: boolean;
@@ -94,7 +94,7 @@ export function ModifyBookingModal({
         }
 
         setSlots(availableSlots);
-      } catch (e) {
+      } catch {
         setError('Failed to load available times');
       } finally {
         setIsLoadingSlots(false);
@@ -137,7 +137,7 @@ export function ModifyBookingModal({
       } else {
         setError(result.error ?? 'Failed to update booking');
       }
-    } catch (e) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
