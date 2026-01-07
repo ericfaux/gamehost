@@ -202,9 +202,9 @@ function BookingsDisabledState({ venueId }: { venueId: string }) {
       <p className="text-stone-500 mb-6">
         Enable the booking system to start accepting reservations.
       </p>
-      <Button asChild>
-        <Link href="/admin/settings">Enable Bookings</Link>
-      </Button>
+      <Link href="/admin/settings">
+        <Button>Enable Bookings</Button>
+      </Link>
     </div>
   );
 }
