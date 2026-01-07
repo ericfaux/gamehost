@@ -9,20 +9,14 @@ import {
   forwardRef,
   useMemo,
 } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Clock } from '@/components/icons';
+import { ChevronLeft, ChevronRight, Calendar, Clock, AlertCircle } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type {
-  TimelineBlock,
-  BookingStatus,
-} from '@/lib/db/types';
-import type {
-  TimelineData,
-  TimelineTable,
-  TimeRange,
-  TimelineConflict,
-} from '@/lib/data/timeline';
+import { TimelineRow, TableLabels } from './TimelineRow';
+import type { TimelineBlock } from '@/lib/db/types';
+import type { TimelineData, TimeRange } from '@/lib/data/timeline';
 import { getTimelineData } from '@/lib/data/timeline';
+import type { BlockAction } from './TimelineBlock';
 
 // =============================================================================
 // Constants
@@ -31,7 +25,53 @@ import { getTimelineData } from '@/lib/data/timeline';
 const PIXELS_PER_HOUR = 120;
 const ROW_HEIGHT = 48;
 const HEADER_HEIGHT = 32;
-const TABLE_LABEL_WIDTH = 140;
+
+// =============================================================================
+// Types
+// =============================================================================
+
+interface TimelineProps {
+  venueId: string;
+  initialDate?: Date;
+  onDateChange?: (date: Date) => void;
+  onBlockClick?: (block: TimelineBlock) => void;
+  onBlockAction?: (blockId: string, action: BlockAction) => void;
+  onReschedule?: (bookingId: string, tableId: string, newTime: Date) => Promise<void>;
+}
+
+interface TimelineHeaderProps {
+  date: Date;
+  onDateChange: (date: Date) => void;
+  isToday: boolean;
+}
+
+interface TimeAxisProps {
+  timeRange: TimeRange;
+  pixelsPerHour: number;
+}
+
+interface NowIndicatorProps {
+  timeRange: TimeRange;
+  pixelsPerHour: number;
+  isToday: boolean;
+}
+
+interface ConfirmDialogProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  confirmVariant?: 'primary' | 'destructive';
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+interface DropFeedbackProps {
+  isOpen: boolean;
+  message: string;
+  isError: boolean;
+  onClose: () => void;
+}
 
 // =============================================================================
 // Utility Functions
@@ -111,111 +151,11 @@ function isSameDay(date1: Date, date2: Date): boolean {
 }
 
 /**
- * Gets status-based styling for timeline blocks.
- */
-function getBlockStyles(block: TimelineBlock): {
-  bg: string;
-  border: string;
-  text: string;
-} {
-  if (block.type === 'session') {
-    return {
-      bg: 'bg-teal-100',
-      border: 'border-teal-400',
-      text: 'text-teal-900',
-    };
-  }
-
-  // Booking blocks - style based on status
-  switch (block.booking_status) {
-    case 'confirmed':
-      return {
-        bg: 'bg-blue-100',
-        border: 'border-blue-400',
-        text: 'text-blue-900',
-      };
-    case 'arrived':
-      return {
-        bg: 'bg-amber-100',
-        border: 'border-amber-400',
-        text: 'text-amber-900',
-      };
-    case 'seated':
-      return {
-        bg: 'bg-green-100',
-        border: 'border-green-500',
-        text: 'text-green-900',
-      };
-    case 'completed':
-      return {
-        bg: 'bg-stone-100',
-        border: 'border-stone-300',
-        text: 'text-stone-500',
-      };
-    case 'pending':
-    default:
-      return {
-        bg: 'bg-stone-50',
-        border: 'border-stone-300 border-dashed',
-        text: 'text-stone-600',
-      };
-  }
-}
-
-/**
  * Calculates total timeline width in pixels.
  */
 function getTimelineWidth(range: TimeRange, pixelsPerHour: number): number {
   const hours = (range.end.getTime() - range.start.getTime()) / (1000 * 60 * 60);
   return hours * pixelsPerHour;
-}
-
-// =============================================================================
-// Types
-// =============================================================================
-
-interface TimelineProps {
-  venueId: string;
-  initialDate?: Date;
-  onDateChange?: (date: Date) => void;
-  onBlockClick?: (block: TimelineBlock) => void;
-}
-
-interface TimelineHeaderProps {
-  date: Date;
-  onDateChange: (date: Date) => void;
-  isToday: boolean;
-}
-
-interface TimeAxisProps {
-  timeRange: TimeRange;
-  pixelsPerHour: number;
-}
-
-interface TableLabelsProps {
-  tables: TimelineTable[];
-}
-
-interface NowIndicatorProps {
-  timeRange: TimeRange;
-  pixelsPerHour: number;
-  isToday: boolean;
-}
-
-interface TimelineRowProps {
-  table: TimelineTable;
-  timeRange: TimeRange;
-  pixelsPerHour: number;
-  conflicts: TimelineConflict[];
-  onBlockClick?: (block: TimelineBlock) => void;
-}
-
-interface TimelineBlockComponentProps {
-  block: TimelineBlock;
-  timeRange: TimeRange;
-  pixelsPerHour: number;
-  hasConflict: boolean;
-  onClick?: (block: TimelineBlock) => void;
 }
 
 // =============================================================================
@@ -296,44 +236,6 @@ function TimeAxis({ timeRange, pixelsPerHour }: TimeAxisProps) {
 }
 
 /**
- * Fixed column showing table labels.
- */
-function TableLabels({ tables }: TableLabelsProps) {
-  return (
-    <div
-      className="flex-shrink-0 border-r border-stone-200 bg-[color:var(--color-elevated)]"
-      style={{ width: TABLE_LABEL_WIDTH }}
-    >
-      {/* Header spacer */}
-      <div
-        className="border-b border-stone-300 bg-stone-100 flex items-center px-3 font-mono text-xs text-stone-500 uppercase tracking-wider"
-        style={{ height: HEADER_HEIGHT }}
-      >
-        Tables
-      </div>
-
-      {/* Table labels */}
-      {tables.map((table) => (
-        <div
-          key={table.id}
-          className="border-b border-stone-200 flex items-center px-3 gap-2"
-          style={{ height: ROW_HEIGHT }}
-        >
-          <span className="font-semibold text-sm text-[color:var(--color-ink-primary)] truncate">
-            {table.label}
-          </span>
-          {table.capacity && (
-            <span className="text-xs text-stone-400 font-mono">
-              ({table.capacity})
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
  * Red line indicator showing current time.
  */
 const NowIndicator = forwardRef<HTMLDivElement, NowIndicatorProps>(
@@ -389,133 +291,61 @@ const NowIndicator = forwardRef<HTMLDivElement, NowIndicatorProps>(
 );
 
 /**
- * Individual timeline block (booking or session).
+ * Confirmation dialog for destructive actions.
  */
-function TimelineBlockComponent({
-  block,
-  timeRange,
-  pixelsPerHour,
-  hasConflict,
-  onClick,
-}: TimelineBlockComponentProps) {
-  const startTime = new Date(block.start_time);
-  const endTime = new Date(block.end_time);
-
-  const left = timeToPixels(startTime, timeRange, pixelsPerHour);
-  const width = timeToPixels(endTime, timeRange, pixelsPerHour) - left;
-
-  // Don't render if block is outside visible range
-  const timelineWidth = getTimelineWidth(timeRange, pixelsPerHour);
-  if (left > timelineWidth || left + width < 0) {
-    return null;
-  }
-
-  const styles = getBlockStyles(block);
-
-  // Format time display
-  const timeDisplay = `${startTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })} - ${endTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })}`;
+function ConfirmDialog({
+  isOpen,
+  title,
+  message,
+  confirmLabel,
+  confirmVariant = 'primary',
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
+  if (!isOpen) return null;
 
   return (
-    <button
-      type="button"
-      className={cn(
-        'absolute top-1 bottom-1 rounded-md border px-2 py-1',
-        'overflow-hidden text-left transition-all duration-150',
-        'hover:shadow-md hover:-translate-y-0.5 focus-ring',
-        styles.bg,
-        styles.border,
-        styles.text,
-        hasConflict && 'ring-2 ring-red-500 ring-offset-1'
-      )}
-      style={{
-        left: Math.max(0, left),
-        width: Math.max(40, Math.min(width, timelineWidth - left)),
-      }}
-      onClick={() => onClick?.(block)}
-    >
-      <div className="flex flex-col h-full justify-center min-w-0">
-        {/* Primary label */}
-        <span className="text-xs font-semibold truncate">
-          {block.type === 'booking'
-            ? block.guest_name
-            : block.game_title || 'Session'}
-        </span>
-        {/* Secondary info */}
-        {width > 80 && (
-          <span className="text-[10px] opacity-75 truncate font-mono">
-            {block.type === 'booking' && block.party_size
-              ? `${block.party_size} guests`
-              : timeDisplay}
-          </span>
-        )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+        <h3 className="font-serif text-lg font-semibold text-[color:var(--color-ink-primary)] mb-2">
+          {title}
+        </h3>
+        <p className="text-sm text-stone-600 mb-6">{message}</p>
+        <div className="flex justify-end gap-3">
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button variant={confirmVariant} size="sm" onClick={onConfirm}>
+            {confirmLabel}
+          </Button>
+        </div>
       </div>
-
-      {/* Type indicator */}
-      <div
-        className={cn(
-          'absolute top-1 right-1 w-1.5 h-1.5 rounded-full',
-          block.type === 'session' ? 'bg-teal-500' : 'bg-blue-500'
-        )}
-      />
-    </button>
+    </div>
   );
 }
 
 /**
- * Single table row in the timeline.
+ * Drop feedback toast notification.
  */
-function TimelineRow({
-  table,
-  timeRange,
-  pixelsPerHour,
-  conflicts,
-  onBlockClick,
-}: TimelineRowProps) {
-  // Get conflicts for this table
-  const tableConflictBlockIds = useMemo(() => {
-    const ids = new Set<string>();
-    conflicts
-      .filter((c) => c.tableId === table.id)
-      .forEach((c) => {
-        ids.add(c.block1Id);
-        ids.add(c.block2Id);
-      });
-    return ids;
-  }, [conflicts, table.id]);
+function DropFeedback({ isOpen, message, isError, onClose }: DropFeedbackProps) {
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(onClose, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
 
   return (
     <div
-      className="relative border-b border-stone-200"
-      style={{ height: ROW_HEIGHT }}
+      className={cn(
+        'fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg',
+        isError ? 'bg-red-500 text-white' : 'bg-teal-500 text-white',
+      )}
     >
-      {/* Hour grid lines */}
-      <div className="absolute inset-0 flex pointer-events-none">
-        {getHoursBetween(timeRange.start, timeRange.end).map((hour) => (
-          <div
-            key={hour}
-            className="flex-shrink-0 border-r border-stone-100"
-            style={{ width: pixelsPerHour }}
-          />
-        ))}
-      </div>
-
-      {/* Blocks */}
-      {table.blocks.map((block) => (
-        <TimelineBlockComponent
-          key={block.id}
-          block={block}
-          timeRange={timeRange}
-          pixelsPerHour={pixelsPerHour}
-          hasConflict={tableConflictBlockIds.has(block.id)}
-          onClick={onBlockClick}
-        />
-      ))}
+      {isError && <AlertCircle className="w-4 h-4" />}
+      <span className="text-sm font-medium">{message}</span>
     </div>
   );
 }
@@ -608,6 +438,8 @@ function TimelineEmpty() {
  * - "Now" indicator line that moves in real-time
  * - Auto-scroll to current time on load
  * - Date navigation (prev/next/today)
+ * - Drag-to-reschedule bookings
+ * - Quick actions and context menus
  * - Responsive on tablet (1024px+)
  */
 export function Timeline({
@@ -615,6 +447,8 @@ export function Timeline({
   initialDate,
   onDateChange,
   onBlockClick,
+  onBlockAction,
+  onReschedule,
 }: TimelineProps) {
   // ---------------------------------------------------------------------------
   // State
@@ -623,6 +457,21 @@ export function Timeline({
   const [timelineData, setTimelineData] = useState<TimelineData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    type: 'cancel' | 'end';
+    blockId: string;
+    bookingId?: string;
+  } | null>(null);
+
+  // Drop feedback state
+  const [dropFeedback, setDropFeedback] = useState<{
+    message: string;
+    isError: boolean;
+  } | null>(null);
 
   // ---------------------------------------------------------------------------
   // Refs
@@ -650,6 +499,120 @@ export function Timeline({
     },
     [onDateChange]
   );
+
+  const handleBlockClick = useCallback(
+    (block: TimelineBlock) => {
+      setSelectedBlockId(block.id);
+      onBlockClick?.(block);
+    },
+    [onBlockClick]
+  );
+
+  const handleBlockAction = useCallback(
+    (blockId: string, action: BlockAction) => {
+      // Find the block
+      const block = timelineData?.tables
+        .flatMap((t) => t.blocks)
+        .find((b) => b.id === blockId);
+
+      if (!block) return;
+
+      // Handle confirmation-required actions
+      if (action === 'cancel') {
+        setConfirmDialog({
+          type: 'cancel',
+          blockId,
+          bookingId: block.booking_id ?? undefined,
+        });
+        return;
+      }
+
+      if (action === 'end' && block.type === 'session') {
+        setConfirmDialog({
+          type: 'end',
+          blockId,
+        });
+        return;
+      }
+
+      // Forward to parent handler
+      onBlockAction?.(blockId, action);
+    },
+    [timelineData, onBlockAction]
+  );
+
+  const handleConfirmAction = useCallback(async () => {
+    if (!confirmDialog) return;
+
+    if (confirmDialog.type === 'cancel' && confirmDialog.bookingId) {
+      // Call parent handler for cancel
+      onBlockAction?.(confirmDialog.blockId, 'cancel');
+    } else if (confirmDialog.type === 'end') {
+      // Call parent handler for end session
+      onBlockAction?.(confirmDialog.blockId, 'end');
+    }
+
+    setConfirmDialog(null);
+  }, [confirmDialog, onBlockAction]);
+
+  const handleDrop = useCallback(
+    async (bookingId: string, tableId: string, newTime: Date) => {
+      if (!onReschedule) {
+        setDropFeedback({
+          message: 'Rescheduling is not enabled',
+          isError: true,
+        });
+        return;
+      }
+
+      try {
+        await onReschedule(bookingId, tableId, newTime);
+        setDropFeedback({
+          message: `Booking rescheduled to ${newTime.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+          })}`,
+          isError: false,
+        });
+        // Refetch data
+        refreshTimeline();
+      } catch (err) {
+        console.error('Failed to reschedule:', err);
+        setDropFeedback({
+          message: 'Failed to reschedule booking. Please try again.',
+          isError: true,
+        });
+      }
+    },
+    [onReschedule]
+  );
+
+  const refreshTimeline = useCallback(async () => {
+    try {
+      const dateString = formatDateString(date);
+      const data = await getTimelineData(venueId, dateString, {
+        startHour: 9,
+        endHour: 23,
+      });
+      setTimelineData(data);
+    } catch (err) {
+      console.error('Failed to refresh timeline:', err);
+    }
+  }, [venueId, date]);
+
+  // Global drag state tracking
+  useEffect(() => {
+    const handleDragStart = () => setIsDragActive(true);
+    const handleDragEnd = () => setIsDragActive(false);
+
+    document.addEventListener('dragstart', handleDragStart);
+    document.addEventListener('dragend', handleDragEnd);
+
+    return () => {
+      document.removeEventListener('dragstart', handleDragStart);
+      document.removeEventListener('dragend', handleDragEnd);
+    };
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Data Fetching
@@ -766,7 +729,7 @@ export function Timeline({
       {/* Main timeline area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Fixed table labels column */}
-        <TableLabels tables={timelineData.tables} />
+        <TableLabels tables={timelineData.tables} rowHeight={ROW_HEIGHT} />
 
         {/* Scrollable timeline area */}
         <div
@@ -788,8 +751,13 @@ export function Timeline({
                   table={table}
                   timeRange={timelineData.timeRange}
                   pixelsPerHour={PIXELS_PER_HOUR}
+                  rowHeight={ROW_HEIGHT}
+                  onBlockClick={handleBlockClick}
+                  onBlockAction={handleBlockAction}
+                  onDrop={onReschedule ? handleDrop : undefined}
+                  selectedBlockId={selectedBlockId ?? undefined}
                   conflicts={timelineData.conflicts}
-                  onBlockClick={onBlockClick}
+                  isDragActive={isDragActive}
                 />
               ))}
 
@@ -816,6 +784,33 @@ export function Timeline({
           </span>
         </div>
       )}
+
+      {/* Confirmation dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog !== null}
+        title={
+          confirmDialog?.type === 'cancel'
+            ? 'Cancel Booking'
+            : 'End Session'
+        }
+        message={
+          confirmDialog?.type === 'cancel'
+            ? 'Are you sure you want to cancel this booking? This action cannot be undone.'
+            : 'Are you sure you want to end this session? The session will be marked as completed.'
+        }
+        confirmLabel={confirmDialog?.type === 'cancel' ? 'Cancel Booking' : 'End Session'}
+        confirmVariant="destructive"
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmDialog(null)}
+      />
+
+      {/* Drop feedback toast */}
+      <DropFeedback
+        isOpen={dropFeedback !== null}
+        message={dropFeedback?.message ?? ''}
+        isError={dropFeedback?.isError ?? false}
+        onClose={() => setDropFeedback(null)}
+      />
     </div>
   );
 }

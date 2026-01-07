@@ -13,6 +13,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@radix-ui/react-context-menu": "^2.2.16",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.88.0",
     "date-fns": "^4.1.0",

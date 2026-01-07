@@ -1,10 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import type { TimelineBlock, BookingStatus } from '@/lib/db/types';
+import { TimelineBlock } from './TimelineBlock';
+import type { TimelineBlock as TimelineBlockType, BookingStatus } from '@/lib/db/types';
 import type { TimelineTable, TimeRange, TimelineConflict } from '@/lib/data/timeline';
+import type { BlockAction } from './TimelineBlock';
 
 // =============================================================================
 // Types
@@ -15,9 +17,12 @@ interface TimelineRowProps {
   timeRange: TimeRange;
   pixelsPerHour: number;
   rowHeight: number;
-  onBlockClick: (block: TimelineBlock) => void;
+  onBlockClick: (block: TimelineBlockType) => void;
+  onBlockAction?: (blockId: string, action: BlockAction) => void;
+  onDrop?: (bookingId: string, tableId: string, newTime: Date) => Promise<void>;
   selectedBlockId?: string;
   conflicts?: TimelineConflict[];
+  isDragActive?: boolean;
 }
 
 interface TimelineGridLinesProps {
@@ -31,22 +36,25 @@ interface TableLabelsProps {
   headerHeight?: number;
 }
 
-interface TimelineBlockProps {
-  block: TimelineBlock;
-  timeRange: TimeRange;
-  pixelsPerHour: number;
-  rowHeight: number;
-  onClick: () => void;
-  isSelected: boolean;
-  hasConflict: boolean;
+interface DropPreview {
+  tableId: string;
+  time: Date;
+  isValid: boolean;
 }
 
-interface BlockPosition {
-  left: number;
-  width: number;
-  isClippedStart: boolean;
-  isClippedEnd: boolean;
+interface DragData {
+  blockId: string;
+  bookingId: string;
+  tableId: string;
+  startTime: string;
+  endTime: string;
 }
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+const SNAP_INTERVAL_MINUTES = 15;
 
 // =============================================================================
 // Utility Functions
@@ -75,90 +83,66 @@ function getTotalWidth(timeRange: TimeRange, pixelsPerHour: number): number {
 }
 
 /**
- * Calculates block position with clamping for blocks extending beyond visible range.
- * Handles:
- * - Blocks that start before the visible range
- * - Blocks that end after the visible range
- * - Minimum width for visibility (40px)
+ * Converts pixels to time based on timeline range.
  */
-function getBlockPosition(
-  block: TimelineBlock,
+function pixelsToTime(
+  pixelX: number,
+  containerRect: DOMRect,
   timeRange: TimeRange,
-  pixelsPerHour: number
-): BlockPosition {
-  const blockStart = new Date(block.start_time);
-  const blockEnd = new Date(block.end_time);
+  pixelsPerHour: number,
+  scrollLeft: number
+): Date {
+  // Calculate pixel position relative to timeline start (accounting for scroll)
+  const relativeX = pixelX - containerRect.left + scrollLeft;
 
-  // Clamp block times to visible range
-  const visibleStart = Math.max(blockStart.getTime(), timeRange.start.getTime());
-  const visibleEnd = Math.min(blockEnd.getTime(), timeRange.end.getTime());
+  // Convert pixels to hours
+  const hoursFromStart = relativeX / pixelsPerHour;
 
-  // Check if block is clipped at boundaries
-  const isClippedStart = blockStart.getTime() < timeRange.start.getTime();
-  const isClippedEnd = blockEnd.getTime() > timeRange.end.getTime();
-
-  // Calculate positions in hours from range start
-  const startOffset = (visibleStart - timeRange.start.getTime()) / 3600000; // hours
-  const duration = (visibleEnd - visibleStart) / 3600000; // hours
-
-  return {
-    left: startOffset * pixelsPerHour,
-    width: Math.max(duration * pixelsPerHour, 40), // Minimum 40px for visibility
-    isClippedStart,
-    isClippedEnd,
-  };
+  // Convert to timestamp
+  const timeMs = timeRange.start.getTime() + (hoursFromStart * 3600000);
+  return new Date(timeMs);
 }
 
 /**
- * Gets status-based styling for timeline blocks.
+ * Snaps a time to the nearest interval (e.g., 15 minutes).
  */
-function getBlockStyles(block: TimelineBlock): {
-  bg: string;
-  border: string;
-  text: string;
-} {
-  if (block.type === 'session') {
-    return {
-      bg: 'bg-teal-100',
-      border: 'border-teal-400',
-      text: 'text-teal-900',
-    };
-  }
+function snapToInterval(time: Date, intervalMinutes: number): Date {
+  const totalMinutes = time.getHours() * 60 + time.getMinutes();
+  const snappedMinutes = Math.round(totalMinutes / intervalMinutes) * intervalMinutes;
 
-  // Booking blocks - style based on status
-  switch (block.booking_status) {
-    case 'confirmed':
-      return {
-        bg: 'bg-blue-100',
-        border: 'border-blue-400',
-        text: 'text-blue-900',
-      };
-    case 'arrived':
-      return {
-        bg: 'bg-amber-100',
-        border: 'border-amber-400',
-        text: 'text-amber-900',
-      };
-    case 'seated':
-      return {
-        bg: 'bg-green-100',
-        border: 'border-green-500',
-        text: 'text-green-900',
-      };
-    case 'completed':
-      return {
-        bg: 'bg-stone-100',
-        border: 'border-stone-300',
-        text: 'text-stone-500',
-      };
-    case 'pending':
-    default:
-      return {
-        bg: 'bg-stone-50',
-        border: 'border-stone-300 border-dashed',
-        text: 'text-stone-600',
-      };
-  }
+  const result = new Date(time);
+  result.setHours(Math.floor(snappedMinutes / 60));
+  result.setMinutes(snappedMinutes % 60);
+  result.setSeconds(0);
+  result.setMilliseconds(0);
+
+  return result;
+}
+
+/**
+ * Converts a time to pixel position on the timeline.
+ */
+function timeToPixels(time: Date, timeRange: TimeRange, pixelsPerHour: number): number {
+  const hoursFromStart = (time.getTime() - timeRange.start.getTime()) / 3600000;
+  return hoursFromStart * pixelsPerHour;
+}
+
+/**
+ * Checks if a time falls within the timeline range.
+ */
+function isTimeInRange(time: Date, timeRange: TimeRange): boolean {
+  return time.getTime() >= timeRange.start.getTime() &&
+         time.getTime() <= timeRange.end.getTime();
+}
+
+/**
+ * Formats a time for display (e.g., "2:30 PM").
+ */
+function formatTime(time: Date): string {
+  return time.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 // =============================================================================
@@ -188,94 +172,54 @@ function TimelineGridLines({ timeRange, pixelsPerHour }: TimelineGridLinesProps)
 }
 
 // =============================================================================
-// TimelineBlockItem Component
+// DropIndicator Component
 // =============================================================================
 
-/**
- * Individual block within a timeline row (booking or session).
- */
-function TimelineBlockItem({
-  block,
-  timeRange,
-  pixelsPerHour,
-  rowHeight,
-  onClick,
-  isSelected,
-  hasConflict,
-}: TimelineBlockProps) {
-  const position = useMemo(
-    () => getBlockPosition(block, timeRange, pixelsPerHour),
-    [block, timeRange, pixelsPerHour]
-  );
+interface DropIndicatorProps {
+  dropPreview: DropPreview;
+  timeRange: TimeRange;
+  pixelsPerHour: number;
+}
 
-  const styles = getBlockStyles(block);
-  const totalWidth = getTotalWidth(timeRange, pixelsPerHour);
-
-  // Don't render if block is completely outside visible range
-  if (position.left >= totalWidth || position.left + position.width <= 0) {
-    return null;
-  }
-
-  // Format time display
-  const startTime = new Date(block.start_time);
-  const endTime = new Date(block.end_time);
-  const timeDisplay = `${startTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })} - ${endTime.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })}`;
+function DropIndicator({ dropPreview, timeRange, pixelsPerHour }: DropIndicatorProps) {
+  const left = timeToPixels(dropPreview.time, timeRange, pixelsPerHour);
 
   return (
-    <button
-      type="button"
-      className={cn(
-        'absolute top-1 bottom-1 rounded-md border px-2 py-1',
-        'overflow-hidden text-left transition-all duration-150',
-        'hover:shadow-md hover:-translate-y-0.5 focus-ring',
-        styles.bg,
-        styles.border,
-        styles.text,
-        isSelected && 'ring-2 ring-blue-500 ring-offset-1 shadow-md -translate-y-0.5',
-        hasConflict && 'ring-2 ring-red-500 ring-offset-1',
-        // Clipped block indicators
-        position.isClippedStart && 'rounded-l-none border-l-2 border-l-stone-400',
-        position.isClippedEnd && 'rounded-r-none border-r-2 border-r-stone-400'
-      )}
-      style={{
-        left: Math.max(0, position.left),
-        width: Math.min(position.width, totalWidth - Math.max(0, position.left)),
-      }}
-      onClick={onClick}
-      aria-pressed={isSelected}
-      aria-label={`${block.type === 'booking' ? block.guest_name : block.game_title || 'Session'} - ${timeDisplay}`}
-    >
-      <div className="flex flex-col h-full justify-center min-w-0">
-        {/* Primary label */}
-        <span className="text-xs font-semibold truncate">
-          {block.type === 'booking'
-            ? block.guest_name
-            : block.game_title || 'Session'}
-        </span>
-        {/* Secondary info - only show if enough width */}
-        {position.width > 80 && (
-          <span className="text-[10px] opacity-75 truncate font-mono">
-            {block.type === 'booking' && block.party_size
-              ? `${block.party_size} guests`
-              : timeDisplay}
-          </span>
-        )}
-      </div>
-
-      {/* Type indicator dot */}
+    <>
+      {/* Drop line indicator */}
       <div
         className={cn(
-          'absolute top-1 right-1 w-1.5 h-1.5 rounded-full',
-          block.type === 'session' ? 'bg-teal-500' : 'bg-blue-500'
+          'absolute top-1 bottom-1 w-1 rounded transition-all duration-75',
+          dropPreview.isValid ? 'bg-teal-500' : 'bg-red-400',
         )}
+        style={{ left: Math.max(0, left - 2) }}
       />
-    </button>
+
+      {/* Time label */}
+      <div
+        className={cn(
+          'absolute -top-6 px-2 py-0.5 text-xs font-mono rounded shadow-sm whitespace-nowrap',
+          dropPreview.isValid
+            ? 'bg-teal-500 text-white'
+            : 'bg-red-400 text-white',
+        )}
+        style={{ left: Math.max(0, left - 24) }}
+      >
+        {formatTime(dropPreview.time)}
+      </div>
+
+      {/* Drop zone highlight */}
+      <div
+        className={cn(
+          'absolute top-0 bottom-0 pointer-events-none transition-opacity',
+          dropPreview.isValid ? 'bg-teal-500/10' : 'bg-red-400/10',
+        )}
+        style={{
+          left: Math.max(0, left - 2),
+          width: 80, // Approximate block width
+        }}
+      />
+    </>
   );
 }
 
@@ -285,7 +229,7 @@ function TimelineBlockItem({
 
 /**
  * Single table row in the timeline Gantt view.
- * Handles block positioning, grid lines, and empty state.
+ * Handles block positioning, grid lines, empty state, and drag-drop.
  */
 export function TimelineRow({
   table,
@@ -293,9 +237,16 @@ export function TimelineRow({
   pixelsPerHour,
   rowHeight,
   onBlockClick,
+  onBlockAction,
+  onDrop,
   selectedBlockId,
   conflicts = [],
+  isDragActive = false,
 }: TimelineRowProps) {
+  const [dropPreview, setDropPreview] = useState<DropPreview | null>(null);
+  const [isDropping, setIsDropping] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+
   const totalWidth = useMemo(
     () => getTotalWidth(timeRange, pixelsPerHour),
     [timeRange, pixelsPerHour]
@@ -314,38 +265,126 @@ export function TimelineRow({
   }, [conflicts, table.id]);
 
   const handleBlockClick = useCallback(
-    (block: TimelineBlock) => {
+    (block: TimelineBlockType) => {
       onBlockClick(block);
     },
     [onBlockClick]
   );
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!rowRef.current || !onDrop) return;
+
+    const containerRect = rowRef.current.getBoundingClientRect();
+    const scrollContainer = rowRef.current.closest('.overflow-x-auto');
+    const scrollLeft = scrollContainer?.scrollLeft ?? 0;
+
+    // Calculate time from pixel position
+    const time = pixelsToTime(e.clientX, containerRect, timeRange, pixelsPerHour, scrollLeft);
+    const snappedTime = snapToInterval(time, SNAP_INTERVAL_MINUTES);
+
+    // Validate the drop position
+    const isValid = isTimeInRange(snappedTime, timeRange);
+
+    setDropPreview({
+      tableId: table.id,
+      time: snappedTime,
+      isValid,
+    });
+
+    e.dataTransfer.dropEffect = isValid ? 'move' : 'none';
+  }, [table.id, timeRange, pixelsPerHour, onDrop]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear if actually leaving the row (not entering a child)
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    if (!rowRef.current?.contains(relatedTarget)) {
+      setDropPreview(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!dropPreview || !dropPreview.isValid || !onDrop) {
+      setDropPreview(null);
+      return;
+    }
+
+    // Get drag data
+    const dataString = e.dataTransfer.getData('application/json');
+    if (!dataString) {
+      setDropPreview(null);
+      return;
+    }
+
+    try {
+      const dragData: DragData = JSON.parse(dataString);
+
+      if (!dragData.bookingId) {
+        setDropPreview(null);
+        return;
+      }
+
+      setIsDropping(true);
+
+      // Execute the drop
+      await onDrop(dragData.bookingId, dropPreview.tableId, dropPreview.time);
+    } catch (err) {
+      console.error('Failed to handle drop:', err);
+    } finally {
+      setDropPreview(null);
+      setIsDropping(false);
+    }
+  }, [dropPreview, onDrop]);
+
   return (
     <div
-      className="relative border-b border-stone-200 hover:bg-stone-50/50 transition-colors"
+      ref={rowRef}
+      className={cn(
+        'relative border-b border-stone-200 transition-colors',
+        isDragActive && 'hover:bg-teal-50/30',
+        isDropping && 'bg-teal-50/50',
+      )}
       style={{ height: rowHeight, minWidth: totalWidth }}
       role="row"
       aria-label={`${table.label} - ${table.blocks.length} bookings`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Background grid lines (hourly) */}
       <TimelineGridLines timeRange={timeRange} pixelsPerHour={pixelsPerHour} />
 
+      {/* Drop preview indicator */}
+      {dropPreview && (
+        <DropIndicator
+          dropPreview={dropPreview}
+          timeRange={timeRange}
+          pixelsPerHour={pixelsPerHour}
+        />
+      )}
+
       {/* Blocks */}
       {table.blocks.map((block) => (
-        <TimelineBlockItem
+        <TimelineBlock
           key={block.id}
           block={block}
           timeRange={timeRange}
           pixelsPerHour={pixelsPerHour}
           rowHeight={rowHeight}
           onClick={() => handleBlockClick(block)}
+          onAction={onBlockAction}
           isSelected={block.id === selectedBlockId}
-          hasConflict={conflictBlockIds.has(block.id)}
+          showConflict={conflictBlockIds.has(block.id)}
         />
       ))}
 
       {/* Empty state indicator */}
-      {table.blocks.length === 0 && (
+      {table.blocks.length === 0 && !dropPreview && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="text-xs text-stone-400 font-medium">Available</span>
         </div>
@@ -412,4 +451,4 @@ export function TableLabels({
 // =============================================================================
 
 export type { TimelineRowProps, TableLabelsProps, TimelineGridLinesProps };
-export { getBlockPosition, getTotalWidth, getHoursBetween };
+export { getTotalWidth, getHoursBetween, timeToPixels, snapToInterval, pixelsToTime };
