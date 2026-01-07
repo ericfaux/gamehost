@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils';
 
 interface AlertDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }
 
-export function AlertDialog({ open, onOpenChange: _onOpenChange, children }: AlertDialogProps) {
+export function AlertDialog({ open, children }: AlertDialogProps) {
   React.useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';

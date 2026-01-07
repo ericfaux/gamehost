@@ -25,12 +25,10 @@ import { AddGameModal } from './AddGameModal';
 
 interface ManageBookingClientProps {
   booking: BookingWithDetails;
-  venueSlug: string;
 }
 
 export function ManageBookingClient({
   booking: initialBooking,
-  venueSlug,
 }: ManageBookingClientProps) {
   const router = useRouter();
   const [booking, setBooking] = useState(initialBooking);

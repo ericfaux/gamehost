@@ -78,7 +78,6 @@ export default async function ManageBookingPage({ params, searchParams }: Props)
       <main className="max-w-lg mx-auto px-4 py-6">
         <ManageBookingClient
           booking={booking}
-          venueSlug={venue.slug}
         />
       </main>
 
