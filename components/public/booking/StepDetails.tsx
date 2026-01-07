@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { cn } from '@/lib/utils';
 import {
   User,
@@ -47,6 +47,18 @@ export function StepDetails({
 }: StepDetailsProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Generate unique IDs for accessibility
+  const nameInputId = useId();
+  const nameErrorId = useId();
+  const emailInputId = useId();
+  const emailErrorId = useId();
+  const emailDescId = useId();
+  const phoneInputId = useId();
+  const phoneErrorId = useId();
+  const notesInputId = useId();
+  const notesDescId = useId();
+  const contactErrorId = useId();
 
   // Mark field as touched on blur
   const handleBlur = (field: string) => {
@@ -139,6 +151,7 @@ export function StepDetails({
   const inputClass = (hasError: boolean) =>
     cn(
       'w-full rounded-token border bg-[color:var(--color-elevated)] pl-11 pr-4 py-3 text-base shadow-card focus-ring',
+      'min-h-[48px]', // Touch target
       hasError
         ? 'border-[color:var(--color-danger)]'
         : 'border-[color:var(--color-structure)]'
@@ -161,21 +174,29 @@ export function StepDetails({
 
       {/* Contact Method Warning */}
       {errors.contact && touched.guestEmail && touched.guestPhone && (
-        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-token border border-amber-200">
-          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+        <div
+          id={contactErrorId}
+          role="alert"
+          className="flex items-start gap-2 p-3 bg-amber-50 rounded-token border border-amber-200"
+        >
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <p className="text-sm text-amber-800">{errors.contact}</p>
         </div>
       )}
 
       {/* Name Input */}
       <div className="space-y-1">
-        <label htmlFor="guestName" className={labelClass}>
-          Name <span className="text-[color:var(--color-danger)]">*</span>
+        <label htmlFor={nameInputId} className={labelClass}>
+          Name <span className="text-[color:var(--color-danger)]" aria-hidden="true">*</span>
+          <span className="sr-only">(required)</span>
         </label>
         <div className="relative">
-          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--color-ink-secondary)] pointer-events-none" />
+          <User
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--color-ink-secondary)] pointer-events-none"
+            aria-hidden="true"
+          />
           <input
-            id="guestName"
+            id={nameInputId}
             type="text"
             value={data.guestName}
             onChange={e => {
@@ -185,11 +206,16 @@ export function StepDetails({
             onBlur={() => handleBlur('guestName')}
             placeholder="Your name"
             autoComplete="name"
+            autoCapitalize="words"
+            spellCheck="false"
+            aria-required="true"
+            aria-invalid={!!errors.guestName && touched.guestName}
+            aria-describedby={errors.guestName && touched.guestName ? nameErrorId : undefined}
             className={inputClass(!!errors.guestName && touched.guestName)}
           />
         </div>
         {errors.guestName && touched.guestName && (
-          <p className="text-sm text-[color:var(--color-danger)]">
+          <p id={nameErrorId} role="alert" className="text-sm text-[color:var(--color-danger)]">
             {errors.guestName}
           </p>
         )}
@@ -197,16 +223,22 @@ export function StepDetails({
 
       {/* Email Input */}
       <div className="space-y-1">
-        <label htmlFor="guestEmail" className={labelClass}>
+        <label htmlFor={emailInputId} className={labelClass}>
           Email{' '}
           {settings.require_email && (
-            <span className="text-[color:var(--color-danger)]">*</span>
+            <>
+              <span className="text-[color:var(--color-danger)]" aria-hidden="true">*</span>
+              <span className="sr-only">(required)</span>
+            </>
           )}
         </label>
         <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--color-ink-secondary)] pointer-events-none" />
+          <Mail
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--color-ink-secondary)] pointer-events-none"
+            aria-hidden="true"
+          />
           <input
-            id="guestEmail"
+            id={emailInputId}
             type="email"
             value={data.guestEmail}
             onChange={e => {
@@ -216,32 +248,47 @@ export function StepDetails({
             onBlur={() => handleBlur('guestEmail')}
             placeholder="your@email.com"
             autoComplete="email"
+            autoCapitalize="off"
+            autoCorrect="off"
             inputMode="email"
+            spellCheck="false"
+            aria-required={settings.require_email}
+            aria-invalid={!!errors.guestEmail && touched.guestEmail}
+            aria-describedby={cn(
+              emailDescId,
+              errors.guestEmail && touched.guestEmail ? emailErrorId : ''
+            )}
             className={inputClass(!!errors.guestEmail && touched.guestEmail)}
           />
         </div>
         {errors.guestEmail && touched.guestEmail && (
-          <p className="text-sm text-[color:var(--color-danger)]">
+          <p id={emailErrorId} role="alert" className="text-sm text-[color:var(--color-danger)]">
             {errors.guestEmail}
           </p>
         )}
-        <p className="text-xs text-[color:var(--color-ink-secondary)]">
+        <p id={emailDescId} className="text-xs text-[color:var(--color-ink-secondary)]">
           We&apos;ll send your confirmation here
         </p>
       </div>
 
       {/* Phone Input */}
       <div className="space-y-1">
-        <label htmlFor="guestPhone" className={labelClass}>
+        <label htmlFor={phoneInputId} className={labelClass}>
           Phone{' '}
           {settings.require_phone && (
-            <span className="text-[color:var(--color-danger)]">*</span>
+            <>
+              <span className="text-[color:var(--color-danger)]" aria-hidden="true">*</span>
+              <span className="sr-only">(required)</span>
+            </>
           )}
         </label>
         <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--color-ink-secondary)] pointer-events-none" />
+          <Phone
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[color:var(--color-ink-secondary)] pointer-events-none"
+            aria-hidden="true"
+          />
           <input
-            id="guestPhone"
+            id={phoneInputId}
             type="tel"
             value={data.guestPhone}
             onChange={e => {
@@ -252,11 +299,14 @@ export function StepDetails({
             placeholder="(555) 123-4567"
             autoComplete="tel"
             inputMode="tel"
+            aria-required={settings.require_phone}
+            aria-invalid={!!errors.guestPhone && touched.guestPhone}
+            aria-describedby={errors.guestPhone && touched.guestPhone ? phoneErrorId : undefined}
             className={inputClass(!!errors.guestPhone && touched.guestPhone)}
           />
         </div>
         {errors.guestPhone && touched.guestPhone && (
-          <p className="text-sm text-[color:var(--color-danger)]">
+          <p id={phoneErrorId} role="alert" className="text-sm text-[color:var(--color-danger)]">
             {errors.guestPhone}
           </p>
         )}
@@ -264,21 +314,26 @@ export function StepDetails({
 
       {/* Special Requests */}
       <div className="space-y-1">
-        <label htmlFor="notes" className={labelClass}>
-          Special Requests <span className="text-[color:var(--color-ink-secondary)]">(optional)</span>
+        <label htmlFor={notesInputId} className={labelClass}>
+          Special Requests{' '}
+          <span className="text-[color:var(--color-ink-secondary)] normal-case">(optional)</span>
         </label>
         <div className="relative">
-          <StickyNote className="absolute left-3 top-3 w-5 h-5 text-[color:var(--color-ink-secondary)] pointer-events-none" />
+          <StickyNote
+            className="absolute left-3 top-3 w-5 h-5 text-[color:var(--color-ink-secondary)] pointer-events-none"
+            aria-hidden="true"
+          />
           <textarea
-            id="notes"
+            id={notesInputId}
             value={data.notes}
             onChange={e => onUpdate({ notes: e.target.value })}
             placeholder="Accessibility needs, celebrations, etc."
             rows={3}
-            className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] pl-11 pr-4 py-3 text-base shadow-card focus-ring resize-none"
+            aria-describedby={notesDescId}
+            className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] pl-11 pr-4 py-3 text-base shadow-card focus-ring resize-none min-h-[88px]"
           />
         </div>
-        <p className="text-xs text-[color:var(--color-ink-secondary)]">
+        <p id={notesDescId} className="text-xs text-[color:var(--color-ink-secondary)]">
           Let us know if you have any special requirements
         </p>
       </div>
@@ -288,18 +343,18 @@ export function StepDetails({
         <button
           type="button"
           onClick={onBack}
-          className="flex-1 py-3 rounded-token font-medium text-base flex items-center justify-center gap-2 transition-colors touch-manipulation border border-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)] hover:bg-[color:var(--color-muted)]"
+          className="flex-1 py-3 rounded-token font-medium text-base flex items-center justify-center gap-2 transition-colors touch-manipulation border border-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)] hover:bg-[color:var(--color-muted)] min-h-[48px]"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-5 h-5" aria-hidden="true" />
           Back
         </button>
         <button
           type="button"
           onClick={handleNext}
-          className="flex-[2] py-3 rounded-token font-semibold text-base flex items-center justify-center gap-2 transition-colors touch-manipulation bg-teal-500 text-white hover:bg-teal-600 active:scale-[0.98]"
+          className="flex-[2] py-3 rounded-token font-semibold text-base flex items-center justify-center gap-2 transition-colors touch-manipulation bg-teal-500 text-white hover:bg-teal-600 active:scale-[0.98] min-h-[48px]"
         >
           Continue
-          <ChevronRight className="w-5 h-5" />
+          <ChevronRight className="w-5 h-5" aria-hidden="true" />
         </button>
       </div>
     </div>
