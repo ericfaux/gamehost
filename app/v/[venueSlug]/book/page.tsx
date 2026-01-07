@@ -55,20 +55,12 @@ export default async function BookingPage({ params }: PageProps) {
       <header className="bg-white border-b border-[color:var(--color-structure)]">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
-            {/* Venue Logo or Fallback */}
-            {venue.logo_url ? (
-              <img
-                src={venue.logo_url}
-                alt=""
-                className="w-10 h-10 rounded-lg object-contain bg-stone-100"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
-                <span className="text-teal-700 font-bold text-lg" aria-hidden="true">
-                  {venue.name.charAt(0)}
-                </span>
-              </div>
-            )}
+            {/* Venue Initial */}
+            <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+              <span className="text-teal-700 font-bold text-lg" aria-hidden="true">
+                {venue.name.charAt(0)}
+              </span>
+            </div>
             <div>
               <h1 className="text-xl font-serif font-bold text-stone-900">{venue.name}</h1>
               <p className="text-sm text-stone-500">Reserve a table</p>
