@@ -341,6 +341,22 @@ export async function getBookingsByGuestEmail(email: string): Promise<BookingWit
 // -----------------------------------------------------------------------------
 
 /**
+ * Default values for venue booking settings.
+ * These match the database column defaults for reference in UI components.
+ */
+export const BOOKING_SETTINGS_DEFAULTS: Omit<VenueBookingSettings, 'id' | 'venue_id' | 'created_at' | 'updated_at'> = {
+  default_duration_minutes: 120,
+  min_booking_notice_hours: 1,
+  max_advance_booking_days: 30,
+  buffer_minutes_between_bookings: 15,
+  slot_interval_minutes: 30,
+  allow_walk_ins: true,
+  require_phone: false,
+  require_email: true,
+  confirmation_message_template: null,
+};
+
+/**
  * Fetches the booking settings for a venue.
  *
  * @param venueId - The venue's UUID
@@ -361,4 +377,82 @@ export async function getVenueBookingSettings(
   }
 
   return data as VenueBookingSettings | null;
+}
+
+/**
+ * Creates booking settings for a venue with database defaults.
+ * Optionally override specific fields.
+ *
+ * @param venueId - The venue's UUID
+ * @param overrides - Optional partial settings to override defaults
+ * @returns The created venue booking settings
+ * @throws Error if creation fails
+ */
+export async function createVenueBookingSettings(
+  venueId: string,
+  overrides?: Partial<Omit<VenueBookingSettings, 'id' | 'venue_id' | 'created_at' | 'updated_at'>>
+): Promise<VenueBookingSettings> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('venue_booking_settings')
+    .insert({
+      venue_id: venueId,
+      ...overrides,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Error creating venue booking settings:', error);
+    throw new Error(`Failed to create venue booking settings: ${error.message}`);
+  }
+
+  return data as VenueBookingSettings;
+}
+
+/**
+ * Updates booking settings for a venue.
+ * Only provided fields are updated; unspecified fields remain unchanged.
+ *
+ * @param venueId - The venue's UUID
+ * @param updates - Partial settings to update
+ * @returns The updated venue booking settings, or null if settings don't exist
+ */
+export async function updateVenueBookingSettings(
+  venueId: string,
+  updates: Partial<Omit<VenueBookingSettings, 'id' | 'venue_id' | 'created_at' | 'updated_at'>>
+): Promise<VenueBookingSettings | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('venue_booking_settings')
+    .update(updates)
+    .eq('venue_id', venueId)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error updating venue booking settings:', error);
+    return null;
+  }
+
+  return data as VenueBookingSettings | null;
+}
+
+/**
+ * Gets existing venue booking settings or creates them with defaults.
+ * This is the main function UI components should use to ensure settings always exist.
+ * Never returns null - guarantees settings exist after call.
+ *
+ * @param venueId - The venue's UUID
+ * @returns The venue booking settings (existing or newly created)
+ */
+export async function getOrCreateVenueBookingSettings(
+  venueId: string
+): Promise<VenueBookingSettings> {
+  // Try to get existing settings first
+  const existing = await getVenueBookingSettings(venueId);
+  if (existing) {
+    return existing;
+  }
+
+  // Settings don't exist, create with defaults
+  return createVenueBookingSettings(venueId);
 }

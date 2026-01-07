@@ -120,6 +120,10 @@ export {
   getUpcomingBookings,
   getBookingsByGuestEmail,
   getVenueBookingSettings,
+  createVenueBookingSettings,
+  updateVenueBookingSettings,
+  getOrCreateVenueBookingSettings,
+  BOOKING_SETTINGS_DEFAULTS,
   type BookingQueryOptions,
 } from './bookings';
 
