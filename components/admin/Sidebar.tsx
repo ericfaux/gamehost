@@ -10,7 +10,8 @@ import {
   Users,
   MessageSquare,
   BarChart3,
-  Settings
+  Settings,
+  CalendarDays,
 } from '@/components/icons';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +43,11 @@ const navItems: NavItem[] = [
     href: '/admin',
     label: 'Dashboard',
     icon: LayoutGrid
+  },
+  {
+    href: '/admin/bookings',
+    label: 'Bookings',
+    icon: CalendarDays
   },
   {
     href: '/admin/library',

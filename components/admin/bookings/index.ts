@@ -9,3 +9,5 @@ export {
   EnhancedConflictLayer,
 } from './TimelineConflicts';
 export { BookingDetailDrawer } from './BookingDetailDrawer';
+export { CreateBookingModal } from './CreateBookingModal';
+export { BookingsPageClient } from './BookingsPageClient';
