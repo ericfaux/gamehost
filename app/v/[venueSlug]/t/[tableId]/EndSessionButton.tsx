@@ -169,7 +169,7 @@ export function EndSessionButton({ venueSlug, tableId, sessionId, hasGame }: End
       case 'error':
         return `${baseClasses} text-white bg-[color:var(--color-danger)] hover:opacity-90`;
       default:
-        return `${baseClasses} text-[color:var(--color-ink-primary)] bg-[color:var(--color-muted)] hover:bg-[color:var(--color-structure)] border border-[color:var(--color-structure)]`;
+        return `${baseClasses} text-white bg-[color:var(--color-danger)] hover:opacity-90`;
     }
   };
 
