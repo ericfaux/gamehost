@@ -16,6 +16,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TokenChip, useToast } from '@/components/AppShell';
@@ -29,6 +30,7 @@ import { UnplacedTablesList } from '@/components/admin/floorplan/UnplacedTablesL
 import { ZoneManagerModal } from '@/components/admin/floorplan/ZoneManagerModal';
 import { FloatingToolbar } from '@/components/admin/floorplan/FloatingToolbar';
 import { getDefaultLayoutForCapacity } from '@/components/admin/floorplan/TableNode';
+import { CreateBookingModal } from '@/components/admin/bookings/CreateBookingModal';
 import type { TableSessionInfo } from '@/components/admin/floorplan/TableNode';
 import {
   saveTableLayoutsAction,
@@ -126,6 +128,8 @@ export function FloorPlanPageClient({
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [drawerTableId, setDrawerTableId] = useState<string | null>(null);
   const [showZoneManager, setShowZoneManager] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingPreselectedTableId, setBookingPreselectedTableId] = useState<string | null>(null);
 
   // Persistence state
   const [hasChanges, setHasChanges] = useState(false);
@@ -436,6 +440,14 @@ export function FloorPlanPageClient({
    */
   const handleListTableSelect = useCallback((tableId: string | null) => {
     setSelectedTableId(tableId);
+  }, []);
+
+  /**
+   * handleBookTable - Open booking modal with table pre-selected
+   */
+  const handleBookTable = useCallback((tableId: string) => {
+    setBookingPreselectedTableId(tableId);
+    setShowBookingModal(true);
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -757,6 +769,7 @@ export function FloorPlanPageClient({
         session={drawerTableId ? sessionsMap.get(drawerTableId) ?? null : null}
         isOpen={drawerTableId !== null}
         onClose={() => setDrawerTableId(null)}
+        onBookTable={handleBookTable}
       />
 
       {/* Zone manager modal */}
@@ -770,6 +783,18 @@ export function FloorPlanPageClient({
         onUpdateZone={handleUpdateZone}
         onDeleteZone={handleDeleteZone}
         onUploadBackground={handleUploadBackground}
+      />
+
+      {/* Create booking modal */}
+      <CreateBookingModal
+        open={showBookingModal}
+        onClose={() => {
+          setShowBookingModal(false);
+          setBookingPreselectedTableId(null);
+        }}
+        venueId={venueId}
+        preselectedTable={bookingPreselectedTableId ?? undefined}
+        preselectedDate={format(new Date(), 'yyyy-MM-dd')}
       />
     </>
   );

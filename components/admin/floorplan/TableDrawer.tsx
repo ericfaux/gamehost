@@ -14,6 +14,7 @@ import {
   StopCircle,
   AlertTriangle,
   Loader2,
+  CalendarPlus,
 } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import type { VenueTableWithLayout } from '@/lib/db/types';
@@ -26,6 +27,7 @@ interface TableDrawerProps {
   onClose: () => void;
   onEndSession?: (sessionId: string) => Promise<void>;
   onAssignGame?: (sessionId: string) => void;
+  onBookTable?: (tableId: string) => void;
 }
 
 function formatDuration(started: string): string {
@@ -66,10 +68,17 @@ export function TableDrawer({
   onClose,
   onEndSession,
   onAssignGame,
+  onBookTable,
 }: TableDrawerProps) {
   const [isEnding, setIsEnding] = useState(false);
 
   const status = session?.status ?? 'available';
+
+  const handleBookTable = () => {
+    if (!table || !onBookTable) return;
+    onBookTable(table.id);
+    onClose();
+  };
 
   const handleEndSession = async () => {
     if (!session || isEnding || !onEndSession) return;
@@ -195,6 +204,18 @@ export function TableDrawer({
 
         {/* Footer actions */}
         <div className="p-4 border-t border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] space-y-2">
+          {/* Book This Table - shown for active tables */}
+          {table.is_active && onBookTable && (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={handleBookTable}
+            >
+              <CalendarPlus className="h-4 w-4 mr-2" />
+              Book This Table
+            </Button>
+          )}
+
           {session && status === 'browsing' && onAssignGame && (
             <Button
               variant="secondary"
@@ -227,7 +248,13 @@ export function TableDrawer({
             </Button>
           )}
 
-          {!session && (
+          {!session && !table.is_active && (
+            <div className="text-center text-sm text-[color:var(--color-ink-secondary)] py-2">
+              Table is inactive
+            </div>
+          )}
+
+          {!session && table.is_active && !onBookTable && (
             <div className="text-center text-sm text-[color:var(--color-ink-secondary)] py-2">
               Table is available for check-in
             </div>
