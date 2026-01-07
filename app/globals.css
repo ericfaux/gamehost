@@ -87,6 +87,17 @@ body {
   .density-compact th {
     @apply py-2;
   }
+
+  /* Timeline block striped patterns for "arrived" status */
+  .bg-stripes-amber {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 5px,
+      rgba(251, 191, 36, 0.15) 5px,
+      rgba(251, 191, 36, 0.15) 10px
+    );
+  }
 }
 
 @layer utilities {
