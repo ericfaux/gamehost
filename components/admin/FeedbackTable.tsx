@@ -2,7 +2,7 @@
 
 import type { FeedbackHistoryRow } from '@/lib/db/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Loader2, ChevronDown } from '@/components/icons';
+import { MessageSquare, Loader2, ChevronDown, Search } from '@/components/icons';
 import { FeedbackRow } from './FeedbackRow';
 
 interface FeedbackTableProps {
@@ -10,6 +10,8 @@ interface FeedbackTableProps {
   isLoading?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
+  hasFilters?: boolean;
+  onClearFilters?: () => void;
 }
 
 function SkeletonRow() {
@@ -44,19 +46,43 @@ function SkeletonRow() {
   );
 }
 
-function EmptyState() {
+interface EmptyStateProps {
+  hasFilters: boolean;
+  onClearFilters?: () => void;
+}
+
+function EmptyState({ hasFilters, onClearFilters }: EmptyStateProps) {
   return (
-    <div className="text-center py-12">
-      <div className="w-12 h-12 mx-auto bg-[color:var(--color-muted)] rounded-full flex items-center justify-center mb-3">
-        <MessageSquare className="h-6 w-6 text-ink-secondary" />
+    <div className="text-center py-16">
+      <div className="w-16 h-16 mx-auto bg-[color:var(--color-muted)] rounded-full flex items-center justify-center mb-4">
+        {hasFilters ? (
+          <Search className="h-8 w-8 text-ink-secondary" />
+        ) : (
+          <MessageSquare className="h-8 w-8 text-ink-secondary" />
+        )}
       </div>
-      <p className="text-ink-secondary">No feedback matches your filters</p>
-      <p className="text-xs text-ink-secondary mt-1">Try adjusting your date range or filters</p>
+      <h3 className="text-lg font-medium text-ink-primary mb-1">
+        {hasFilters ? 'No matching feedback' : 'No feedback yet'}
+      </h3>
+      <p className="text-sm text-ink-secondary max-w-sm mx-auto">
+        {hasFilters
+          ? "Try adjusting your filters or date range to find what you're looking for."
+          : 'Feedback will appear here as guests complete their sessions and share their thoughts.'
+        }
+      </p>
+      {hasFilters && onClearFilters && (
+        <button
+          onClick={onClearFilters}
+          className="mt-4 text-sm text-[color:var(--color-accent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2 rounded"
+        >
+          Clear all filters
+        </button>
+      )}
     </div>
   );
 }
 
-export function FeedbackTable({ rows, isLoading, hasMore, onLoadMore }: FeedbackTableProps) {
+export function FeedbackTable({ rows, isLoading, hasMore, onLoadMore, hasFilters = false, onClearFilters }: FeedbackTableProps) {
   const showSkeleton = isLoading && rows.length === 0;
   const showEmpty = !isLoading && rows.length === 0;
 
@@ -101,7 +127,7 @@ export function FeedbackTable({ rows, isLoading, hasMore, onLoadMore }: Feedback
         )}
 
         {/* Empty State */}
-        {showEmpty && <EmptyState />}
+        {showEmpty && <EmptyState hasFilters={hasFilters} onClearFilters={onClearFilters} />}
 
         {/* Data Rows */}
         {!showSkeleton && rows.map((row) => (
@@ -115,18 +141,14 @@ export function FeedbackTable({ rows, isLoading, hasMore, onLoadMore }: Feedback
               <button
                 onClick={onLoadMore}
                 disabled={isLoading}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[color:var(--color-accent)] hover:bg-[color:var(--color-muted)] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-[color:var(--color-accent)] hover:bg-[color:var(--color-muted)] rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-2"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    Load more
-                    <ChevronDown className="h-4 w-4 ml-1" />
-                  </>
+                <span className={isLoading ? 'opacity-0' : ''}>
+                  Load more
+                  <ChevronDown className="h-4 w-4 ml-1 inline" />
+                </span>
+                {isLoading && (
+                  <Loader2 className="h-4 w-4 animate-spin absolute inset-0 m-auto" />
                 )}
               </button>
             ) : (

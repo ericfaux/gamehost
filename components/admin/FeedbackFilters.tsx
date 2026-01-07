@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { FeedbackFilters, FeedbackSource } from '@/lib/db/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -62,6 +62,9 @@ export function FeedbackFiltersCard({
   onChange,
   isLoading = false,
 }: FeedbackFiltersProps) {
+  // Ref for focus management - return focus to first filter after clearing
+  const firstFilterRef = useRef<HTMLButtonElement>(null);
+
   // Local search state for debouncing
   const [searchValue, setSearchValue] = useState(filters.search ?? '');
   // Track if custom date picker is expanded
@@ -192,6 +195,8 @@ export function FeedbackFiltersCard({
     onChange({
       dateRangePreset: '30d',
     });
+    // Return focus to first filter control for accessibility
+    setTimeout(() => firstFilterRef.current?.focus(), 100);
   }, [onChange]);
 
   const handleSearchClear = useCallback(() => {
@@ -220,13 +225,14 @@ export function FeedbackFiltersCard({
           <div className="flex flex-wrap items-center gap-3">
             {/* Date Range Presets */}
             <div className="flex items-center rounded-lg border border-structure bg-elevated p-1">
-              {DATE_PRESETS.map((preset) => (
+              {DATE_PRESETS.map((preset, index) => (
                 <button
                   key={preset.value}
+                  ref={index === 0 ? firstFilterRef : undefined}
                   type="button"
                   onClick={() => handlePresetChange(preset.value)}
                   disabled={isLoading}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-accent)] focus-visible:ring-offset-1 ${
                     activePreset === preset.value
                       ? 'bg-surface shadow-card text-ink-primary'
                       : 'text-ink-secondary hover:text-ink-primary'
