@@ -156,3 +156,62 @@ export interface VenueTableWithLayout extends VenueTable {
   rotation_deg: number;
   layout_shape: TableShape;
 }
+
+// -----------------------------------------------------------------------------
+// Feedback History Types (for Feedback History Tile)
+// -----------------------------------------------------------------------------
+
+/** Row returned from feedback history query */
+export interface FeedbackHistoryRow {
+  id: string;                              // session id
+  submittedAt: string;                     // feedback_submitted_at
+  endedAt: string;                         // session ended_at
+  startedAt: string;                       // session started_at
+  // Related entities
+  gameId: string | null;
+  gameTitle: string | null;
+  tableId: string | null;
+  tableLabel: string | null;
+  // Game feedback
+  gameRating: number | null;               // 1, 3, or 5
+  complexity: FeedbackComplexity | null;
+  replay: FeedbackReplay | null;
+  comment: string | null;
+  // Venue feedback
+  venueRating: number | null;              // 1, 3, or 5
+  venueComment: string | null;
+  // Meta
+  source: FeedbackSource;
+}
+
+/** Aggregated stats for feedback summary header */
+export interface FeedbackStats {
+  totalResponses: number;
+  avgGameRating: number | null;
+  avgVenueRating: number | null;
+  positiveCount: number;      // rating = 5
+  neutralCount: number;       // rating = 3
+  negativeCount: number;      // rating = 1
+  commentCount: number;
+  venueCommentCount: number;
+}
+
+/** Filter options for feedback queries */
+export interface FeedbackFilters {
+  dateRangePreset?: 'today' | '7d' | '30d' | '90d';
+  startDate?: string;         // ISO string, overrides preset
+  endDate?: string;           // ISO string, overrides preset
+  sentiment?: 'positive' | 'neutral' | 'negative' | null;
+  ratingType?: 'game' | 'venue' | 'all';
+  hasComment?: boolean;
+  source?: FeedbackSource | null;
+  search?: string;            // searches comment text, game title, table label
+}
+
+/** Paginated result for feedback history */
+export interface FeedbackHistoryResult {
+  rows: FeedbackHistoryRow[];
+  stats: FeedbackStats;
+  nextCursor: string | null;  // ISO timestamp for cursor pagination
+  totalCount: number;
+}
