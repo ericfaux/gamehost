@@ -8,6 +8,7 @@ import {
   Map,
   List,
   Users,
+  MessageSquare,
   BarChart3,
   Settings
 } from '@/components/icons';
@@ -70,6 +71,11 @@ const navItems: NavItem[] = [
     href: '/admin/sessions',
     label: 'Sessions',
     icon: Users
+  },
+  {
+    href: '/admin/feedback',
+    label: 'Feedback',
+    icon: MessageSquare
   },
   {
     href: '/admin/analytics',
