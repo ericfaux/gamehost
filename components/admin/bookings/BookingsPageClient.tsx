@@ -165,7 +165,7 @@ function ArrivalsBoard({ venueId, onSeatParty }: ArrivalsBoardProps) {
               </div>
               <Button
                 size="sm"
-                variant={arrival.status === 'arrived' ? 'default' : 'secondary'}
+                variant={arrival.status === 'arrived' ? 'primary' : 'secondary'}
                 className="w-full"
                 onClick={() => handleSeat(arrival.id)}
                 disabled={seatingId === arrival.id}
