@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Users, Clock } from 'lucide-react';
+import { Calendar, Users, Clock } from '@/components/icons';
 import type { VenueBookingSettings } from '@/lib/db/types';
 
 interface BookingWizardProps {
