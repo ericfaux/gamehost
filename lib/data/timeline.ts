@@ -41,6 +41,8 @@ export interface TimelineOptions {
   endHour?: number;
   /** Include inactive tables in the timeline (default: false) */
   includeInactive?: boolean;
+  /** Include active sessions in the timeline (default: false, shows bookings only) */
+  includeSessions?: boolean;
 }
 
 /**
@@ -50,6 +52,11 @@ export interface TimeRange {
   start: Date;
   end: Date;
 }
+
+/**
+ * View mode for the timeline.
+ */
+export type TimelineViewMode = 'day' | 'week' | 'month';
 
 /**
  * A table row in the timeline, containing all blocks for that table.
@@ -414,6 +421,7 @@ export async function getTimelineData(
     startHour = 9,
     endHour = 23,
     includeInactive = false,
+    includeSessions = false,
   } = options;
 
   const supabase = getSupabaseAdmin();
@@ -510,23 +518,25 @@ export async function getTimelineData(
         return (result.data ?? []) as RawBookingRow[];
       }),
 
-    // Fetch active sessions (ended_at IS NULL)
-    supabase
-      .from('sessions')
-      .select(`
-        *,
-        games:game_id (title, max_time_minutes),
-        venue_tables:table_id (id, label)
-      `)
-      .eq('venue_id', venueId)
-      .is('ended_at', null)
-      .then((result: { data: unknown[] | null; error: unknown }): RawSessionRow[] => {
-        if (result.error) {
-          console.error('Error fetching sessions for timeline:', result.error);
-          return [];
-        }
-        return (result.data ?? []) as RawSessionRow[];
-      }),
+    // Fetch active sessions (only if includeSessions is true)
+    includeSessions
+      ? supabase
+          .from('sessions')
+          .select(`
+            *,
+            games:game_id (title, max_time_minutes),
+            venue_tables:table_id (id, label)
+          `)
+          .eq('venue_id', venueId)
+          .is('ended_at', null)
+          .then((result: { data: unknown[] | null; error: unknown }): RawSessionRow[] => {
+            if (result.error) {
+              console.error('Error fetching sessions for timeline:', result.error);
+              return [];
+            }
+            return (result.data ?? []) as RawSessionRow[];
+          })
+      : Promise.resolve([] as RawSessionRow[]),
   ]);
 
   // -------------------------------------------------------------------------
@@ -559,10 +569,12 @@ export async function getTimelineData(
     return bookingToTimelineBlock(booking, date);
   });
 
-  // Transform sessions (only include sessions that started today or are still active)
-  const sessionBlocks: TimelineBlock[] = sessionsResult.map((session: RawSessionRow) =>
-    sessionToTimelineBlock(session as unknown as SessionWithDetails, date)
-  );
+  // Transform sessions (only if includeSessions is true)
+  const sessionBlocks: TimelineBlock[] = includeSessions
+    ? sessionsResult.map((session: RawSessionRow) =>
+        sessionToTimelineBlock(session as unknown as SessionWithDetails, date)
+      )
+    : [];
 
   // Combine all blocks
   const allBlocks = [...bookingBlocks, ...sessionBlocks];
@@ -617,6 +629,352 @@ export async function getTimelineData(
     timeRange,
     conflicts,
   };
+}
+
+// -----------------------------------------------------------------------------
+// Weekly Timeline Data
+// -----------------------------------------------------------------------------
+
+/**
+ * Day data for a table in weekly view.
+ */
+export interface WeeklyDayData {
+  bookingCount: number;
+  blocks: TimelineBlock[];
+}
+
+/**
+ * A table row in the weekly timeline view.
+ */
+export interface WeeklyTable {
+  id: string;
+  label: string;
+  capacity: number | null;
+  zone?: string;
+  /** Map of date string (YYYY-MM-DD) to day data */
+  days: Record<string, WeeklyDayData>;
+}
+
+/**
+ * Weekly timeline data structure.
+ */
+export interface WeeklyTimelineData {
+  tables: WeeklyTable[];
+  weekStart: Date;
+  weekEnd: Date;
+}
+
+/**
+ * Gets the Monday of the week for a given date.
+ */
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Formats a date to YYYY-MM-DD string.
+ */
+function formatDateToString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Fetches weekly timeline data for a venue.
+ *
+ * @param venueId - The venue's UUID
+ * @param weekStartDate - Any date within the week (will find Monday)
+ * @param options - Optional configuration
+ * @returns Promise<WeeklyTimelineData>
+ */
+export async function getWeeklyTimelineData(
+  venueId: string,
+  weekStartDate: Date,
+  options: TimelineOptions = {}
+): Promise<WeeklyTimelineData> {
+  const { includeInactive = false } = options;
+  const supabase = getSupabaseAdmin();
+
+  // Calculate week start (Monday) and end (Sunday)
+  const weekStart = getWeekStart(weekStartDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+
+  const weekStartStr = formatDateToString(weekStart);
+  const weekEndStr = formatDateToString(weekEnd);
+
+  // Generate array of dates for the week
+  const weekDates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    weekDates.push(formatDateToString(d));
+  }
+
+  // Fetch tables and bookings in parallel
+  interface RawTableRow {
+    id: string;
+    label: string;
+    capacity: number | null;
+    is_active: boolean;
+    venue_zones: Array<{ name: string }> | { name: string } | null;
+  }
+
+  interface RawBookingRow {
+    id: string;
+    table_id: string | null;
+    booking_date: string;
+    start_time: string;
+    end_time: string;
+    status: BookingStatus;
+    guest_name: string;
+    party_size: number;
+    game_id: string | null;
+    venue_tables: Array<{ id: string; label: string }> | null;
+    games: Array<{ id: string; title: string }> | null;
+  }
+
+  const [tablesResult, bookingsResult] = await Promise.all([
+    // Fetch tables
+    supabase
+      .from('venue_tables')
+      .select(`
+        id,
+        label,
+        capacity,
+        is_active,
+        venue_zones:zone_id (name)
+      `)
+      .eq('venue_id', venueId)
+      .order('label', { ascending: true })
+      .then((result): RawTableRow[] => {
+        if (result.error) {
+          console.error('Error fetching venue tables:', result.error);
+          return [];
+        }
+        const tables = (result.data ?? []) as RawTableRow[];
+        if (!includeInactive) {
+          return tables.filter((t) => t.is_active);
+        }
+        return tables;
+      }),
+
+    // Fetch bookings for the week
+    supabase
+      .from('bookings')
+      .select(`
+        id,
+        table_id,
+        booking_date,
+        start_time,
+        end_time,
+        status,
+        guest_name,
+        party_size,
+        game_id,
+        venue_tables:table_id (id, label),
+        games:game_id (id, title)
+      `)
+      .eq('venue_id', venueId)
+      .gte('booking_date', weekStartStr)
+      .lte('booking_date', weekEndStr)
+      .not('status', 'in', `(${EXCLUDED_BOOKING_STATUSES.join(',')})`)
+      .order('booking_date', { ascending: true })
+      .order('start_time', { ascending: true })
+      .then((result): RawBookingRow[] => {
+        if (result.error) {
+          console.error('Error fetching weekly bookings:', result.error);
+          return [];
+        }
+        return (result.data ?? []) as RawBookingRow[];
+      }),
+  ]);
+
+  // Group bookings by table and date
+  const bookingsByTableAndDate = new Map<string, Map<string, TimelineBlock[]>>();
+
+  for (const booking of bookingsResult) {
+    if (!booking.table_id) continue;
+
+    const tableId = booking.table_id;
+    const dateKey = booking.booking_date;
+
+    // Get or create table map
+    if (!bookingsByTableAndDate.has(tableId)) {
+      bookingsByTableAndDate.set(tableId, new Map());
+    }
+    const tableMap = bookingsByTableAndDate.get(tableId)!;
+
+    // Get or create date array
+    if (!tableMap.has(dateKey)) {
+      tableMap.set(dateKey, []);
+    }
+
+    // Transform to TimelineBlock
+    const venueTable = Array.isArray(booking.venue_tables) && booking.venue_tables.length > 0
+      ? booking.venue_tables[0]
+      : null;
+    const game = Array.isArray(booking.games) && booking.games.length > 0
+      ? booking.games[0]
+      : null;
+
+    const startDate = new Date(`${dateKey}T${booking.start_time}`);
+    const endDate = new Date(`${dateKey}T${booking.end_time}`);
+
+    const block: TimelineBlock = {
+      id: `booking-${booking.id}`,
+      type: 'booking',
+      table_id: tableId,
+      table_label: venueTable?.label ?? 'Unassigned',
+      start_time: startDate.toISOString(),
+      end_time: endDate.toISOString(),
+      booking_id: booking.id,
+      booking_status: booking.status,
+      guest_name: booking.guest_name,
+      party_size: booking.party_size,
+      session_id: null,
+      game_title: game?.title ?? null,
+    };
+
+    tableMap.get(dateKey)!.push(block);
+  }
+
+  // Build weekly table data
+  const weeklyTables: WeeklyTable[] = tablesResult.map((table) => {
+    const zoneData = Array.isArray(table.venue_zones) && table.venue_zones.length > 0
+      ? table.venue_zones[0]
+      : !Array.isArray(table.venue_zones)
+        ? table.venue_zones
+        : null;
+
+    const days: Record<string, WeeklyDayData> = {};
+    const tableBookings = bookingsByTableAndDate.get(table.id);
+
+    for (const dateStr of weekDates) {
+      const blocks = tableBookings?.get(dateStr) ?? [];
+      days[dateStr] = {
+        bookingCount: blocks.length,
+        blocks,
+      };
+    }
+
+    return {
+      id: table.id,
+      label: table.label,
+      capacity: table.capacity,
+      zone: zoneData?.name,
+      days,
+    };
+  });
+
+  return {
+    tables: weeklyTables,
+    weekStart,
+    weekEnd,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Monthly Timeline Data
+// -----------------------------------------------------------------------------
+
+/**
+ * Day data for monthly view.
+ */
+export interface MonthlyDayData {
+  totalBookings: number;
+  confirmedCount: number;
+  pendingCount: number;
+}
+
+/**
+ * Monthly timeline data structure.
+ */
+export interface MonthlyTimelineData {
+  /** Map of date string (YYYY-MM-DD) to day data */
+  days: Record<string, MonthlyDayData>;
+  month: number;
+  year: number;
+}
+
+/**
+ * Fetches monthly timeline data for a venue.
+ *
+ * @param venueId - The venue's UUID
+ * @param year - The year
+ * @param month - The month (1-12)
+ * @param options - Optional configuration
+ * @returns Promise<MonthlyTimelineData>
+ */
+export async function getMonthlyTimelineData(
+  venueId: string,
+  year: number,
+  month: number,
+  _options: TimelineOptions = {}
+): Promise<MonthlyTimelineData> {
+  const supabase = getSupabaseAdmin();
+
+  // Calculate month start and end
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0);
+
+  const monthStartStr = formatDateToString(monthStart);
+  const monthEndStr = formatDateToString(monthEnd);
+
+  // Fetch all bookings for the month
+  interface RawBookingRow {
+    id: string;
+    booking_date: string;
+    status: BookingStatus;
+  }
+
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select('id, booking_date, status')
+    .eq('venue_id', venueId)
+    .gte('booking_date', monthStartStr)
+    .lte('booking_date', monthEndStr)
+    .not('status', 'in', `(${EXCLUDED_BOOKING_STATUSES.join(',')})`)
+    .order('booking_date', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching monthly bookings:', error);
+    return { days: {}, month, year };
+  }
+
+  const bookingsData = (bookings ?? []) as RawBookingRow[];
+
+  // Aggregate by date
+  const days: Record<string, MonthlyDayData> = {};
+
+  for (const booking of bookingsData) {
+    const dateKey = booking.booking_date;
+
+    if (!days[dateKey]) {
+      days[dateKey] = {
+        totalBookings: 0,
+        confirmedCount: 0,
+        pendingCount: 0,
+      };
+    }
+
+    days[dateKey].totalBookings++;
+
+    if (booking.status === 'confirmed' || booking.status === 'arrived' || booking.status === 'seated' || booking.status === 'completed') {
+      days[dateKey].confirmedCount++;
+    } else if (booking.status === 'pending') {
+      days[dateKey].pendingCount++;
+    }
+  }
+
+  return { days, month, year };
 }
 
 // -----------------------------------------------------------------------------

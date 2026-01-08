@@ -12,6 +12,7 @@ import { Plus, Calendar, List, LayoutGrid, Clock, Users, Check, UserCheck, Copy,
 import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
 import { cn } from '@/lib/utils';
 import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingStatus } from '@/lib/db/types';
+import type { TimelineViewMode } from '@/lib/data/timeline';
 
 // =============================================================================
 // Types
@@ -225,6 +226,7 @@ export function BookingsPageClient({
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'timeline' | 'list'>('timeline');
+  const [timelineViewMode, setTimelineViewMode] = useState<TimelineViewMode>('day');
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Public booking link state
@@ -428,6 +430,8 @@ export function BookingsPageClient({
               initialDate={selectedDate}
               onDateChange={setSelectedDate}
               onBlockClick={handleBlockClick}
+              viewMode={timelineViewMode}
+              onViewModeChange={setTimelineViewMode}
             />
           ) : (
             <BookingsList

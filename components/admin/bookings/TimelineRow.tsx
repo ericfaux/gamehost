@@ -404,13 +404,13 @@ export function TimelineRow({
 export function TableLabels({
   tables,
   rowHeight,
-  headerHeight = 32,
+  headerHeight = 40,
 }: TableLabelsProps) {
   return (
-    <div className="bg-stone-50 flex-shrink-0">
+    <div className="bg-stone-50 flex-shrink-0 w-40">
       {/* Header spacer - aligns with time axis */}
       <div
-        className="border-b border-stone-300 bg-stone-100 flex items-center px-3 font-mono text-xs text-stone-500 uppercase tracking-wider"
+        className="border-b border-stone-300 bg-stone-100 flex items-center px-4 font-mono text-xs text-stone-500 uppercase tracking-wider"
         style={{ height: headerHeight }}
       >
         Tables
@@ -420,26 +420,26 @@ export function TableLabels({
       {tables.map((table) => (
         <div
           key={table.id}
-          className="flex items-center px-3 border-b border-stone-200 gap-2"
+          className="flex items-center px-4 border-b border-stone-200 gap-2"
           style={{ height: rowHeight }}
           role="rowheader"
         >
-          <div className="truncate min-w-0">
+          <div className="truncate min-w-0 flex-1">
             <div className="font-medium text-sm text-stone-900 truncate">
               {table.label}
             </div>
             {table.capacity && (
-              <div className="text-xs text-stone-500">
+              <div className="text-xs text-stone-500 mt-0.5">
                 {table.capacity} {table.capacity === 1 ? 'seat' : 'seats'}
               </div>
             )}
+            {/* Zone badge if available */}
+            {table.zone && (
+              <span className="inline-block mt-1 text-[10px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-mono">
+                {table.zone}
+              </span>
+            )}
           </div>
-          {/* Zone badge if available */}
-          {table.zone && (
-            <span className="text-[10px] bg-stone-200 text-stone-600 px-1.5 py-0.5 rounded font-mono flex-shrink-0">
-              {table.zone}
-            </span>
-          )}
         </div>
       ))}
     </div>
