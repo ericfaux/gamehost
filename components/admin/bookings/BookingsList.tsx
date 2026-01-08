@@ -410,7 +410,7 @@ function QuickFilterBar({ value, onChange }: QuickFilterBarProps) {
         {futureFilters.map((filter) => (
           <Button
             key={filter}
-            variant={value === filter ? 'default' : 'ghost'}
+            variant={value === filter ? 'primary' : 'ghost'}
             size="sm"
             onClick={() => onChange(filter)}
             className={cn(
@@ -425,7 +425,7 @@ function QuickFilterBar({ value, onChange }: QuickFilterBarProps) {
         ))}
       </div>
       <Button
-        variant={value === 'historical' ? 'default' : 'outline'}
+        variant={value === 'historical' ? 'primary' : 'secondary'}
         size="sm"
         onClick={() => onChange('historical')}
         className={cn(
