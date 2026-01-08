@@ -691,6 +691,12 @@ export function Timeline({
     }
   }, [venueId, date]);
 
+  // Handle drill-down from week/month views
+  const handleDayDrillDown = useCallback((drillDate: Date) => {
+    handleDateChange(drillDate);
+    handleViewModeChange('day');
+  }, [handleDateChange, handleViewModeChange]);
+
   // Global drag state tracking
   useEffect(() => {
     const handleDragStart = () => setIsDragActive(true);
@@ -815,12 +821,6 @@ export function Timeline({
       </div>
     );
   }
-
-  // Handle drill-down from week/month views
-  const handleDayDrillDown = useCallback((drillDate: Date) => {
-    handleDateChange(drillDate);
-    handleViewModeChange('day');
-  }, [handleDateChange, handleViewModeChange]);
 
   // Render Weekly view
   if (viewMode === 'week') {
