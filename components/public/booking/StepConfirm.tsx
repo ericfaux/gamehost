@@ -273,10 +273,10 @@ export function StepConfirm({
         </div>
       </div>
 
-      {/* Confirmation Message */}
-      {settings.confirmation_message_template && (
+      {/* Booking Page Message */}
+      {settings.booking_page_message && (
         <p className="text-xs text-[color:var(--color-ink-secondary)] text-center">
-          {settings.confirmation_message_template}
+          {settings.booking_page_message}
         </p>
       )}
 

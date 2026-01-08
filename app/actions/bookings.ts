@@ -251,10 +251,8 @@ function daysBetween(date1: Date, date2: Date): number {
 function validateBookingParams(
   params: CreateBookingActionParams,
   settings: {
-    require_phone: boolean;
-    require_email: boolean;
-    min_booking_notice_hours: number;
-    max_advance_booking_days: number;
+    min_advance_hours: number;
+    max_advance_days: number;
   }
 ): ValidationResult {
   const errors: string[] = [];
@@ -310,15 +308,6 @@ function validateBookingParams(
     errors.push('At least one contact method (email or phone) is required');
   }
 
-  // Venue-specific requirements
-  if (settings.require_email && !hasEmail) {
-    errors.push('Email address is required');
-  }
-
-  if (settings.require_phone && !hasPhone) {
-    errors.push('Phone number is required');
-  }
-
   // Validate formats if provided
   if (hasEmail && !isValidEmail(params.guest_email!)) {
     errors.push('Invalid email address format');
@@ -342,8 +331,8 @@ function validateBookingParams(
 
       // Check max advance booking days
       const daysAhead = daysBetween(today, bookingDate);
-      if (daysAhead > settings.max_advance_booking_days) {
-        errors.push(`Bookings can only be made up to ${settings.max_advance_booking_days} days in advance`);
+      if (daysAhead > settings.max_advance_days) {
+        errors.push(`Bookings can only be made up to ${settings.max_advance_days} days in advance`);
       }
     }
   }
@@ -369,13 +358,13 @@ function validateBookingParams(
       const currentMinutes = now.getHours() * 60 + now.getMinutes();
       const bookingMinutes = timeToMinutes(normalizedTime);
       const minutesUntilBooking = bookingMinutes - currentMinutes;
-      const requiredMinutes = settings.min_booking_notice_hours * 60;
+      const requiredMinutes = settings.min_advance_hours * 60;
 
       if (minutesUntilBooking < requiredMinutes) {
         if (minutesUntilBooking <= 0) {
           errors.push('Start time cannot be in the past');
         } else {
-          errors.push(`Bookings require at least ${settings.min_booking_notice_hours} hour(s) notice`);
+          errors.push(`Bookings require at least ${settings.min_advance_hours} hour(s) notice`);
         }
       }
     }
@@ -470,10 +459,8 @@ export async function createBooking(
 
   // --- Step 3: Validate Parameters ---
   const validation = validateBookingParams(params, {
-    require_phone: settings.require_phone,
-    require_email: settings.require_email,
-    min_booking_notice_hours: settings.min_booking_notice_hours,
-    max_advance_booking_days: settings.max_advance_booking_days,
+    min_advance_hours: settings.min_advance_hours,
+    max_advance_days: settings.max_advance_days,
   });
 
   if (!validation.valid) {
@@ -869,11 +856,11 @@ export async function createBooking(
  *    - Returns "Start time cannot be in the past"
  *
  * 10. Insufficient booking notice → VALIDATION error
- *     - booking in less than min_booking_notice_hours
+ *     - booking in less than min_advance_hours
  *     - Returns "Bookings require at least X hour(s) notice"
  *
  * 11. Too far in advance → VALIDATION error
- *     - booking_date > max_advance_booking_days from today
+ *     - booking_date > max_advance_days from today
  *     - Returns "Bookings can only be made up to X days in advance"
  */
 
@@ -1973,15 +1960,18 @@ export async function checkAvailableTablesAction(
  * Parameters for updating venue booking settings.
  */
 export interface UpdateVenueBookingSettingsParams {
+  bookings_enabled?: boolean;
+  buffer_minutes?: number;
   default_duration_minutes?: number;
-  min_booking_notice_hours?: number;
-  max_advance_booking_days?: number;
-  buffer_minutes_between_bookings?: number;
-  slot_interval_minutes?: number;
-  allow_walk_ins?: boolean;
-  require_phone?: boolean;
-  require_email?: boolean;
-  confirmation_message_template?: string | null;
+  min_advance_hours?: number;
+  max_advance_days?: number;
+  no_show_grace_minutes?: number;
+  deposit_required?: boolean;
+  deposit_amount_cents?: number;
+  send_confirmation_email?: boolean;
+  send_reminder_sms?: boolean;
+  reminder_hours_before?: number;
+  booking_page_message?: string | null;
 }
 
 /**
@@ -2043,8 +2033,8 @@ export async function updateVenueBookingSettingsAction(
     }
   }
 
-  if (updates.min_booking_notice_hours !== undefined) {
-    if (!Number.isInteger(updates.min_booking_notice_hours) || updates.min_booking_notice_hours < 0) {
+  if (updates.min_advance_hours !== undefined) {
+    if (!Number.isInteger(updates.min_advance_hours) || updates.min_advance_hours < 0) {
       return {
         success: false,
         error: 'Minimum notice hours must be 0 or greater.',
@@ -2053,8 +2043,8 @@ export async function updateVenueBookingSettingsAction(
     }
   }
 
-  if (updates.max_advance_booking_days !== undefined) {
-    if (!Number.isInteger(updates.max_advance_booking_days) || updates.max_advance_booking_days <= 0) {
+  if (updates.max_advance_days !== undefined) {
+    if (!Number.isInteger(updates.max_advance_days) || updates.max_advance_days <= 0) {
       return {
         success: false,
         error: 'Maximum advance days must be a positive number.',
@@ -2063,8 +2053,8 @@ export async function updateVenueBookingSettingsAction(
     }
   }
 
-  if (updates.buffer_minutes_between_bookings !== undefined) {
-    if (!Number.isInteger(updates.buffer_minutes_between_bookings) || updates.buffer_minutes_between_bookings < 0) {
+  if (updates.buffer_minutes !== undefined) {
+    if (!Number.isInteger(updates.buffer_minutes) || updates.buffer_minutes < 0) {
       return {
         success: false,
         error: 'Buffer minutes must be 0 or greater.',
@@ -2073,11 +2063,31 @@ export async function updateVenueBookingSettingsAction(
     }
   }
 
-  if (updates.slot_interval_minutes !== undefined) {
-    if (!Number.isInteger(updates.slot_interval_minutes) || updates.slot_interval_minutes <= 0) {
+  if (updates.no_show_grace_minutes !== undefined) {
+    if (!Number.isInteger(updates.no_show_grace_minutes) || updates.no_show_grace_minutes < 0) {
       return {
         success: false,
-        error: 'Slot interval must be a positive number.',
+        error: 'No-show grace minutes must be 0 or greater.',
+        code: 'VALIDATION',
+      };
+    }
+  }
+
+  if (updates.reminder_hours_before !== undefined) {
+    if (!Number.isInteger(updates.reminder_hours_before) || updates.reminder_hours_before < 0) {
+      return {
+        success: false,
+        error: 'Reminder hours must be 0 or greater.',
+        code: 'VALIDATION',
+      };
+    }
+  }
+
+  if (updates.deposit_amount_cents !== undefined) {
+    if (!Number.isInteger(updates.deposit_amount_cents) || updates.deposit_amount_cents < 0) {
+      return {
+        success: false,
+        error: 'Deposit amount must be 0 or greater.',
         code: 'VALIDATION',
       };
     }

@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from '@/components/icons';
 import { checkAvailableTablesAction } from '@/app/actions/bookings';
+import { DEFAULT_SLOT_INTERVAL_MINUTES } from '@/lib/data/bookings';
 import { SlotsSkeleton } from './BookingSkeleton';
 import { NetworkError } from './BookingErrorBoundary';
 import type { BookingData } from './BookingWizard';
@@ -123,7 +124,7 @@ export function StepAvailability({
 
     try {
       // Generate all possible time slots for the day
-      const timeSlots = generateTimeSlots(settings.slot_interval_minutes);
+      const timeSlots = generateTimeSlots(DEFAULT_SLOT_INTERVAL_MINUTES);
       const durationMinutes = settings.default_duration_minutes;
       const slots: AvailableSlot[] = [];
 
@@ -190,7 +191,7 @@ export function StepAvailability({
     } finally {
       setLoading(false);
     }
-  }, [venueId, data.date, data.partySize, data.startTime, settings.slot_interval_minutes, settings.default_duration_minutes, onUpdate]);
+  }, [venueId, data.date, data.partySize, data.startTime, settings.default_duration_minutes, onUpdate]);
 
   // Fetch availability when component mounts or date/party size changes
   useEffect(() => {

@@ -393,16 +393,25 @@ export async function getBookingsByGuestEmail(email: string): Promise<BookingWit
  * These match the database column defaults for reference in UI components.
  */
 export const BOOKING_SETTINGS_DEFAULTS: Omit<VenueBookingSettings, 'id' | 'venue_id' | 'created_at' | 'updated_at'> = {
+  bookings_enabled: true,
+  buffer_minutes: 15,
   default_duration_minutes: 120,
-  min_booking_notice_hours: 1,
-  max_advance_booking_days: 30,
-  buffer_minutes_between_bookings: 15,
-  slot_interval_minutes: 30,
-  allow_walk_ins: true,
-  require_phone: false,
-  require_email: true,
-  confirmation_message_template: null,
+  min_advance_hours: 1,
+  max_advance_days: 30,
+  no_show_grace_minutes: 15,
+  deposit_required: false,
+  deposit_amount_cents: 0,
+  send_confirmation_email: true,
+  send_reminder_sms: false,
+  reminder_hours_before: 2,
+  booking_page_message: null,
 };
+
+/**
+ * Default slot interval in minutes for generating time slots.
+ * This is used when the database doesn't have a slot_interval column.
+ */
+export const DEFAULT_SLOT_INTERVAL_MINUTES = 30;
 
 /**
  * Fetches the booking settings for a venue.
@@ -957,7 +966,7 @@ function sortTablesByFit(
  *
  * Features:
  * - Filters out slots in the past (for today)
- * - Respects venue's min_booking_notice_hours setting
+ * - Respects venue's min_advance_hours setting
  * - Excludes slots that would extend past endHour
  *
  * Test cases:
@@ -982,9 +991,9 @@ export async function getAvailableSlots(
     intervalMinutes = 30,
   } = params;
 
-  // Get venue settings for min_booking_notice_hours
+  // Get venue settings for min_advance_hours
   const settings = await getVenueBookingSettings(venueId);
-  const minNoticeHours = settings?.min_booking_notice_hours ?? BOOKING_SETTINGS_DEFAULTS.min_booking_notice_hours;
+  const minNoticeHours = settings?.min_advance_hours ?? BOOKING_SETTINGS_DEFAULTS.min_advance_hours;
 
   const slots: AvailableSlotWithTables[] = [];
   const now = new Date();

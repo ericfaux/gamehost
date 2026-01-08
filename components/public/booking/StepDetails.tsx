@@ -80,9 +80,7 @@ export function StepDetails({
         break;
 
       case 'guestEmail':
-        if (settings.require_email && !data.guestEmail.trim()) {
-          newErrors.guestEmail = 'Email is required';
-        } else if (data.guestEmail.trim() && !EMAIL_REGEX.test(data.guestEmail)) {
+        if (data.guestEmail.trim() && !EMAIL_REGEX.test(data.guestEmail)) {
           newErrors.guestEmail = 'Please enter a valid email';
         } else {
           delete newErrors.guestEmail;
@@ -90,9 +88,7 @@ export function StepDetails({
         break;
 
       case 'guestPhone':
-        if (settings.require_phone && !data.guestPhone.trim()) {
-          newErrors.guestPhone = 'Phone is required';
-        } else if (data.guestPhone.trim() && !isValidPhone(data.guestPhone)) {
+        if (data.guestPhone.trim() && !isValidPhone(data.guestPhone)) {
           newErrors.guestPhone = 'Please enter a valid phone number';
         } else {
           delete newErrors.guestPhone;
@@ -112,17 +108,13 @@ export function StepDetails({
       newErrors.guestName = 'Name is required';
     }
 
-    // Email validation
-    if (settings.require_email && !data.guestEmail.trim()) {
-      newErrors.guestEmail = 'Email is required';
-    } else if (data.guestEmail.trim() && !EMAIL_REGEX.test(data.guestEmail)) {
+    // Email validation (format only, at least one contact method checked below)
+    if (data.guestEmail.trim() && !EMAIL_REGEX.test(data.guestEmail)) {
       newErrors.guestEmail = 'Please enter a valid email';
     }
 
-    // Phone validation
-    if (settings.require_phone && !data.guestPhone.trim()) {
-      newErrors.guestPhone = 'Phone is required';
-    } else if (data.guestPhone.trim() && !isValidPhone(data.guestPhone)) {
+    // Phone validation (format only, at least one contact method checked below)
+    if (data.guestPhone.trim() && !isValidPhone(data.guestPhone)) {
       newErrors.guestPhone = 'Please enter a valid phone number';
     }
 
@@ -224,13 +216,7 @@ export function StepDetails({
       {/* Email Input */}
       <div className="space-y-1">
         <label htmlFor={emailInputId} className={labelClass}>
-          Email{' '}
-          {settings.require_email && (
-            <>
-              <span className="text-[color:var(--color-danger)]" aria-hidden="true">*</span>
-              <span className="sr-only">(required)</span>
-            </>
-          )}
+          Email
         </label>
         <div className="relative">
           <Mail
@@ -252,7 +238,6 @@ export function StepDetails({
             autoCorrect="off"
             inputMode="email"
             spellCheck="false"
-            aria-required={settings.require_email}
             aria-invalid={!!errors.guestEmail && touched.guestEmail}
             aria-describedby={cn(
               emailDescId,
@@ -274,13 +259,7 @@ export function StepDetails({
       {/* Phone Input */}
       <div className="space-y-1">
         <label htmlFor={phoneInputId} className={labelClass}>
-          Phone{' '}
-          {settings.require_phone && (
-            <>
-              <span className="text-[color:var(--color-danger)]" aria-hidden="true">*</span>
-              <span className="sr-only">(required)</span>
-            </>
-          )}
+          Phone
         </label>
         <div className="relative">
           <Phone
@@ -299,7 +278,6 @@ export function StepDetails({
             placeholder="(555) 123-4567"
             autoComplete="tel"
             inputMode="tel"
-            aria-required={settings.require_phone}
             aria-invalid={!!errors.guestPhone && touched.guestPhone}
             aria-describedby={errors.guestPhone && touched.guestPhone ? phoneErrorId : undefined}
             className={inputClass(!!errors.guestPhone && touched.guestPhone)}
