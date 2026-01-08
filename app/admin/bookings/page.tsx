@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getOrCreateVenueBookingSettings } from '@/lib/data/bookings';
+import { getVenueTables } from '@/lib/data/tables';
 import { BookingsPageClient } from '@/components/admin/bookings/BookingsPageClient';
 
 export default async function BookingsPage() {
@@ -25,7 +26,10 @@ export default async function BookingsPage() {
     );
   }
 
-  const settings = await getOrCreateVenueBookingSettings(venue.id);
+  const [settings, venueTables] = await Promise.all([
+    getOrCreateVenueBookingSettings(venue.id),
+    getVenueTables(venue.id),
+  ]);
 
   return (
     <BookingsPageClient
@@ -33,6 +37,7 @@ export default async function BookingsPage() {
       venueName={venue.name}
       venueSlug={venue.slug}
       settings={settings}
+      venueTables={venueTables}
     />
   );
 }

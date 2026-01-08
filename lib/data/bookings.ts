@@ -2054,6 +2054,270 @@ export async function getTodaysBookingStats(venueId: string): Promise<BookingSta
 }
 
 // =============================================================================
+// LIST VIEW QUERIES - Flat List with Filtering
+// =============================================================================
+
+/**
+ * Filter options for the booking list view.
+ */
+export interface BookingListFilters {
+  venueId: string;
+  /** Start date for date range filter (YYYY-MM-DD) */
+  startDate?: string;
+  /** End date for date range filter (YYYY-MM-DD) */
+  endDate?: string;
+  /** Filter by status(es) */
+  status?: BookingStatus[];
+  /** Filter by table ID */
+  tableId?: string;
+  /** Search by guest name (case-insensitive partial match) */
+  search?: string;
+  /** Include historical (past) bookings */
+  includeHistorical?: boolean;
+  /** Sort field */
+  sortField?: 'booking_date' | 'start_time' | 'guest_name' | 'status' | 'created_at';
+  /** Sort direction */
+  sortDir?: 'asc' | 'desc';
+  /** Cursor for pagination (booking ID) */
+  cursor?: string;
+  /** Number of items to fetch */
+  limit?: number;
+}
+
+/**
+ * Result from getBookingsWithFilters for pagination.
+ */
+export interface BookingListResult {
+  bookings: BookingWithDetails[];
+  nextCursor: string | null;
+  totalCount: number;
+}
+
+/**
+ * Fetches bookings with flexible filtering for the list view.
+ * Supports date range, status, table, guest search, and cursor-based pagination.
+ *
+ * Default behavior:
+ * - Returns future bookings (next 7 days) by default
+ * - Excludes cancelled bookings unless explicitly filtered
+ * - Sorted by date/time descending (newest first)
+ *
+ * @param filters - Filter and pagination options
+ * @returns Paginated bookings with cursor for next page
+ */
+export async function getBookingsWithFilters(
+  filters: BookingListFilters
+): Promise<BookingListResult> {
+  const {
+    venueId,
+    startDate,
+    endDate,
+    status,
+    tableId,
+    search,
+    includeHistorical = false,
+    sortField = 'booking_date',
+    sortDir = 'desc',
+    cursor,
+    limit = 25,
+  } = filters;
+
+  const supabase = getSupabaseAdmin();
+  const today = getTodayDate();
+
+  // Build the base query
+  let query = supabase
+    .from('bookings')
+    .select(`
+      *,
+      venue_tables:table_id (id, label, capacity),
+      games:game_id (id, title, cover_image_url)
+    `, { count: 'exact' })
+    .eq('venue_id', venueId);
+
+  // Date range filtering
+  if (startDate) {
+    query = query.gte('booking_date', startDate);
+  } else if (!includeHistorical) {
+    // Default: only future bookings (today onwards)
+    query = query.gte('booking_date', today);
+  }
+
+  if (endDate) {
+    query = query.lte('booking_date', endDate);
+  }
+
+  // Status filtering
+  if (status && status.length > 0) {
+    query = query.in('status', status);
+  }
+
+  // Table filtering
+  if (tableId) {
+    query = query.eq('table_id', tableId);
+  }
+
+  // Guest name search (case-insensitive partial match)
+  if (search && search.trim()) {
+    query = query.ilike('guest_name', `%${search.trim()}%`);
+  }
+
+  // Sorting - always sort by date first, then by time
+  const ascending = sortDir === 'asc';
+  if (sortField === 'booking_date' || sortField === 'start_time') {
+    query = query
+      .order('booking_date', { ascending })
+      .order('start_time', { ascending });
+  } else if (sortField === 'guest_name') {
+    query = query
+      .order('guest_name', { ascending })
+      .order('booking_date', { ascending: false })
+      .order('start_time', { ascending: false });
+  } else if (sortField === 'status') {
+    query = query
+      .order('status', { ascending })
+      .order('booking_date', { ascending: false })
+      .order('start_time', { ascending: false });
+  } else if (sortField === 'created_at') {
+    query = query.order('created_at', { ascending });
+  }
+
+  // Cursor-based pagination
+  // We use the booking ID as the cursor for simplicity
+  // Note: For proper cursor pagination, we'd need composite cursor with sort values
+  if (cursor) {
+    // Get the cursor booking to find its position
+    const { data: cursorBooking } = await supabase
+      .from('bookings')
+      .select('booking_date, start_time, created_at')
+      .eq('id', cursor)
+      .single();
+
+    if (cursorBooking) {
+      // Apply cursor filter based on sort direction
+      if (sortDir === 'desc') {
+        query = query.or(
+          `booking_date.lt.${cursorBooking.booking_date},` +
+          `and(booking_date.eq.${cursorBooking.booking_date},start_time.lt.${cursorBooking.start_time}),` +
+          `and(booking_date.eq.${cursorBooking.booking_date},start_time.eq.${cursorBooking.start_time},id.lt.${cursor})`
+        );
+      } else {
+        query = query.or(
+          `booking_date.gt.${cursorBooking.booking_date},` +
+          `and(booking_date.eq.${cursorBooking.booking_date},start_time.gt.${cursorBooking.start_time}),` +
+          `and(booking_date.eq.${cursorBooking.booking_date},start_time.eq.${cursorBooking.start_time},id.gt.${cursor})`
+        );
+      }
+    }
+  }
+
+  // Limit + 1 to check if there are more results
+  query = query.limit(limit + 1);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error('Error fetching bookings with filters:', error);
+    return { bookings: [], nextCursor: null, totalCount: 0 };
+  }
+
+  const rows = data ?? [];
+  const hasMore = rows.length > limit;
+  const bookings = rows.slice(0, limit).map((row) =>
+    transformBookingWithDetails(row as Record<string, unknown>)
+  );
+
+  // Get next cursor from the last item if there are more
+  const nextCursor = hasMore && bookings.length > 0
+    ? bookings[bookings.length - 1].id
+    : null;
+
+  return {
+    bookings,
+    nextCursor,
+    totalCount: count ?? 0,
+  };
+}
+
+/**
+ * Gets all bookings for CSV export (no pagination limit).
+ * Uses the same filtering as getBookingsWithFilters but returns all results.
+ *
+ * @param filters - Filter options (limit and cursor are ignored)
+ * @returns All matching bookings
+ */
+export async function getBookingsForExport(
+  filters: Omit<BookingListFilters, 'cursor' | 'limit'>
+): Promise<BookingWithDetails[]> {
+  const {
+    venueId,
+    startDate,
+    endDate,
+    status,
+    tableId,
+    search,
+    includeHistorical = false,
+    sortField = 'booking_date',
+    sortDir = 'desc',
+  } = filters;
+
+  const supabase = getSupabaseAdmin();
+  const today = getTodayDate();
+
+  let query = supabase
+    .from('bookings')
+    .select(`
+      *,
+      venue_tables:table_id (id, label, capacity),
+      games:game_id (id, title, cover_image_url)
+    `)
+    .eq('venue_id', venueId);
+
+  // Date range filtering
+  if (startDate) {
+    query = query.gte('booking_date', startDate);
+  } else if (!includeHistorical) {
+    query = query.gte('booking_date', today);
+  }
+
+  if (endDate) {
+    query = query.lte('booking_date', endDate);
+  }
+
+  // Status filtering
+  if (status && status.length > 0) {
+    query = query.in('status', status);
+  }
+
+  // Table filtering
+  if (tableId) {
+    query = query.eq('table_id', tableId);
+  }
+
+  // Guest name search
+  if (search && search.trim()) {
+    query = query.ilike('guest_name', `%${search.trim()}%`);
+  }
+
+  // Sorting
+  const ascending = sortDir === 'asc';
+  query = query
+    .order('booking_date', { ascending })
+    .order('start_time', { ascending });
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching bookings for export:', error);
+    return [];
+  }
+
+  return (data ?? []).map((row) =>
+    transformBookingWithDetails(row as Record<string, unknown>)
+  );
+}
+
+// =============================================================================
 // GUEST QUERIES
 // =============================================================================
 

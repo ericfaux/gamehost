@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Clock, Users, Check, UserCheck, Copy, ExternalLink } from '@/components/icons';
 import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
 import { cn } from '@/lib/utils';
-import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingStatus } from '@/lib/db/types';
+import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingStatus, VenueTable } from '@/lib/db/types';
 import type { TimelineViewMode } from '@/lib/data/timeline';
 
 // =============================================================================
@@ -23,6 +23,7 @@ interface BookingsPageClientProps {
   venueName: string;
   venueSlug: string;
   settings: VenueBookingSettings;
+  venueTables: VenueTable[];
 }
 
 interface ArrivalsEntry {
@@ -221,6 +222,7 @@ export function BookingsPageClient({
   venueName,
   venueSlug,
   settings,
+  venueTables,
 }: BookingsPageClientProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
@@ -435,9 +437,9 @@ export function BookingsPageClient({
             />
           ) : (
             <BookingsList
+              key={refreshKey}
               venueId={venueId}
-              date={selectedDate}
-              onDateChange={setSelectedDate}
+              venueTables={venueTables}
               onBookingClick={handleBookingClick}
               onAction={handleBlockAction}
             />
