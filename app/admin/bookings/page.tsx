@@ -31,6 +31,7 @@ export default async function BookingsPage() {
     <BookingsPageClient
       venueId={venue.id}
       venueName={venue.name}
+      venueSlug={venue.slug}
       settings={settings}
     />
   );
