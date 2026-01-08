@@ -151,6 +151,10 @@ interface SessionWithRelations extends Session {
   venue_tables?: { label: string; capacity: number | null } | null;
 }
 
+interface EndedSessionWithRelations extends SessionWithRelations {
+  ended_at: string;
+}
+
 /** Transform raw Supabase session response to clean type */
 function transformSessionRelations(raw: RawSessionWithRelations): SessionWithRelations {
   return {
@@ -201,6 +205,10 @@ function transformNegativeFeedbackRow(raw: RawNegativeFeedbackRow): NegativeFeed
     games: raw.games?.[0] ?? null,
     venue_tables: raw.venue_tables?.[0] ?? null,
   };
+}
+
+function isEndedSession(session: SessionWithRelations): session is EndedSessionWithRelations {
+  return session.ended_at !== null;
 }
 
 // =============================================================================
@@ -699,20 +707,22 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
   // ---------------------------------------------------------------------------
   // Activity
   // ---------------------------------------------------------------------------
-  const recentEnded: RecentEndedSession[] = recentEndedData.map((row) => {
-    const startedAt = new Date(row.started_at).getTime();
-    const endedAt = new Date(row.ended_at).getTime();
-    const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
+  const recentEnded: RecentEndedSession[] = recentEndedData
+    .filter(isEndedSession)
+    .map((row) => {
+      const startedAt = new Date(row.started_at).getTime();
+      const endedAt = new Date(row.ended_at).getTime();
+      const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
 
-    return {
-      id: row.id,
-      tableLabel: row.venue_tables?.label ?? 'Unknown',
-      gameTitle: row.games?.title ?? null,
-      endedAt: row.ended_at,
-      durationMinutes,
-      feedbackRating: row.feedback_rating,
-    };
-  });
+      return {
+        id: row.id,
+        tableLabel: row.venue_tables?.label ?? 'Unknown',
+        gameTitle: row.games?.title ?? null,
+        endedAt: row.ended_at,
+        durationMinutes,
+        feedbackRating: row.feedback_rating,
+      };
+    });
 
   const recentFeedback: RecentFeedback[] = recentFeedbackData.map((row) => {
     return {
@@ -1009,20 +1019,22 @@ export async function getRecentActivity(venueId: string): Promise<{
   ]);
 
   // Transform ended sessions
-  const ended: RecentEndedSession[] = recentEndedData.map((row) => {
-    const startedAt = new Date(row.started_at).getTime();
-    const endedAt = new Date(row.ended_at).getTime();
-    const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
+  const ended: RecentEndedSession[] = recentEndedData
+    .filter(isEndedSession)
+    .map((row) => {
+      const startedAt = new Date(row.started_at).getTime();
+      const endedAt = new Date(row.ended_at).getTime();
+      const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
 
-    return {
-      id: row.id,
-      tableLabel: row.venue_tables?.label ?? 'Unknown',
-      gameTitle: row.games?.title ?? null,
-      endedAt: row.ended_at,
-      durationMinutes,
-      feedbackRating: row.feedback_rating,
-    };
-  });
+      return {
+        id: row.id,
+        tableLabel: row.venue_tables?.label ?? 'Unknown',
+        gameTitle: row.games?.title ?? null,
+        endedAt: row.ended_at,
+        durationMinutes,
+        feedbackRating: row.feedback_rating,
+      };
+    });
 
   // Transform feedback
   const feedback: RecentFeedback[] = recentFeedbackData.map((row) => {
