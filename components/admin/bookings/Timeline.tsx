@@ -10,12 +10,16 @@ import {
   useMemo,
 } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Clock, AlertCircle } from '@/components/icons';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { TimelineRow, TableLabels } from './TimelineRow';
+import { WeeklyTimeline } from './WeeklyTimeline';
+import { MonthlyTimeline } from './MonthlyTimeline';
 import { EnhancedConflictLayer } from './TimelineConflicts';
 import type { TimelineBlock, TurnoverRisk } from '@/lib/db/types';
-import type { TimelineData, TimeRange } from '@/lib/data/timeline';
+import type { TimelineData, TimeRange, TimelineViewMode } from '@/lib/data/timeline';
 import { fetchTimelineData } from '@/app/actions/timeline';
 import type { BlockAction } from './TimelineBlock';
 
@@ -23,9 +27,9 @@ import type { BlockAction } from './TimelineBlock';
 // Constants
 // =============================================================================
 
-const PIXELS_PER_HOUR = 120;
-const ROW_HEIGHT = 48;
-const HEADER_HEIGHT = 32;
+const PIXELS_PER_HOUR = 150;
+const ROW_HEIGHT = 72;
+const HEADER_HEIGHT = 40;
 
 // =============================================================================
 // Types
@@ -40,12 +44,18 @@ interface TimelineProps {
   onReschedule?: (bookingId: string, tableId: string, newTime: Date) => Promise<void>;
   /** Optional turnover risks for conflict visualization */
   turnoverRisks?: TurnoverRisk[];
+  /** View mode for the timeline */
+  viewMode?: TimelineViewMode;
+  /** Callback when view mode changes */
+  onViewModeChange?: (mode: TimelineViewMode) => void;
 }
 
 interface TimelineHeaderProps {
   date: Date;
   onDateChange: (date: Date) => void;
   isToday: boolean;
+  viewMode: TimelineViewMode;
+  onViewModeChange: (mode: TimelineViewMode) => void;
 }
 
 interface TimeAxisProps {
@@ -166,9 +176,9 @@ function getTimelineWidth(range: TimeRange, pixelsPerHour: number): number {
 // =============================================================================
 
 /**
- * Header with date navigation controls.
+ * Header with date navigation controls and view mode toggle.
  */
-function TimelineHeader({ date, onDateChange, isToday }: TimelineHeaderProps) {
+function TimelineHeader({ date, onDateChange, isToday, viewMode, onViewModeChange }: TimelineHeaderProps) {
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-[color:var(--color-structure)] bg-[color:var(--color-elevated)]">
       <div className="flex items-center gap-2">
@@ -193,7 +203,22 @@ function TimelineHeader({ date, onDateChange, isToday }: TimelineHeaderProps) {
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
+        {/* View mode toggle */}
+        <div className="flex items-center border border-stone-200 rounded-md overflow-hidden">
+          {(['day', 'week', 'month'] as const).map((mode) => (
+            <Button
+              key={mode}
+              variant={viewMode === mode ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-none border-0 px-3"
+              onClick={() => onViewModeChange(mode)}
+            >
+              {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            </Button>
+          ))}
+        </div>
+
         <Button
           variant={isToday ? 'secondary' : 'ghost'}
           size="sm"
@@ -203,9 +228,21 @@ function TimelineHeader({ date, onDateChange, isToday }: TimelineHeaderProps) {
           <Clock className="w-3.5 h-3.5 mr-1.5" />
           Today
         </Button>
-        <Button variant="ghost" size="icon" aria-label="Open calendar">
-          <Calendar className="w-4 h-4" />
-        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Open calendar">
+              <Calendar className="w-4 h-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <CalendarComponent
+              mode="single"
+              selected={date}
+              onSelect={(newDate) => newDate && onDateChange(newDate)}
+              autoFocus
+            />
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );
@@ -453,6 +490,8 @@ export function Timeline({
   onBlockAction,
   onReschedule,
   turnoverRisks = [],
+  viewMode: externalViewMode,
+  onViewModeChange: externalOnViewModeChange,
 }: TimelineProps) {
   // ---------------------------------------------------------------------------
   // State
@@ -463,6 +502,20 @@ export function Timeline({
   const [error, setError] = useState<string | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
+  const [internalViewMode, setInternalViewMode] = useState<TimelineViewMode>('day');
+
+  // Use external or internal view mode
+  const viewMode = externalViewMode ?? internalViewMode;
+  const handleViewModeChange = useCallback(
+    (mode: TimelineViewMode) => {
+      if (externalOnViewModeChange) {
+        externalOnViewModeChange(mode);
+      } else {
+        setInternalViewMode(mode);
+      }
+    },
+    [externalOnViewModeChange]
+  );
 
   // Confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -726,6 +779,8 @@ export function Timeline({
           date={date}
           onDateChange={handleDateChange}
           isToday={isToday}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
         />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -751,6 +806,8 @@ export function Timeline({
           date={date}
           onDateChange={handleDateChange}
           isToday={isToday}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
         />
         <div className="flex-1 flex items-center justify-center">
           <TimelineEmpty />
@@ -759,6 +816,37 @@ export function Timeline({
     );
   }
 
+  // Handle drill-down from week/month views
+  const handleDayDrillDown = useCallback((drillDate: Date) => {
+    handleDateChange(drillDate);
+    handleViewModeChange('day');
+  }, [handleDateChange, handleViewModeChange]);
+
+  // Render Weekly view
+  if (viewMode === 'week') {
+    return (
+      <WeeklyTimeline
+        venueId={venueId}
+        initialDate={date}
+        onDateChange={handleDateChange}
+        onDayClick={handleDayDrillDown}
+      />
+    );
+  }
+
+  // Render Monthly view
+  if (viewMode === 'month') {
+    return (
+      <MonthlyTimeline
+        venueId={venueId}
+        initialDate={date}
+        onDateChange={handleDateChange}
+        onDayClick={handleDayDrillDown}
+      />
+    );
+  }
+
+  // Render Day view (default)
   return (
     <div className="flex flex-col h-full bg-[color:var(--color-surface)]">
       {/* Header with date navigation */}
@@ -766,6 +854,8 @@ export function Timeline({
         date={date}
         onDateChange={handleDateChange}
         isToday={isToday}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
       />
 
       {/* Main timeline area */}
