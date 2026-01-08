@@ -27,16 +27,16 @@ export function StepSearch({ data, settings, onUpdate, onNext }: StepSearchProps
   const dateConstraints = useMemo(() => {
     const today = new Date();
     const minDate = new Date(today);
-    minDate.setDate(minDate.getDate() + Math.ceil(settings.min_booking_notice_hours / 24));
+    minDate.setDate(minDate.getDate() + Math.ceil(settings.min_advance_hours / 24));
 
     const maxDate = new Date(today);
-    maxDate.setDate(maxDate.getDate() + settings.max_advance_booking_days);
+    maxDate.setDate(maxDate.getDate() + settings.max_advance_days);
 
     return {
       min: minDate.toISOString().split('T')[0],
       max: maxDate.toISOString().split('T')[0],
     };
-  }, [settings.min_booking_notice_hours, settings.max_advance_booking_days]);
+  }, [settings.min_advance_hours, settings.max_advance_days]);
 
   // Format date for display
   const formatDateDisplay = (dateStr: string) => {
@@ -73,9 +73,9 @@ export function StepSearch({ data, settings, onUpdate, onNext }: StepSearchProps
       const maxDate = new Date(dateConstraints.max + 'T00:00:00');
 
       if (selectedDate < minDate) {
-        newErrors.date = `Bookings require at least ${settings.min_booking_notice_hours} hours notice`;
+        newErrors.date = `Bookings require at least ${settings.min_advance_hours} hours notice`;
       } else if (selectedDate > maxDate) {
-        newErrors.date = `Bookings can only be made up to ${settings.max_advance_booking_days} days in advance`;
+        newErrors.date = `Bookings can only be made up to ${settings.max_advance_days} days in advance`;
       }
     }
 

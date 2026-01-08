@@ -120,15 +120,18 @@ export interface Session {
 export interface VenueBookingSettings {
   id: string;
   venue_id: string;
+  bookings_enabled: boolean;
+  buffer_minutes: number;
   default_duration_minutes: number;
-  min_booking_notice_hours: number;
-  max_advance_booking_days: number;
-  buffer_minutes_between_bookings: number;
-  slot_interval_minutes: number;
-  allow_walk_ins: boolean;
-  require_phone: boolean;
-  require_email: boolean;
-  confirmation_message_template: string | null;
+  min_advance_hours: number;
+  max_advance_days: number;
+  no_show_grace_minutes: number;
+  deposit_required: boolean;
+  deposit_amount_cents: number;
+  send_confirmation_email: boolean;
+  send_reminder_sms: boolean;
+  reminder_hours_before: number;
+  booking_page_message: string | null;
   created_at: string;
   updated_at: string;
 }
