@@ -164,7 +164,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="max-w-5xl mx-auto px-6 pb-20 md:pb-24">
+      <section className="max-w-5xl mx-auto px-6 pb-20 mhd:pb-24 bg-section-warm py-10 rounded-3xl">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-stroke"></div>
           <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chapter II</span>
@@ -344,7 +344,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="max-w-4xl mx-auto px-6 pb-16 md:pb-24 text-center">
+      <section className="max-w-4xl mx-auto px-6 pb-16 md:pb-24 text-center bg-cta-warm py-12 rounded-3xl">
         <div className="flex items-center justify-center gap-3 mb-6">
           <div className="h-px flex-1 bg-stroke"></div>
           <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Final Scoring</span>
