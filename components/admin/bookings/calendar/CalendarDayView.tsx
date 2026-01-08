@@ -217,7 +217,6 @@ function CalendarHeader({
 
 interface BlocksContainerProps {
   positionedBlocks: PositionedBlock[];
-  tableColorMap: Record<string, ReturnType<typeof useTableColors>['getTableColor']>;
   getTableColor: (tableId: string) => ReturnType<typeof useTableColors>['TABLE_COLORS'][number];
   conflicts: TimelineConflict[];
   selectedBlockId: string | null;
@@ -357,7 +356,7 @@ export function CalendarDayView({
   const { startHour, endHour } = operatingHours;
 
   // Get table colors
-  const { getTableColor, colorMap } = useTableColors(data?.tables ?? []);
+  const { getTableColor } = useTableColors(data?.tables ?? []);
 
   // Calculate overlap layout for blocks
   const positionedBlocks = useOverlapLayout(data?.blocks ?? [], {
@@ -463,7 +462,6 @@ export function CalendarDayView({
               <div className="absolute inset-0 px-2">
                 <BlocksContainer
                   positionedBlocks={positionedBlocks}
-                  tableColorMap={colorMap}
                   getTableColor={getTableColor}
                   conflicts={data?.conflicts ?? []}
                   selectedBlockId={selectedBlockId}
