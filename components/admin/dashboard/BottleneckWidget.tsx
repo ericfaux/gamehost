@@ -61,7 +61,18 @@ export function BottleneckWidget({ games }: BottleneckWidgetProps) {
                 key={game.gameId}
                 className="text-sm text-[color:var(--color-ink-primary)]"
               >
-                <span className="font-medium">{game.title}</span>
+                <Link
+                  href={`/admin/library?highlight=${game.gameId}`}
+                  className={cn(
+                    'font-medium hover:text-[color:var(--color-accent)] hover:underline',
+                    'focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/50 rounded',
+                    'transition-colors'
+                  )}
+                  aria-label={`View ${game.title} in library`}
+                  title="Click to view in library"
+                >
+                  {game.title}
+                </Link>
                 <span className="text-[color:var(--color-ink-secondary)] ml-1">
                   ({game.copiesInUse}/{game.copiesInRotation})
                 </span>

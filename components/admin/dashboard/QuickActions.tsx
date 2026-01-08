@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Gamepad2, Wrench, QrCode, Plus, UserPlus } from '@/components/icons';
+import { Tooltip } from '@/components/ui/tooltip';
 
 export interface QuickActionsProps {
   browsingCount: number;
@@ -17,10 +18,23 @@ interface ActionButtonProps {
   onClick?: () => void;
   href?: string;
   badge?: number;
+  badgeTooltip?: string;
+  badgeAriaLabel?: string;
+  subtitle?: string;
   primary?: boolean;
 }
 
-function ActionButton({ icon, label, onClick, href, badge, primary }: ActionButtonProps) {
+function ActionButton({
+  icon,
+  label,
+  onClick,
+  href,
+  badge,
+  badgeTooltip,
+  badgeAriaLabel,
+  subtitle,
+  primary,
+}: ActionButtonProps) {
   const buttonClasses = cn(
     // Base styling with large tap targets
     'relative flex items-center gap-3 w-full py-4 px-5',
@@ -34,25 +48,46 @@ function ActionButton({ icon, label, onClick, href, badge, primary }: ActionButt
       : 'bg-[color:var(--color-elevated)] border-[color:var(--color-structure)] text-[color:var(--color-ink-primary)] hover:border-[color:var(--color-structure-strong)]',
   );
 
+  const badgeElement = badge !== undefined && badge > 0 && (
+    <span
+      className={cn(
+        'absolute top-2 right-2',
+        'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full',
+        'text-xs font-bold',
+        primary
+          ? 'bg-white text-[color:var(--color-accent)]'
+          : 'bg-[color:var(--color-accent)] text-white',
+      )}
+      aria-label={badgeAriaLabel}
+    >
+      {badge}
+    </span>
+  );
+
   const content = (
     <>
       <span className={cn('shrink-0', primary ? 'text-white' : 'text-[color:var(--color-ink-secondary)]')}>
         {icon}
       </span>
-      <span className="font-semibold text-base">{label}</span>
-      {badge !== undefined && badge > 0 && (
-        <span
-          className={cn(
-            'absolute top-2 right-2',
-            'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full',
-            'text-xs font-bold',
-            primary
-              ? 'bg-white text-[color:var(--color-accent)]'
-              : 'bg-[color:var(--color-accent)] text-white',
-          )}
-        >
-          {badge}
-        </span>
+      <div className="flex flex-col items-start">
+        <span className="font-semibold text-base">{label}</span>
+        {subtitle && (
+          <span
+            className={cn(
+              'text-xs',
+              primary ? 'text-white/70' : 'text-[color:var(--color-ink-secondary)]'
+            )}
+          >
+            {subtitle}
+          </span>
+        )}
+      </div>
+      {badgeTooltip && badgeElement ? (
+        <Tooltip content={badgeTooltip} position="left">
+          {badgeElement}
+        </Tooltip>
+      ) : (
+        badgeElement
       )}
     </>
   );
@@ -94,6 +129,9 @@ export function QuickActions({ browsingCount, onAssignGame, onSeatWalkIn }: Quic
           label="Assign game"
           onClick={onAssignGame}
           badge={browsingCount > 0 ? browsingCount : undefined}
+          badgeTooltip={browsingCount > 0 ? `${browsingCount} table(s) browsing - may need game suggestions` : undefined}
+          badgeAriaLabel={browsingCount > 0 ? `${browsingCount} tables currently browsing` : undefined}
+          subtitle={browsingCount > 0 ? `${browsingCount} browsing` : undefined}
         />
         <ActionButton
           icon={<Wrench className="w-5 h-5" />}
