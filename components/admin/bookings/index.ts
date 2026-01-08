@@ -1,13 +1,13 @@
-export { Timeline } from './Timeline';
-export type { TimelineProps } from './Timeline';
-export { PIXELS_PER_HOUR, ROW_HEIGHT, HEADER_HEIGHT, timeToPixels } from './Timeline';
+export { Calendar } from './calendar';
+export type { CalendarProps } from './calendar';
 export {
-  ConflictMarker,
-  RiskZone,
-  ConflictLayer,
-  BufferZone,
-  EnhancedConflictLayer,
-} from './TimelineConflicts';
+  CalendarDayView,
+  CalendarWeekView,
+  CalendarMonthView,
+  CalendarBlock,
+  TimeColumn,
+  NowIndicator,
+} from './calendar';
 export { BookingDetailDrawer } from './BookingDetailDrawer';
 export { CreateBookingModal } from './CreateBookingModal';
 export { BookingsPageClient } from './BookingsPageClient';

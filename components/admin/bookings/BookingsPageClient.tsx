@@ -3,12 +3,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { Timeline } from './Timeline';
+import { Calendar } from './calendar';
 import { BookingDetailDrawer } from './BookingDetailDrawer';
 import { CreateBookingModal } from './CreateBookingModal';
 import { BookingsList } from './BookingsList';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, List, LayoutGrid, Clock, Users, Check, UserCheck, Copy, ExternalLink } from '@/components/icons';
+import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Clock, Users, Check, UserCheck, Copy, ExternalLink } from '@/components/icons';
 import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
 import { cn } from '@/lib/utils';
 import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingStatus } from '@/lib/db/types';
@@ -200,7 +200,7 @@ function ArrivalsBoard({ venueId, onSeatParty }: ArrivalsBoardProps) {
 function BookingsDisabledState({ venueId }: { venueId: string }) {
   return (
     <div className="max-w-md mx-auto text-center py-12">
-      <Calendar className="w-12 h-12 mx-auto text-stone-300 mb-4" />
+      <CalendarIcon className="w-12 h-12 mx-auto text-stone-300 mb-4" />
       <h2 className="text-lg font-semibold mb-2">Bookings Not Enabled</h2>
       <p className="text-stone-500 mb-6">
         Enable the booking system to start accepting reservations.
@@ -424,7 +424,7 @@ export function BookingsPageClient({
         {/* Timeline / List View */}
         <div className="flex-1 overflow-hidden">
           {viewMode === 'timeline' ? (
-            <Timeline
+            <Calendar
               key={refreshKey}
               venueId={venueId}
               initialDate={selectedDate}
