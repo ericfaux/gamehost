@@ -104,4 +104,51 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+      /* Section background tints for visual variety */
+    .bg-section-warm {
+          background: linear-gradient(135deg, rgba(234, 88, 12, 0.03) 0%, rgba(255, 237, 213, 0.15) 50%, transparent 100%);
+    }
+
+    .bg-section-success {
+          background: linear-gradient(135deg, rgba(63, 112, 77, 0.04) 0%, rgba(63, 112, 77, 0.02) 100%);
+    }
+
+    /* Accent borders and highlights */
+    .border-accent-left {
+          border-left: 4px solid var(--color-accent);
+    }
+
+    .border-success-left {
+          border-left: 4px solid var(--color-success);
+    }
+
+    /* Step indicator colors */
+    .step-orange {
+          background-color: rgba(234, 88, 12, 0.15);
+          border-color: rgba(234, 88, 12, 0.3);
+          color: #c2410c;
+    }
+
+    .step-amber {
+          background-color: rgba(192, 132, 44, 0.15);
+          border-color: rgba(192, 132, 44, 0.3);
+          color: #92400e;
+    }
+
+    .step-green {
+          background-color: rgba(63, 112, 77, 0.15);
+          border-color: rgba(63, 112, 77, 0.3);
+          color: #166534;
+    }
+
+    /* CTA section background */
+    .bg-cta-warm {
+          background: linear-gradient(180deg, var(--color-accent-soft) 0%, rgba(255, 237, 213, 0.5) 100%);
+    }
+
+    /* Comparison table column highlight */
+    .col-highlight-success {
+          background-color: rgba(63, 112, 77, 0.06);
+    }
 }
