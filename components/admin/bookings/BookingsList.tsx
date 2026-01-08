@@ -718,7 +718,7 @@ export function BookingsList({
 
         {/* Export Button */}
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={handleExport}
           className="h-8 ml-auto"
@@ -819,7 +819,7 @@ export function BookingsList({
                   <p className="text-sm text-stone-500">{getEmptyMessage()}</p>
                   {hasActiveFilters && (
                     <Button
-                      variant="link"
+                      variant="ghost"
                       onClick={clearFilters}
                       className="mt-2 text-teal-600"
                     >
