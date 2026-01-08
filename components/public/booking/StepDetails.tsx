@@ -80,9 +80,7 @@ export function StepDetails({
         break;
 
       case 'guestEmail':
-        if (settings.require_email && !data.guestEmail.trim()) {
-          newErrors.guestEmail = 'Email is required';
-        } else if (data.guestEmail.trim() && !EMAIL_REGEX.test(data.guestEmail)) {
+        if (data.guestEmail.trim() && !EMAIL_REGEX.test(data.guestEmail)) {
           newErrors.guestEmail = 'Please enter a valid email';
         } else {
           delete newErrors.guestEmail;
@@ -90,9 +88,7 @@ export function StepDetails({
         break;
 
       case 'guestPhone':
-        if (settings.require_phone && !data.guestPhone.trim()) {
-          newErrors.guestPhone = 'Phone is required';
-        } else if (data.guestPhone.trim() && !isValidPhone(data.guestPhone)) {
+        if (data.guestPhone.trim() && !isValidPhone(data.guestPhone)) {
           newErrors.guestPhone = 'Please enter a valid phone number';
         } else {
           delete newErrors.guestPhone;
@@ -112,17 +108,13 @@ export function StepDetails({
       newErrors.guestName = 'Name is required';
     }
 
-    // Email validation
-    if (settings.require_email && !data.guestEmail.trim()) {
-      newErrors.guestEmail = 'Email is required';
-    } else if (data.guestEmail.trim() && !EMAIL_REGEX.test(data.guestEmail)) {
+    // Email validation (format only, at least one contact method checked below)
+    if (data.guestEmail.trim() && !EMAIL_REGEX.test(data.guestEmail)) {
       newErrors.guestEmail = 'Please enter a valid email';
     }
 
-    // Phone validation
-    if (settings.require_phone && !data.guestPhone.trim()) {
-      newErrors.guestPhone = 'Phone is required';
-    } else if (data.guestPhone.trim() && !isValidPhone(data.guestPhone)) {
+    // Phone validation (format only, at least one contact method checked below)
+    if (data.guestPhone.trim() && !isValidPhone(data.guestPhone)) {
       newErrors.guestPhone = 'Please enter a valid phone number';
     }
 
