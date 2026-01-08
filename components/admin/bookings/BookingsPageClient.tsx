@@ -53,11 +53,11 @@ function ArrivalsBoard({ venueId, onSeatParty }: ArrivalsBoardProps) {
 
     async function fetchArrivals() {
       try {
-        const response = await fetch(`/api/bookings/arrivals?venueId=${venueId}`);
+        const response = await fetch(`/api/venues/${venueId}/arrivals`);
         if (!response.ok) throw new Error('Failed to fetch arrivals');
         const data = await response.json();
         if (!cancelled) {
-          setArrivals(data.arrivals || []);
+          setArrivals(data || []);
         }
       } catch (error) {
         console.error('Failed to fetch arrivals:', error);
