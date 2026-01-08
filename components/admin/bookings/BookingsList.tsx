@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, ChangeEvent, MouseEvent as ReactMouseEvent } from 'react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, endOfMonth } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from './StatusBadge';
 import {
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   ChevronDown,
   Users,
@@ -17,9 +15,11 @@ import {
   X,
   Filter,
   Calendar,
+  Download,
+  Search,
 } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import type { BookingWithDetails, BookingStatus } from '@/lib/db/types';
+import type { BookingWithDetails, BookingStatus, VenueTable } from '@/lib/db/types';
 
 // =============================================================================
 // Types
@@ -27,14 +27,14 @@ import type { BookingWithDetails, BookingStatus } from '@/lib/db/types';
 
 interface BookingsListProps {
   venueId: string;
-  date: Date;
-  onDateChange: (date: Date) => void;
+  venueTables?: VenueTable[];
   onBookingClick: (booking: BookingWithDetails) => void;
   onAction: (action: string, bookingId: string) => Promise<void>;
 }
 
-type SortField = 'time' | 'guest' | 'status';
+type SortField = 'date' | 'guest' | 'status' | 'table';
 type SortDir = 'asc' | 'desc';
+type QuickFilter = 'today' | 'this_week' | 'this_month' | 'all_future' | 'historical';
 
 const ALL_STATUSES: BookingStatus[] = [
   'pending',
@@ -53,6 +53,62 @@ const ACTIVE_STATUSES: BookingStatus[] = [
   'arrived',
   'seated',
 ];
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+function getDateRangeForQuickFilter(filter: QuickFilter): { startDate?: string; endDate?: string; includeHistorical: boolean } {
+  const today = new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
+  const yesterdayStr = format(addDays(today, -1), 'yyyy-MM-dd');
+
+  switch (filter) {
+    case 'today':
+      return { startDate: todayStr, endDate: todayStr, includeHistorical: false };
+    case 'this_week':
+      return { startDate: todayStr, endDate: format(addDays(today, 7), 'yyyy-MM-dd'), includeHistorical: false };
+    case 'this_month':
+      return { startDate: todayStr, endDate: format(endOfMonth(today), 'yyyy-MM-dd'), includeHistorical: false };
+    case 'all_future':
+      return { startDate: todayStr, endDate: undefined, includeHistorical: false };
+    case 'historical':
+      return { startDate: undefined, endDate: yesterdayStr, includeHistorical: true };
+    default:
+      return { startDate: todayStr, endDate: format(addDays(today, 7), 'yyyy-MM-dd'), includeHistorical: false };
+  }
+}
+
+function getQuickFilterLabel(filter: QuickFilter): string {
+  switch (filter) {
+    case 'today': return 'Today';
+    case 'this_week': return 'This Week';
+    case 'this_month': return 'This Month';
+    case 'all_future': return 'All Future';
+    case 'historical': return 'Historical';
+    default: return '';
+  }
+}
+
+function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':');
+  const hour = parseInt(hours, 10);
+  const ampm = hour >= 12 ? 'pm' : 'am';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes}${ampm}`;
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00');
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const dateYear = date.getFullYear();
+
+  if (dateYear === currentYear) {
+    return format(date, 'MMM d');
+  }
+  return format(date, 'MMM d, yyyy');
+}
 
 // =============================================================================
 // StatusFilterDropdown Component
@@ -95,7 +151,7 @@ function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownProps) {
         variant="ghost"
         size="sm"
         onClick={() => setIsOpen(!isOpen)}
-        className={cn(value.length > 0 && 'text-teal-600')}
+        className={cn('h-8', value.length > 0 && 'text-teal-600')}
       >
         <Filter className="w-4 h-4 mr-1" />
         {value.length === 0 ? 'All Statuses' : `${value.length} selected`}
@@ -103,7 +159,7 @@ function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownProps) {
       </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg border border-stone-200 shadow-lg z-20">
+        <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg border border-stone-200 shadow-lg z-20">
           <div className="p-2 border-b border-stone-100">
             <button
               className="w-full text-left px-2 py-1 text-xs text-stone-500 hover:text-stone-700"
@@ -132,6 +188,76 @@ function StatusFilterDropdown({ value, onChange }: StatusFilterDropdownProps) {
                 />
                 <StatusBadge status={status} />
               </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// TableFilterDropdown Component
+// =============================================================================
+
+interface TableFilterDropdownProps {
+  value: string | null;
+  onChange: (tableId: string | null) => void;
+  tables: VenueTable[];
+}
+
+function TableFilterDropdown({ value, onChange, tables }: TableFilterDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedTable = tables.find(t => t.id === value);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn('h-8', value && 'text-teal-600')}
+      >
+        {value ? selectedTable?.label || 'Table' : 'All Tables'}
+        <ChevronDown className="w-4 h-4 ml-1" />
+      </Button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1 w-40 bg-white rounded-lg border border-stone-200 shadow-lg z-20">
+          <div className="p-1 max-h-64 overflow-y-auto">
+            <button
+              className={cn(
+                'w-full text-left px-3 py-2 text-sm rounded hover:bg-stone-50',
+                !value && 'bg-stone-100 font-medium'
+              )}
+              onClick={() => { onChange(null); setIsOpen(false); }}
+            >
+              All Tables
+            </button>
+            {tables.map(table => (
+              <button
+                key={table.id}
+                className={cn(
+                  'w-full text-left px-3 py-2 text-sm rounded hover:bg-stone-50',
+                  value === table.id && 'bg-stone-100 font-medium'
+                )}
+                onClick={() => { onChange(table.id); setIsOpen(false); }}
+              >
+                {table.label}
+              </button>
             ))}
           </div>
         </div>
@@ -267,78 +393,192 @@ function Checkbox({ checked, indeterminate, onCheckedChange, className }: Checkb
 }
 
 // =============================================================================
+// QuickFilterBar Component
+// =============================================================================
+
+interface QuickFilterBarProps {
+  value: QuickFilter;
+  onChange: (filter: QuickFilter) => void;
+}
+
+function QuickFilterBar({ value, onChange }: QuickFilterBarProps) {
+  const futureFilters: QuickFilter[] = ['today', 'this_week', 'this_month', 'all_future'];
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1">
+        {futureFilters.map((filter) => (
+          <Button
+            key={filter}
+            variant={value === filter ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => onChange(filter)}
+            className={cn(
+              'h-8',
+              value === filter
+                ? 'bg-stone-900 text-white hover:bg-stone-800'
+                : 'text-stone-600 hover:text-stone-900'
+            )}
+          >
+            {getQuickFilterLabel(filter)}
+          </Button>
+        ))}
+      </div>
+      <Button
+        variant={value === 'historical' ? 'primary' : 'secondary'}
+        size="sm"
+        onClick={() => onChange('historical')}
+        className={cn(
+          'h-8',
+          value === 'historical'
+            ? 'bg-stone-900 text-white hover:bg-stone-800'
+            : 'text-stone-500 border-stone-200'
+        )}
+      >
+        Historical
+      </Button>
+    </div>
+  );
+}
+
+// =============================================================================
 // BookingsList Component
 // =============================================================================
 
 export function BookingsList({
   venueId,
-  date,
-  onDateChange,
+  venueTables = [],
   onBookingClick,
   onAction,
 }: BookingsListProps) {
+  // State
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [sortField, setSortField] = useState<SortField>('time');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [statusFilter, setStatusFilter] = useState<BookingStatus[]>([]);
 
-  // Fetch bookings
+  // Filters
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>('this_week');
+  const [statusFilter, setStatusFilter] = useState<BookingStatus[]>([]);
+  const [tableFilter, setTableFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Sorting
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  // Refs
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Build query params
+  const buildQueryParams = useCallback((cursor?: string) => {
+    const { startDate, endDate, includeHistorical } = getDateRangeForQuickFilter(quickFilter);
+    const params = new URLSearchParams();
+    params.set('venueId', venueId);
+
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    if (includeHistorical) params.set('includeHistorical', 'true');
+    if (statusFilter.length > 0) params.set('status', statusFilter.join(','));
+    if (tableFilter) params.set('tableId', tableFilter);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+
+    // Map sort field
+    const sortFieldMap: Record<SortField, string> = {
+      date: 'booking_date',
+      guest: 'guest_name',
+      status: 'status',
+      table: 'booking_date', // No direct table sort, fallback to date
+    };
+    params.set('sortField', sortFieldMap[sortField]);
+    params.set('sortDir', sortDir);
+    params.set('limit', '25');
+
+    if (cursor) params.set('cursor', cursor);
+
+    return params.toString();
+  }, [venueId, quickFilter, statusFilter, tableFilter, debouncedSearch, sortField, sortDir]);
+
+  // Fetch bookings (initial or filter change)
   const loadBookings = useCallback(async () => {
     setIsLoading(true);
+    setSelectedIds(new Set());
     try {
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const response = await fetch(
-        `/api/bookings?venueId=${venueId}&date=${dateStr}`
-      );
+      const response = await fetch(`/api/bookings?${buildQueryParams()}`);
       if (!response.ok) throw new Error('Failed to fetch bookings');
       const data = await response.json();
       setBookings(data.bookings || []);
+      setNextCursor(data.nextCursor);
+      setTotalCount(data.totalCount || 0);
     } catch (error) {
       console.error('Failed to fetch bookings:', error);
       setBookings([]);
+      setNextCursor(null);
+      setTotalCount(0);
     } finally {
       setIsLoading(false);
     }
-  }, [venueId, date]);
+  }, [buildQueryParams]);
 
+  // Load more bookings (infinite scroll)
+  const loadMoreBookings = useCallback(async () => {
+    if (!nextCursor || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(`/api/bookings?${buildQueryParams(nextCursor)}`);
+      if (!response.ok) throw new Error('Failed to fetch bookings');
+      const data = await response.json();
+      setBookings(prev => [...prev, ...(data.bookings || [])]);
+      setNextCursor(data.nextCursor);
+    } catch (error) {
+      console.error('Failed to load more bookings:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [buildQueryParams, nextCursor, isLoadingMore]);
+
+  // Initial load and filter changes
   useEffect(() => {
     loadBookings();
   }, [loadBookings]);
 
-  // Clear selection when date changes
+  // Scroll to top when filters change
   useEffect(() => {
-    setSelectedIds(new Set());
-  }, [date]);
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+  }, [quickFilter, statusFilter, tableFilter, debouncedSearch]);
 
-  // Format time helper
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'pm' : 'am';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes}${ampm}`;
-  };
+  // Infinite scroll observer
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
 
-  // Filter and sort bookings
-  const sortedBookings = [...bookings]
-    .filter(b => statusFilter.length === 0 || statusFilter.includes(b.status))
-    .sort((a, b) => {
-      let cmp = 0;
-      switch (sortField) {
-        case 'time':
-          cmp = a.start_time.localeCompare(b.start_time);
-          break;
-        case 'guest':
-          cmp = a.guest_name.localeCompare(b.guest_name);
-          break;
-        case 'status':
-          cmp = a.status.localeCompare(b.status);
-          break;
-      }
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && nextCursor && !isLoadingMore) {
+          loadMoreBookings();
+        }
+      },
+      { rootMargin: '100px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [nextCursor, isLoadingMore, loadMoreBookings]);
 
   // Toggle sort
   const toggleSort = (field: SortField) => {
@@ -346,7 +586,7 @@ export function BookingsList({
       setSortDir((d: SortDir) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
-      setSortDir('asc');
+      setSortDir('desc');
     }
   };
 
@@ -361,10 +601,10 @@ export function BookingsList({
   };
 
   const selectAll = () => {
-    if (selectedIds.size === sortedBookings.length) {
+    if (selectedIds.size === bookings.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(sortedBookings.map(b => b.id)));
+      setSelectedIds(new Set(bookings.map(b => b.id)));
     }
   };
 
@@ -378,6 +618,23 @@ export function BookingsList({
     loadBookings();
   };
 
+  // Clear all filters
+  const clearFilters = () => {
+    setStatusFilter([]);
+    setTableFilter(null);
+    setSearchQuery('');
+    setQuickFilter('this_week');
+  };
+
+  // Check if filters are active
+  const hasActiveFilters = statusFilter.length > 0 || tableFilter !== null || debouncedSearch !== '';
+
+  // Export CSV
+  const handleExport = () => {
+    const params = buildQueryParams();
+    window.open(`/api/bookings/export?${params}`, '_blank');
+  };
+
   // Sort indicator
   const SortIndicator = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null;
@@ -388,24 +645,88 @@ export function BookingsList({
     );
   };
 
+  // Empty state message
+  const getEmptyMessage = () => {
+    if (hasActiveFilters) {
+      return 'No bookings match your filters';
+    }
+    switch (quickFilter) {
+      case 'today':
+        return 'No bookings for today';
+      case 'this_week':
+        return 'No bookings this week';
+      case 'this_month':
+        return 'No bookings this month';
+      case 'all_future':
+        return 'No upcoming bookings';
+      case 'historical':
+        return 'No historical bookings';
+      default:
+        return 'No bookings found';
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* Date Nav Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-white">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onDateChange(addDays(date, -1))}>
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <h2 className="font-serif text-lg font-semibold text-stone-900">
-            {format(date, 'EEEE, MMMM d')}
-          </h2>
-          <Button variant="ghost" size="sm" onClick={() => onDateChange(addDays(date, 1))}>
-            <ChevronRight className="w-4 h-4" />
-          </Button>
+      {/* Quick Filter Bar */}
+      <div className="px-4 py-3 border-b bg-white">
+        <QuickFilterBar value={quickFilter} onChange={setQuickFilter} />
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex items-center gap-3 px-4 py-2 border-b bg-stone-50">
+        <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
+
+        {venueTables.length > 0 && (
+          <TableFilterDropdown
+            value={tableFilter}
+            onChange={setTableFilter}
+            tables={venueTables}
+          />
+        )}
+
+        {/* Search Input */}
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+          <input
+            type="text"
+            placeholder="Search guest..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-8 pl-8 pr-3 text-sm border border-stone-200 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Status Filter */}
-        <StatusFilterDropdown value={statusFilter} onChange={setStatusFilter} />
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-8 text-stone-500"
+          >
+            Clear filters
+          </Button>
+        )}
+
+        {/* Export Button */}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleExport}
+          className="h-8 ml-auto"
+          disabled={bookings.length === 0}
+        >
+          <Download className="w-4 h-4 mr-1" />
+          Export CSV
+        </Button>
       </div>
 
       {/* Bulk Actions Bar */}
@@ -424,25 +745,31 @@ export function BookingsList({
       )}
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto" ref={containerRef}>
         <table className="min-w-full">
           <thead className="bg-stone-50 sticky top-0">
             <tr>
               <th className="w-10 px-4 py-3 text-left">
                 <Checkbox
-                  checked={selectedIds.size === sortedBookings.length && sortedBookings.length > 0}
-                  indeterminate={selectedIds.size > 0 && selectedIds.size < sortedBookings.length}
+                  checked={selectedIds.size === bookings.length && bookings.length > 0}
+                  indeterminate={selectedIds.size > 0 && selectedIds.size < bookings.length}
                   onCheckedChange={selectAll}
                 />
               </th>
               <th
                 className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider cursor-pointer hover:text-stone-700"
-                onClick={() => toggleSort('time')}
+                onClick={() => toggleSort('date')}
               >
-                Time <SortIndicator field="time" />
+                Date <SortIndicator field="date" />
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider">
-                Table
+                Time
+              </th>
+              <th
+                className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider cursor-pointer hover:text-stone-700"
+                onClick={() => toggleSort('table')}
+              >
+                Table <SortIndicator field="table" />
               </th>
               <th
                 className="px-4 py-3 text-left text-xs font-semibold text-stone-500 uppercase tracking-wider cursor-pointer hover:text-stone-700"
@@ -467,24 +794,42 @@ export function BookingsList({
           </thead>
           <tbody className="divide-y divide-stone-100">
             {isLoading ? (
+              // Skeleton loading rows
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  <td colSpan={9} className="px-4 py-3">
+                    <div className="animate-pulse flex items-center gap-4">
+                      <div className="w-4 h-4 bg-stone-200 rounded" />
+                      <div className="h-4 bg-stone-200 rounded w-16" />
+                      <div className="h-4 bg-stone-200 rounded w-14" />
+                      <div className="h-4 bg-stone-200 rounded w-16" />
+                      <div className="h-4 bg-stone-200 rounded w-32" />
+                      <div className="h-4 bg-stone-200 rounded w-8" />
+                      <div className="h-4 bg-stone-200 rounded w-20" />
+                      <div className="h-4 bg-stone-200 rounded w-24" />
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : bookings.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-stone-500">
-                  <span className="inline-block w-5 h-5 border-2 border-stone-300 border-t-stone-600 rounded-full animate-spin mr-2" />
-                  Loading...
-                </td>
-              </tr>
-            ) : sortedBookings.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="text-center py-12">
+                <td colSpan={9} className="text-center py-12">
                   <Calendar className="w-12 h-12 mx-auto text-stone-300 mb-3" />
                   <p className="font-medium text-stone-900 mb-1">No bookings</p>
-                  <p className="text-sm text-stone-500">
-                    No reservations for {format(date, 'MMMM d, yyyy')}
-                  </p>
+                  <p className="text-sm text-stone-500">{getEmptyMessage()}</p>
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      onClick={clearFilters}
+                      className="mt-2 text-teal-600"
+                    >
+                      Clear all filters
+                    </Button>
+                  )}
                 </td>
               </tr>
             ) : (
-              sortedBookings.map(booking => (
+              bookings.map(booking => (
                 <tr
                   key={booking.id}
                   className="cursor-pointer hover:bg-stone-50 transition-colors"
@@ -498,6 +843,9 @@ export function BookingsList({
                       checked={selectedIds.has(booking.id)}
                       onCheckedChange={() => toggleSelect(booking.id)}
                     />
+                  </td>
+                  <td className="px-4 py-3 text-sm text-stone-700">
+                    {formatDate(booking.booking_date)}
                   </td>
                   <td className="px-4 py-3 font-mono text-sm text-stone-900">
                     {formatTime(booking.start_time)}
@@ -538,13 +886,33 @@ export function BookingsList({
             )}
           </tbody>
         </table>
+
+        {/* Infinite scroll sentinel */}
+        <div ref={sentinelRef} className="h-1" />
+
+        {/* Loading more indicator */}
+        {isLoadingMore && (
+          <div className="flex items-center justify-center py-4 text-stone-500">
+            <span className="inline-block w-5 h-5 border-2 border-stone-300 border-t-stone-600 rounded-full animate-spin mr-2" />
+            Loading more...
+          </div>
+        )}
+
+        {/* End of list indicator */}
+        {!isLoading && bookings.length > 0 && !nextCursor && (
+          <div className="text-center py-4 text-sm text-stone-400">
+            No more bookings
+          </div>
+        )}
       </div>
 
       {/* Footer with count */}
-      {!isLoading && sortedBookings.length > 0 && (
-        <div className="px-4 py-2 border-t bg-stone-50 text-xs text-stone-500">
-          {sortedBookings.length} booking{sortedBookings.length !== 1 ? 's' : ''}
-          {statusFilter.length > 0 && ' (filtered)'}
+      {!isLoading && (
+        <div className="px-4 py-2 border-t bg-stone-50 text-xs text-stone-500 flex items-center justify-between">
+          <span>
+            Showing {bookings.length} of {totalCount} booking{totalCount !== 1 ? 's' : ''}
+            {hasActiveFilters && ' (filtered)'}
+          </span>
         </div>
       )}
     </div>
