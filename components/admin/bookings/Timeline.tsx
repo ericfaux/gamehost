@@ -16,7 +16,7 @@ import { TimelineRow, TableLabels } from './TimelineRow';
 import { EnhancedConflictLayer } from './TimelineConflicts';
 import type { TimelineBlock, TurnoverRisk } from '@/lib/db/types';
 import type { TimelineData, TimeRange } from '@/lib/data/timeline';
-import { getTimelineData } from '@/lib/data/timeline';
+import { fetchTimelineData } from '@/app/actions/timeline';
 import type { BlockAction } from './TimelineBlock';
 
 // =============================================================================
@@ -626,11 +626,13 @@ export function Timeline({
   const refreshTimeline = useCallback(async () => {
     try {
       const dateString = formatDateString(date);
-      const data = await getTimelineData(venueId, dateString, {
+      const result = await fetchTimelineData(venueId, dateString, {
         startHour: 9,
         endHour: 23,
       });
-      setTimelineData(data);
+      if (result.success && result.data) {
+        setTimelineData(result.data);
+      }
     } catch (err) {
       console.error('Failed to refresh timeline:', err);
     }
@@ -662,13 +664,17 @@ export function Timeline({
 
       try {
         const dateString = formatDateString(date);
-        const data = await getTimelineData(venueId, dateString, {
+        const result = await fetchTimelineData(venueId, dateString, {
           startHour: 9,
           endHour: 23,
         });
 
         if (!cancelled) {
-          setTimelineData(data);
+          if (result.success && result.data) {
+            setTimelineData(result.data);
+          } else {
+            setError(result.error ?? 'Failed to load timeline data');
+          }
         }
       } catch (err) {
         console.error('Failed to fetch timeline data:', err);
