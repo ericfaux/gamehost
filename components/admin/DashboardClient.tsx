@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useTransition, useCallback } from 'react';
+import { useState, useTransition, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, TrendingUp } from '@/components/icons';
+import { RotateCcw, TrendingUp, Check } from '@/components/icons';
+import { useToast } from '@/components/providers/ToastProvider';
 import {
   AlertQueue,
   QuickActions,
@@ -48,6 +49,19 @@ export interface DashboardClientProps {
  * - Quick Actions → open modal or navigate
  * - Assign game to session modal
  */
+// Helper function to format relative time
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+
+  if (diffSecs < 10) return 'Updated just now';
+  if (diffSecs < 60) return `Updated ${diffSecs}s ago`;
+  if (diffMins < 60) return `Updated ${diffMins}m ago`;
+  return `Updated ${Math.floor(diffMins / 60)}h ago`;
+}
+
 export function DashboardClient({
   venueId,
   dashboardData,
@@ -55,7 +69,31 @@ export function DashboardClient({
   browsingSessions,
 }: DashboardClientProps) {
   const router = useRouter();
+  const { push: showToast } = useToast();
   const [isRefreshing, startRefresh] = useTransition();
+
+  // Refresh success state: 'idle' | 'loading' | 'success'
+  const [refreshStatus, setRefreshStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [lastUpdatedText, setLastUpdatedText] = useState<string>('Updated just now');
+
+  // Update the relative time text periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLastUpdatedText(formatRelativeTime(lastUpdated));
+    }, 10000); // Update every 10 seconds
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
+
+  // Reset refresh status after showing success
+  useEffect(() => {
+    if (refreshStatus === 'success') {
+      const timeout = setTimeout(() => {
+        setRefreshStatus('idle');
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [refreshStatus]);
 
   // Assign game modal state
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -73,8 +111,12 @@ export function DashboardClient({
   const [walkInModalOpen, setWalkInModalOpen] = useState(false);
 
   const handleRefresh = useCallback(() => {
+    setRefreshStatus('loading');
     startRefresh(() => {
       router.refresh();
+      setRefreshStatus('success');
+      setLastUpdated(new Date());
+      setLastUpdatedText('Updated just now');
     });
   }, [router]);
 
@@ -199,12 +241,30 @@ export function DashboardClient({
         method: 'POST',
       });
       if (response.ok) {
+        showToast({ title: 'Guest marked as arrived', tone: 'success' });
         router.refresh();
+      } else {
+        console.error('Error marking booking as arrived: API returned', response.status);
+        showToast({
+          title: 'Failed to mark arrival',
+          description: 'Please try again.',
+          tone: 'danger',
+        });
+        throw new Error('Failed to mark arrival');
       }
     } catch (error) {
       console.error('Error marking booking as arrived:', error);
+      // Only show toast if we haven't already (for network errors)
+      if (!(error instanceof Error && error.message === 'Failed to mark arrival')) {
+        showToast({
+          title: 'Failed to mark arrival',
+          description: 'Please try again.',
+          tone: 'danger',
+        });
+      }
+      throw error; // Re-throw so ArrivalsBoard knows the operation failed
     }
-  }, [router]);
+  }, [router, showToast]);
 
   const handleSeatWalkIn = useCallback(() => {
     setWalkInModalOpen(true);
@@ -222,27 +282,44 @@ export function DashboardClient({
           <p className="text-xs uppercase tracking-rulebook text-ink-secondary">Dashboard</p>
           <h1 className="text-3xl">Overview</h1>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          aria-label={isRefreshing ? 'Refreshing dashboard...' : 'Refresh dashboard'}
-        >
-          <RotateCcw
-            className={cn(
-              'w-4 h-4 transition-transform',
-              isRefreshing && 'animate-spin'
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-500" aria-label={`Last updated: ${lastUpdatedText}`}>
+            {lastUpdatedText}
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            aria-label={isRefreshing ? 'Refreshing dashboard...' : 'Refresh dashboard'}
+          >
+            {refreshStatus === 'success' ? (
+              <Check className="w-4 h-4 text-green-600" aria-hidden="true" />
+            ) : (
+              <RotateCcw
+                className={cn(
+                  'w-4 h-4 transition-transform',
+                  isRefreshing && 'animate-spin'
+                )}
+                aria-hidden="true"
+              />
             )}
-            aria-hidden="true"
-          />
-          {isRefreshing ? 'Refreshing...' : 'Refresh'}
-        </Button>
+            {refreshStatus === 'success'
+              ? 'Updated'
+              : isRefreshing
+              ? 'Refreshing...'
+              : 'Refresh'}
+          </Button>
+        </div>
       </div>
 
       {/* Screen reader announcement for refresh */}
       <div className="sr-only" role="status" aria-live="polite">
-        {isRefreshing ? 'Refreshing dashboard data...' : ''}
+        {isRefreshing
+          ? 'Refreshing dashboard data...'
+          : refreshStatus === 'success'
+          ? 'Dashboard updated'
+          : ''}
       </div>
 
       {/* KPI Strip */}

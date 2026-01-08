@@ -1,12 +1,29 @@
 'use client';
 
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Heart, Star, ThumbsUp, Meh, ThumbsDown, MessageSquare, ArrowRight } from '@/components/icons';
 import type { DashboardData } from '@/lib/data';
 
 interface VenueFeedbackWidgetProps {
   feedback: DashboardData['venueFeedback'];
+}
+
+/**
+ * Get color class and quality description based on rating thresholds
+ */
+function getRatingInfo(rating: number | null): { colorClass: string; qualityText: string } {
+  if (rating === null) {
+    return { colorClass: 'text-[color:var(--color-ink-secondary)]', qualityText: 'no ratings yet' };
+  }
+  if (rating >= 4.0) {
+    return { colorClass: 'text-green-600', qualityText: 'excellent' };
+  }
+  if (rating >= 3.0) {
+    return { colorClass: 'text-yellow-600', qualityText: 'needs attention' };
+  }
+  return { colorClass: 'text-red-600', qualityText: 'needs improvement' };
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -31,6 +48,10 @@ function formatRelativeTime(dateStr: string): string {
 
 export function VenueFeedbackWidget({ feedback }: VenueFeedbackWidgetProps) {
   const { avgRating, responseCount, positiveCount, neutralCount, negativeCount, recentComments } = feedback;
+  const { colorClass, qualityText } = getRatingInfo(avgRating);
+  const displayedCommentsCount = Math.min(recentComments.length, 5);
+  // Use recentComments.length as total since totalCommentCount may not be available
+  const totalComments = recentComments.length;
 
   if (responseCount === 0) {
     return (
@@ -72,9 +93,12 @@ export function VenueFeedbackWidget({ feedback }: VenueFeedbackWidgetProps) {
         {/* Summary Row */}
         <div className="flex items-center gap-4 flex-wrap">
           {/* Average Rating */}
-          <div className="flex items-center gap-1.5">
-            <Star className="h-5 w-5 text-amber-500" />
-            <span className="text-2xl font-bold text-[color:var(--color-ink-primary)]">
+          <div
+            className="flex items-center gap-1.5"
+            aria-label={`Rating: ${avgRating !== null ? avgRating.toFixed(1) : 'none'} out of 5, ${qualityText}`}
+          >
+            <Star className="h-5 w-5 text-amber-500" aria-hidden="true" />
+            <span className={cn('text-2xl font-bold', colorClass)}>
               {avgRating !== null ? avgRating.toFixed(1) : '—'}
             </span>
             <span className="text-sm text-[color:var(--color-ink-secondary)]">
@@ -105,9 +129,14 @@ export function VenueFeedbackWidget({ feedback }: VenueFeedbackWidgetProps) {
         {recentComments.length > 0 && (
           <div className="border-t border-[color:var(--color-structure)] pt-4">
             <div className="flex items-center gap-2 mb-3">
-              <MessageSquare className="h-4 w-4 text-[color:var(--color-ink-secondary)]" />
+              <MessageSquare className="h-4 w-4 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
               <span className="text-sm font-medium text-[color:var(--color-ink-primary)]">
                 Recent Comments
+                {totalComments > 0 && (
+                  <span className="font-normal text-[color:var(--color-ink-secondary)] ml-1">
+                    (showing {displayedCommentsCount} of {totalComments})
+                  </span>
+                )}
               </span>
             </div>
             <div className="space-y-3">
@@ -118,7 +147,7 @@ export function VenueFeedbackWidget({ feedback }: VenueFeedbackWidgetProps) {
                 >
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-1">
-                      <Star className="h-3 w-3 text-amber-500" />
+                      <Star className="h-3 w-3 text-amber-500" aria-hidden="true" />
                       <span className="text-xs font-medium">{c.rating}</span>
                     </div>
                     <span className="text-xs text-[color:var(--color-ink-secondary)]">
@@ -130,6 +159,16 @@ export function VenueFeedbackWidget({ feedback }: VenueFeedbackWidgetProps) {
                   </p>
                 </div>
               ))}
+            </div>
+            {/* View all feedback link */}
+            <div className="mt-3 pt-3 border-t border-[color:var(--color-structure)]">
+              <Link
+                href="/admin/feedback"
+                className="text-sm text-[color:var(--color-accent)] hover:underline flex items-center gap-1"
+              >
+                View all feedback
+                <ArrowRight className="h-3 w-3" aria-hidden="true" />
+              </Link>
             </div>
           </div>
         )}
