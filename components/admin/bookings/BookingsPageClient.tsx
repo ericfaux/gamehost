@@ -239,8 +239,6 @@ export function BookingsPageClient({
 
   const relativePath = `/v/${venueSlug}/book`;
   const fullUrl = origin ? `${origin}${relativePath}` : relativePath;
-  const htmlSnippet = `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">Book a Table</a>`;
-
   // Copy to clipboard with fallback
   const copyToClipboard = useCallback(async (text: string, type: 'link' | 'html') => {
     try {
@@ -317,7 +315,7 @@ export function BookingsPageClient({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-white">
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-stone-50">
         <div>
           <h1 className="text-xl font-serif font-semibold text-stone-900">
             Bookings
@@ -415,39 +413,6 @@ export function BookingsPageClient({
           <div role="status" aria-live="polite" className="sr-only">
             {linkCopied && 'Link copied to clipboard'}
             {htmlCopied && 'HTML snippet copied to clipboard'}
-          </div>
-
-          {/* Website Button Snippet */}
-          <div className="pt-3 border-t border-stone-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-stone-700">
-                Website button (HTML)
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => copyToClipboard(htmlSnippet, 'html')}
-                className="text-xs h-7"
-              >
-                {htmlCopied ? (
-                  <>
-                    <Check className="w-3 h-3" />
-                    Copied
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3 h-3" />
-                    Copy HTML
-                  </>
-                )}
-              </Button>
-            </div>
-            <code className="block w-full px-3 py-2 text-xs font-mono bg-white border border-stone-200 rounded-lg text-stone-600 overflow-x-auto whitespace-nowrap">
-              {htmlSnippet}
-            </code>
-            <p className="text-[11px] text-stone-500 mt-2">
-              Tip: Add a &ldquo;Book a Table&rdquo; button that points to this URL.
-            </p>
           </div>
         </div>
       </div>
