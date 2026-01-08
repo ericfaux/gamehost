@@ -8,7 +8,7 @@ import { BookingDetailDrawer } from './BookingDetailDrawer';
 import { CreateBookingModal } from './CreateBookingModal';
 import { BookingsList } from './BookingsList';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, List, LayoutGrid, Clock, Users, Check, UserCheck } from '@/components/icons';
+import { Plus, Calendar, List, LayoutGrid, Clock, Users, Check, UserCheck, Copy, ExternalLink } from '@/components/icons';
 import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
 import { cn } from '@/lib/utils';
 import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingStatus } from '@/lib/db/types';
@@ -20,6 +20,7 @@ import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingSt
 interface BookingsPageClientProps {
   venueId: string;
   venueName: string;
+  venueSlug: string;
   settings: VenueBookingSettings;
 }
 
@@ -217,6 +218,7 @@ function BookingsDisabledState({ venueId }: { venueId: string }) {
 export function BookingsPageClient({
   venueId,
   venueName,
+  venueSlug,
   settings,
 }: BookingsPageClientProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -224,6 +226,49 @@ export function BookingsPageClient({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'timeline' | 'list'>('timeline');
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Public booking link state
+  const [origin, setOrigin] = useState<string>('');
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [htmlCopied, setHtmlCopied] = useState(false);
+
+  // Compute origin on client to avoid SSR/hydration mismatch
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  const relativePath = `/v/${venueSlug}/book`;
+  const fullUrl = origin ? `${origin}${relativePath}` : relativePath;
+  const htmlSnippet = `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer">Book a Table</a>`;
+
+  // Copy to clipboard with fallback
+  const copyToClipboard = useCallback(async (text: string, type: 'link' | 'html') => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      if (type === 'link') {
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      } else {
+        setHtmlCopied(true);
+        setTimeout(() => setHtmlCopied(false), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, []);
 
   const refresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -313,6 +358,97 @@ export function BookingsPageClient({
             <Plus className="w-4 h-4 mr-1" />
             New Booking
           </Button>
+        </div>
+      </div>
+
+      {/* Public Booking Link Panel */}
+      <div className="px-6 py-4 border-b bg-stone-50">
+        <div className="max-w-4xl">
+          <h2 className="text-sm font-semibold text-stone-900 mb-1">
+            Public booking link
+          </h2>
+          <p className="text-xs text-stone-600 mb-3">
+            Add this link to your website, Google Business Profile, and social channels to direct guests to online reservations.
+          </p>
+
+          {/* URL + Actions */}
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
+            <input
+              type="text"
+              readOnly
+              value={fullUrl}
+              className="flex-1 px-3 py-2 text-sm font-mono bg-white border border-stone-200 rounded-lg text-stone-700 select-all focus:outline-none focus:ring-2 focus:ring-stone-300"
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => copyToClipboard(fullUrl, 'link')}
+                className="min-w-[100px]"
+              >
+                {linkCopied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy link
+                  </>
+                )}
+              </Button>
+              <a
+                href={fullUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold bg-[color:var(--color-elevated)] text-[color:var(--color-ink-primary)] border border-[color:var(--color-structure)] shadow-card hover:-translate-y-0.5 rounded-token transition-transform duration-200"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open
+              </a>
+            </div>
+          </div>
+
+          {/* Screen reader announcement for copy status */}
+          <div role="status" aria-live="polite" className="sr-only">
+            {linkCopied && 'Link copied to clipboard'}
+            {htmlCopied && 'HTML snippet copied to clipboard'}
+          </div>
+
+          {/* Website Button Snippet */}
+          <div className="pt-3 border-t border-stone-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-stone-700">
+                Website button (HTML)
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyToClipboard(htmlSnippet, 'html')}
+                className="text-xs h-7"
+              >
+                {htmlCopied ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    Copy HTML
+                  </>
+                )}
+              </Button>
+            </div>
+            <code className="block w-full px-3 py-2 text-xs font-mono bg-white border border-stone-200 rounded-lg text-stone-600 overflow-x-auto whitespace-nowrap">
+              {htmlSnippet}
+            </code>
+            <p className="text-[11px] text-stone-500 mt-2">
+              Tip: Add a &ldquo;Book a Table&rdquo; button that points to this URL.
+            </p>
+          </div>
         </div>
       </div>
 
