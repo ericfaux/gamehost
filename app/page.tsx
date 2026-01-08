@@ -167,7 +167,7 @@ export default function LandingPage() {
       <section className="max-w-5xl mx-auto px-6 pb-20 mhd:pb-24 bg-section-warm py-10 rounded-3xl">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-stroke"></div>
-          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chapter II</span>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">🎲 Chapter II</span>
           <div className="h-px flex-1 bg-stroke"></div>
         </div>
         <div className="grid md:grid-cols-[1.1fr_0.9fr] gap-10 items-start">
@@ -215,7 +215,7 @@ export default function LandingPage() {
       <section id="product" className="max-w-6xl mx-auto px-6 pb-20 md:pb-24">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-stroke"></div>
-          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chapter III</span>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">🎲 Chapter III</span>
           <div className="h-px flex-1 bg-stroke"></div>
         </div>
         <div className="grid md:grid-cols-[0.95fr_1.05fr] gap-12 items-start">
@@ -265,7 +265,7 @@ export default function LandingPage() {
       <section id="stats" className="max-w-6xl mx-auto px-6 pb-20 md:pb-24">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-stroke"></div>
-          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chapter IV</span>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">🎲 Chapter IV</span>
           <div className="h-px flex-1 bg-stroke"></div>
         </div>
         <div className="grid md:grid-cols-[0.9fr_1.1fr] gap-12 items-start">
@@ -337,7 +337,7 @@ export default function LandingPage() {
               className={`grid grid-cols-3 text-sm font-medium text-ink-primary bg-card ${idx !== 2 ? "border-b border-stroke" : ""}`}
             >
               <div className="px-4 py-4 border-r border-stroke font-serif">{row.feature}</div>
-              <div className="px-4 py-4 border-r border-stroke font-mono text-accent-secondary">{row.gamehost}</div>
+              <div className="px-4 py-4 border-r border-stroke font-mono text-accent-secondary col-highlight-success">{row.gamehost}</div>
               <div className="px-4 py-4 font-mono text-ink-secondary">{row.spreadsheets}</div>
             </div>
           ))}
