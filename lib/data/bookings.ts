@@ -21,6 +21,7 @@ import type {
   BookingStatus,
   BookingSource,
   BookingConflict,
+  BookingModificationType,
   VenueBookingSettings,
   VenueOperatingHours,
   BookingWaitlistEntry,
@@ -2723,4 +2724,93 @@ export async function updateWaitlistStatus(
   }
 
   return data as BookingWaitlistEntry;
+}
+
+// -----------------------------------------------------------------------------
+// Booking Modification Logging
+// -----------------------------------------------------------------------------
+
+/**
+ * Parameters for logging a booking modification.
+ */
+export interface LogModificationParams {
+  bookingId: string;
+  modificationType: BookingModificationType;
+  modifiedBy: string | null;
+  modifiedByRole: 'admin' | 'guest' | 'system';
+  previousValue: Record<string, unknown>;
+  newValue: Record<string, unknown>;
+  reason?: string;
+}
+
+/**
+ * Logs a booking modification to the booking_modifications table.
+ * This creates an audit trail of all changes made to bookings.
+ *
+ * @param params - The modification details to log
+ */
+export async function logBookingModification(params: LogModificationParams): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
+  const { error } = await supabase.from('booking_modifications').insert({
+    booking_id: params.bookingId,
+    modification_type: params.modificationType,
+    modified_by: params.modifiedBy,
+    modified_by_role: params.modifiedByRole,
+    previous_value: params.previousValue,
+    new_value: params.newValue,
+    reason: params.reason ?? null,
+  });
+
+  if (error) {
+    // Log error but don't throw - modification logging shouldn't break the update
+    console.error('Error logging booking modification:', error);
+  }
+}
+
+/**
+ * Determines the modification type based on what fields changed.
+ * Prioritizes more significant changes (reschedule > table > party_size, etc.)
+ *
+ * @param changedFields - Array of field names that changed
+ * @returns The appropriate modification type
+ */
+export function determineModificationType(
+  changedFields: string[]
+): BookingModificationType {
+  // Reschedule takes priority
+  if (
+    changedFields.includes('booking_date') ||
+    changedFields.includes('start_time') ||
+    changedFields.includes('duration_minutes') ||
+    changedFields.includes('end_time')
+  ) {
+    return 'reschedule';
+  }
+
+  if (changedFields.includes('table_id')) {
+    return 'table_change';
+  }
+
+  if (changedFields.includes('party_size')) {
+    return 'party_size';
+  }
+
+  if (changedFields.includes('game_id')) {
+    return 'game_change';
+  }
+
+  if (
+    changedFields.includes('guest_name') ||
+    changedFields.includes('guest_email') ||
+    changedFields.includes('guest_phone')
+  ) {
+    return 'guest_info';
+  }
+
+  if (changedFields.includes('notes') || changedFields.includes('internal_notes')) {
+    return 'notes';
+  }
+
+  return 'general';
 }

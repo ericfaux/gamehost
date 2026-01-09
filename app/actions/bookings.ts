@@ -10,6 +10,8 @@ import {
   getBookingById,
   timeToMinutes,
   addMinutesToTime,
+  logBookingModification,
+  determineModificationType,
 } from '@/lib/data/bookings';
 import type {
   Booking,
@@ -105,6 +107,7 @@ export interface UpdateBookingActionParams {
   table_id?: string;
   game_id?: string | null;
   notes?: string;
+  internal_notes?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -1257,6 +1260,10 @@ export async function updateBooking(
     dbUpdates.notes = updates.notes?.trim() || null;
   }
 
+  if (updates.internal_notes !== undefined) {
+    dbUpdates.internal_notes = updates.internal_notes?.trim() || null;
+  }
+
   if (updates.game_id !== undefined) {
     dbUpdates.game_id = updates.game_id;
   }
@@ -1415,6 +1422,42 @@ export async function updateBooking(
       error: 'Failed to update booking. Please try again.',
       code: 'UNKNOWN',
     };
+  }
+
+  // Log the modification for audit trail
+  try {
+    // Get current user for modified_by
+    let userId: string | null = null;
+    try {
+      const authClient = await createClient();
+      const { data: { user } } = await authClient.auth.getUser();
+      userId = user?.id ?? null;
+    } catch {
+      // Anonymous modification is possible
+    }
+
+    // Build previous and new value objects
+    const changedFields = Object.keys(dbUpdates);
+    const previousValue: Record<string, unknown> = {};
+    const newValue: Record<string, unknown> = {};
+
+    for (const field of changedFields) {
+      previousValue[field] = booking[field as keyof typeof booking];
+      newValue[field] = dbUpdates[field];
+    }
+
+    // Log the modification
+    await logBookingModification({
+      bookingId,
+      modificationType: determineModificationType(changedFields),
+      modifiedBy: userId,
+      modifiedByRole: 'admin',
+      previousValue,
+      newValue,
+    });
+  } catch (logError) {
+    // Don't fail the update if logging fails
+    console.error('Error logging booking modification:', logError);
   }
 
   // Revalidate paths

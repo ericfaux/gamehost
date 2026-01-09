@@ -31,6 +31,15 @@ export type BookingStatus =
 
 export type BookingSource = 'online' | 'phone' | 'walk_in';
 
+export type BookingModificationType =
+  | 'reschedule'
+  | 'party_size'
+  | 'table_change'
+  | 'guest_info'
+  | 'game_change'
+  | 'notes'
+  | 'general';
+
 // -----------------------------------------------------------------------------
 // Table Row Types
 // -----------------------------------------------------------------------------
@@ -175,6 +184,24 @@ export interface Booking {
   created_at: string;
   updated_at: string;
   created_by: string | null;
+}
+
+/**
+ * Represents a row in the `booking_modifications` table.
+ * Tracks changes made to bookings for audit purposes.
+ */
+export interface BookingModification {
+  id: string;
+  booking_id: string;
+  modification_type: BookingModificationType;
+  modified_by: string | null;
+  modified_by_role: string | null;
+  previous_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  reason: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
 }
 
 // -----------------------------------------------------------------------------
