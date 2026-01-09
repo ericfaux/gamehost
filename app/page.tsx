@@ -291,7 +291,7 @@ export default function LandingPage() {
                   style={{ borderLeftWidth: "6px", borderLeftColor: "#C64D2F" }}
                 >
                   <div className="p-5">
-                    <p className="text-lg font-serif text-ink-primary">"{testimonial.quote}"</p>
+                    <p className="text-lg font-serif text-ink-primary">&ldquo;{testimonial.quote}&rdquo;</p>
                     <p className="mt-3 text-sm text-ink-secondary font-mono">{testimonial.attr}</p>
                   </div>
                 </article>
@@ -355,7 +355,7 @@ export default function LandingPage() {
         </div>
         <h3 className="text-3xl font-serif text-ink-primary mb-4">Ready to run a pilot?</h3>
         <p className="text-lg text-ink-secondary mb-8">
-          We'll bring the playmat, the tokens, and a pilot checklist so your first weekend is effortless. Book a demo or request a pilot and we'll help you connect bookings to the QR experience.
+          We&apos;ll bring the playmat, the tokens, and a pilot checklist so your first weekend is effortless. Book a demo or request a pilot and we&apos;ll help you connect bookings to the QR experience.
         </p>
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <Link
