@@ -125,7 +125,14 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
 
   // Success state - show confirmation
   if (step === 6 && completedBooking) {
-    return <StepSuccess booking={completedBooking} venueName={venueName} />;
+    return (
+      <StepSuccess
+        booking={completedBooking}
+        venueName={venueName}
+        venueSlug={venueSlug}
+        settings={settings}
+      />
+    );
   }
 
   return (
@@ -243,6 +250,7 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
               settings={settings}
               onComplete={handleComplete}
               onBack={() => navigateToStep(4, 'backward')}
+              onEditStep={(targetStep: number) => navigateToStep(targetStep, 'backward')}
             />
           )}
         </div>

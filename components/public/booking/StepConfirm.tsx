@@ -17,6 +17,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Send,
+  Pencil,
 } from '@/components/icons';
 import { createBooking } from '@/app/actions/bookings';
 import type { BookingData } from './BookingWizard';
@@ -28,6 +29,22 @@ interface StepConfirmProps {
   settings: VenueBookingSettings;
   onComplete: (booking: Booking) => void;
   onBack: () => void;
+  onEditStep: (step: number) => void;
+}
+
+// Edit button component for consistent styling
+function EditButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1 text-xs text-[color:var(--color-ink-secondary)] hover:text-teal-600 transition-colors"
+      aria-label={label}
+    >
+      <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+      <span>Edit</span>
+    </button>
+  );
 }
 
 // Format time for display (12-hour format)
@@ -64,6 +81,7 @@ export function StepConfirm({
   settings,
   onComplete,
   onBack,
+  onEditStep,
 }: StepConfirmProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -140,105 +158,121 @@ export function StepConfirm({
       >
         {/* Date & Time */}
         <div className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-5 h-5 text-teal-600" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="font-medium text-[color:var(--color-ink-primary)]">
-                {formatDateDisplay(data.date)}
-              </p>
-              <div className="flex items-center gap-2 mt-1 text-sm text-[color:var(--color-ink-secondary)]">
-                <Clock className="w-4 h-4" aria-hidden="true" />
-                <span>
-                  {formatTime(data.startTime)} - {formatTime(data.endTime)}
-                </span>
-                <span className="text-[color:var(--color-structure)]">|</span>
-                <span>{formatDuration(settings.default_duration_minutes)}</span>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 flex-1">
+              <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-5 h-5 text-teal-600" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="font-medium text-[color:var(--color-ink-primary)]">
+                  {formatDateDisplay(data.date)}
+                </p>
+                <div className="flex items-center gap-2 mt-1 text-sm text-[color:var(--color-ink-secondary)]">
+                  <Clock className="w-4 h-4" aria-hidden="true" />
+                  <span>
+                    {formatTime(data.startTime)} - {formatTime(data.endTime)}
+                  </span>
+                  <span className="text-[color:var(--color-structure)]">|</span>
+                  <span>{formatDuration(settings.default_duration_minutes)}</span>
+                </div>
               </div>
             </div>
+            <EditButton onClick={() => onEditStep(1)} label="Edit date and time" />
           </div>
         </div>
 
         {/* Party Size & Table */}
-        <div className="p-4 flex flex-wrap gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[color:var(--color-structure)] flex items-center justify-center">
-              <Users className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
-                Party Size
-              </p>
-              <p className="font-medium text-[color:var(--color-ink-primary)]">
-                {data.partySize} {data.partySize === 1 ? 'guest' : 'guests'}
-              </p>
-            </div>
-          </div>
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap gap-6 flex-1">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[color:var(--color-structure)] flex items-center justify-center">
+                  <Users className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
+                    Party Size
+                  </p>
+                  <p className="font-medium text-[color:var(--color-ink-primary)]">
+                    {data.partySize} {data.partySize === 1 ? 'guest' : 'guests'}
+                  </p>
+                </div>
+              </div>
 
-          {tableLabel && (
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[color:var(--color-structure)] flex items-center justify-center">
-                <TableProperties className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
-                  Table
-                </p>
-                <p className="font-medium text-[color:var(--color-ink-primary)]">
-                  {tableLabel}
-                </p>
-              </div>
+              {tableLabel && (
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[color:var(--color-structure)] flex items-center justify-center">
+                    <TableProperties className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
+                      Table
+                    </p>
+                    <p className="font-medium text-[color:var(--color-ink-primary)]">
+                      {tableLabel}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+            <EditButton onClick={() => onEditStep(1)} label="Edit party size" />
+          </div>
         </div>
 
         {/* Guest Details */}
-        <div className="p-4 space-y-3">
-          <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
-            Your Information
-          </p>
-          <div className="flex items-center gap-3">
-            <User className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
-            <span className="text-[color:var(--color-ink-primary)] font-medium">
-              {data.guestName}
-            </span>
+        <div className="p-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
+              Your Information
+            </p>
+            <EditButton onClick={() => onEditStep(3)} label="Edit contact information" />
           </div>
-
-          {data.guestEmail && (
+          <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <Mail className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
-              <span className="text-[color:var(--color-ink-primary)]">
-                {data.guestEmail}
+              <User className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
+              <span className="text-[color:var(--color-ink-primary)] font-medium">
+                {data.guestName}
               </span>
             </div>
-          )}
 
-          {data.guestPhone && (
-            <div className="flex items-center gap-3">
-              <Phone className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
-              <span className="text-[color:var(--color-ink-primary)]">
-                {data.guestPhone}
-              </span>
-            </div>
-          )}
+            {data.guestEmail && (
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
+                <span className="text-[color:var(--color-ink-primary)]">
+                  {data.guestEmail}
+                </span>
+              </div>
+            )}
+
+            {data.guestPhone && (
+              <div className="flex items-center gap-3">
+                <Phone className="w-5 h-5 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
+                <span className="text-[color:var(--color-ink-primary)]">
+                  {data.guestPhone}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Game Reservation */}
         {data.gameId && data.gameTitle && (
           <div className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Gamepad2 className="w-5 h-5 text-purple-600" aria-hidden="true" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <Gamepad2 className="w-5 h-5 text-purple-600" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
+                    Reserved Game
+                  </p>
+                  <p className="font-medium text-[color:var(--color-ink-primary)]">
+                    {data.gameTitle}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)]">
-                  Reserved Game
-                </p>
-                <p className="font-medium text-[color:var(--color-ink-primary)]">
-                  {data.gameTitle}
-                </p>
-              </div>
+              <EditButton onClick={() => onEditStep(4)} label="Edit game selection" />
             </div>
           </div>
         )}
@@ -246,16 +280,19 @@ export function StepConfirm({
         {/* Special Requests */}
         {data.notes && (
           <div className="p-4">
-            <div className="flex items-start gap-3">
-              <StickyNote className="w-5 h-5 text-[color:var(--color-ink-secondary)] flex-shrink-0 mt-0.5" aria-hidden="true" />
-              <div>
-                <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)] mb-1">
-                  Special Requests
-                </p>
-                <p className="text-sm text-[color:var(--color-ink-primary)]">
-                  {data.notes}
-                </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 flex-1">
+                <StickyNote className="w-5 h-5 text-[color:var(--color-ink-secondary)] flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <p className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)] mb-1">
+                    Special Requests
+                  </p>
+                  <p className="text-sm text-[color:var(--color-ink-primary)]">
+                    {data.notes}
+                  </p>
+                </div>
               </div>
+              <EditButton onClick={() => onEditStep(3)} label="Edit special requests" />
             </div>
           </div>
         )}
