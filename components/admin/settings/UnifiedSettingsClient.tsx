@@ -25,6 +25,10 @@ import {
   updateVenueBookingSettingsAction,
   type OperatingHoursInput as ActionOperatingHoursInput,
 } from '@/app/actions/bookings';
+import {
+  uploadVenueLogoAction,
+  removeVenueLogoAction,
+} from '@/app/admin/settings/actions';
 import type { VenueBookingSettings, VenueOperatingHours } from '@/lib/db/types';
 
 // =============================================================================
@@ -35,6 +39,7 @@ interface UnifiedSettingsClientProps {
   venueId: string;
   venueName: string;
   venueSlug: string;
+  venueLogo: string | null;
   settings: VenueBookingSettings;
   operatingHours: VenueOperatingHours[];
 }
@@ -122,6 +127,7 @@ export function UnifiedSettingsClient({
   venueId,
   venueName,
   venueSlug,
+  venueLogo,
   settings: initialSettings,
   operatingHours,
 }: UnifiedSettingsClientProps) {
@@ -134,6 +140,11 @@ export function UnifiedSettingsClient({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // State for logo upload
+  const [logoUrl, setLogoUrl] = useState<string | null>(venueLogo);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
 
   // Navigate to section
   const navigateToSection = (section: SettingsSection) => {
@@ -217,6 +228,77 @@ export function UnifiedSettingsClient({
     [venueId]
   );
 
+  // Logo upload handler
+  const handleLogoUpload = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      // Validate file size (2MB max)
+      if (file.size > 2 * 1024 * 1024) {
+        setLogoError(`Logo must be under 2MB. Your file is ${(file.size / 1024 / 1024).toFixed(1)}MB.`);
+        return;
+      }
+
+      // Validate file type
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+      if (!allowedTypes.includes(file.type)) {
+        setLogoError('Logo must be PNG, JPG, or SVG format.');
+        return;
+      }
+
+      setIsUploadingLogo(true);
+      setLogoError(null);
+
+      try {
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const base64 = (e.target?.result as string).split(',')[1];
+          const result = await uploadVenueLogoAction(base64, file.name, file.type);
+
+          if (result.success && result.logoUrl) {
+            setLogoUrl(result.logoUrl);
+          } else {
+            setLogoError(result.error ?? 'Failed to upload logo');
+          }
+          setIsUploadingLogo(false);
+        };
+        reader.onerror = () => {
+          setLogoError('Failed to read file');
+          setIsUploadingLogo(false);
+        };
+        reader.readAsDataURL(file);
+      } catch (err) {
+        setLogoError('Failed to upload logo');
+        setIsUploadingLogo(false);
+      }
+
+      // Reset input so same file can be selected again
+      event.target.value = '';
+    },
+    []
+  );
+
+  // Logo remove handler
+  const handleLogoRemove = useCallback(async () => {
+    setIsUploadingLogo(true);
+    setLogoError(null);
+
+    try {
+      const result = await removeVenueLogoAction();
+      if (result.success) {
+        setLogoUrl(null);
+      } else {
+        setLogoError(result.error ?? 'Failed to remove logo');
+      }
+    } catch (err) {
+      setLogoError('Failed to remove logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  }, []);
+
   // Save button component (reused across sections)
   const SaveButton = () => (
     <div className="flex items-center justify-between pt-4 border-t border-[color:var(--color-structure)]">
@@ -274,6 +356,82 @@ export function UnifiedSettingsClient({
                 <p className="text-xs text-[color:var(--color-ink-secondary)]">
                   Contact support to update your venue profile.
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Venue Logo */}
+            <Card className="panel-surface">
+              <CardHeader>
+                <CardTitle>Venue Logo</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-ink-secondary -mt-2 mb-4">
+                  Your logo is displayed on the customer booking page and confirmation emails.
+                </p>
+
+                {/* Logo Preview */}
+                <div className="flex items-start gap-4">
+                  <div className="w-20 h-20 rounded-lg border border-[color:var(--color-structure)] bg-stone-50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt="Venue logo"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="text-center text-xs text-ink-secondary p-2">
+                        No logo
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                          onChange={handleLogoUpload}
+                          disabled={isUploadingLogo}
+                          className="sr-only"
+                        />
+                        <span className={cn(
+                          "inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md border transition-colors",
+                          isUploadingLogo
+                            ? "bg-stone-100 text-stone-400 border-stone-200 cursor-not-allowed"
+                            : "bg-white text-stone-700 border-stone-300 hover:bg-stone-50"
+                        )}>
+                          {isUploadingLogo ? (
+                            <>
+                              <svg className="animate-spin -ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Uploading...
+                            </>
+                          ) : (
+                            logoUrl ? 'Change Logo' : 'Upload Logo'
+                          )}
+                        </span>
+                      </label>
+                      {logoUrl && !isUploadingLogo && (
+                        <button
+                          type="button"
+                          onClick={handleLogoRemove}
+                          className="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className={helpTextClass}>
+                      PNG, JPG, or SVG. Max 2MB. Recommended: 400x400px square.
+                    </p>
+                    {logoError && (
+                      <p className="text-sm text-red-600">{logoError}</p>
+                    )}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 

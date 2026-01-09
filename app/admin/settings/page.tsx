@@ -41,6 +41,7 @@ export default async function AdminSettingsPage() {
       venueId={venue.id}
       venueName={venue.name}
       venueSlug={venue.slug}
+      venueLogo={venue.logo_url}
       settings={settings}
       operatingHours={operatingHours}
     />

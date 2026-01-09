@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
-import { getVenueByOwnerId } from "@/lib/data/venues";
+import {
+  getVenueByOwnerId,
+  uploadVenueLogo,
+  updateVenueLogo,
+  deleteVenueLogo,
+} from "@/lib/data/venues";
 import { getSupabaseAdmin } from "@/lib/supabaseServer";
 
 interface ActionResult {
@@ -255,4 +260,103 @@ export async function deleteTable(tableId: string): Promise<ActionResult> {
   revalidatePath("/admin/sessions");
 
   return { success: true };
+}
+
+/**
+ * Uploads a venue logo and updates the venue record.
+ * Accepts base64-encoded image data.
+ *
+ * @param base64Data - Base64-encoded image data
+ * @param fileName - Original file name (for extension)
+ * @param mimeType - MIME type of the image
+ */
+export async function uploadVenueLogoAction(
+  base64Data: string,
+  fileName: string,
+  mimeType: string
+): Promise<ActionResult & { logoUrl?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "You must be logged in to upload a logo" };
+  }
+
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    return { success: false, error: "No venue found for your account" };
+  }
+
+  try {
+    // Convert base64 to Blob
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+
+    // Delete old logo if exists
+    if (venue.logo_url) {
+      await deleteVenueLogo(venue.logo_url);
+    }
+
+    // Upload new logo
+    const logoUrl = await uploadVenueLogo(blob, fileName, mimeType);
+
+    // Update venue with new logo URL
+    await updateVenueLogo(venue.id, logoUrl);
+
+    revalidatePath("/admin/settings");
+
+    return { success: true, logoUrl };
+  } catch (error) {
+    console.error("Failed to upload logo:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to upload logo",
+    };
+  }
+}
+
+/**
+ * Removes the venue logo.
+ */
+export async function removeVenueLogoAction(): Promise<ActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "You must be logged in to remove a logo" };
+  }
+
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    return { success: false, error: "No venue found for your account" };
+  }
+
+  try {
+    // Delete logo file if exists
+    if (venue.logo_url) {
+      await deleteVenueLogo(venue.logo_url);
+    }
+
+    // Update venue to remove logo URL
+    await updateVenueLogo(venue.id, null);
+
+    revalidatePath("/admin/settings");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to remove logo:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to remove logo",
+    };
+  }
 }
