@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { formatInTimeZone } from 'date-fns-tz';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
+import { getVenueBookingSettings, BOOKING_SETTINGS_DEFAULTS } from '@/lib/data/bookings';
 import type { BookingWithDetails, BookingStatus } from '@/lib/db/types';
 
 /**
@@ -33,12 +34,15 @@ export async function GET(
   // Parse query parameters
   const { searchParams } = new URL(request.url);
   const minutesAhead = parseInt(searchParams.get('minutesAhead') ?? '60', 10);
-  const timezone = searchParams.get('tz') || 'America/Los_Angeles';
+  const clientTimezone = searchParams.get('tz');
 
   // Minutes to look back for late arrivals
   const minutesBehind = 30;
 
   try {
+    // Fetch venue's configured timezone (prefer over client-provided)
+    const venueSettings = await getVenueBookingSettings(venueId);
+    const timezone = venueSettings?.timezone ?? clientTimezone ?? BOOKING_SETTINGS_DEFAULTS.timezone;
     const supabase = getSupabaseAdmin();
     const now = new Date();
 

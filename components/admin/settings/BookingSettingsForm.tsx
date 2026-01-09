@@ -44,6 +44,8 @@ export function BookingSettingsForm({ venueId, initialSettings }: BookingSetting
         send_reminder_sms: settings.send_reminder_sms,
         reminder_hours_before: settings.reminder_hours_before,
         booking_page_message: settings.booking_page_message,
+        // Venue timezone
+        timezone: settings.timezone,
         // Venue address fields
         venue_address_street: settings.venue_address_street,
         venue_address_city: settings.venue_address_city,
@@ -332,6 +334,32 @@ export function BookingSettingsForm({ venueId, initialSettings }: BookingSetting
           <p className="text-sm text-ink-secondary -mt-2 mb-4">
             Your venue address is displayed on booking confirmations with a &quot;Get Directions&quot; link.
           </p>
+
+          <div>
+            <label className={labelClass}>Timezone</label>
+            <select
+              className={selectClass}
+              value={settings.timezone}
+              onChange={(e) => updateField('timezone', e.target.value)}
+            >
+              <option value="America/New_York">Eastern Time (New York)</option>
+              <option value="America/Chicago">Central Time (Chicago)</option>
+              <option value="America/Denver">Mountain Time (Denver)</option>
+              <option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
+              <option value="America/Anchorage">Alaska Time (Anchorage)</option>
+              <option value="Pacific/Honolulu">Hawaii Time (Honolulu)</option>
+              <option value="America/Phoenix">Arizona Time (Phoenix)</option>
+              <option value="Europe/London">GMT/BST (London)</option>
+              <option value="Europe/Paris">CET (Paris)</option>
+              <option value="Europe/Berlin">CET (Berlin)</option>
+              <option value="Asia/Tokyo">JST (Tokyo)</option>
+              <option value="Asia/Shanghai">CST (Shanghai)</option>
+              <option value="Asia/Singapore">SGT (Singapore)</option>
+              <option value="Australia/Sydney">AEST (Sydney)</option>
+              <option value="Australia/Melbourne">AEST (Melbourne)</option>
+            </select>
+            <p className={helpTextClass}>Used for booking time validation and availability display.</p>
+          </div>
 
           <div>
             <label className={labelClass}>Street Address</label>
