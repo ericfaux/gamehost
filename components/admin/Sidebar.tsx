@@ -119,8 +119,10 @@ export function Sidebar({ venueId }: SidebarProps) {
   const fetchArrivalCount = useCallback(async () => {
     if (!venueId) return;
     try {
+      // Get the browser's timezone to ensure correct local time filtering
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const response = await fetch(
-        `/api/venues/${venueId}/arrivals/count?minutesAhead=60`
+        `/api/venues/${venueId}/arrivals/count?minutesAhead=60&tz=${encodeURIComponent(timezone)}`
       );
       if (response.ok) {
         const data = await response.json();

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { formatInTimeZone } from 'date-fns-tz';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { BookingWithDetails, BookingStatus } from '@/lib/db/types';
 
@@ -12,6 +13,7 @@ import type { BookingWithDetails, BookingStatus } from '@/lib/db/types';
  *
  * Query params:
  * - minutesAhead: How far ahead to look (default: 60)
+ * - tz: IANA timezone string (e.g., "America/Los_Angeles") for correct local time filtering
  *
  * Returns bookings with status 'confirmed' or 'arrived' ordered by start_time.
  */
@@ -31,6 +33,7 @@ export async function GET(
   // Parse query parameters
   const { searchParams } = new URL(request.url);
   const minutesAhead = parseInt(searchParams.get('minutesAhead') ?? '60', 10);
+  const timezone = searchParams.get('tz') || 'America/Los_Angeles';
 
   // Minutes to look back for late arrivals
   const minutesBehind = 30;
@@ -38,16 +41,18 @@ export async function GET(
   try {
     const supabase = getSupabaseAdmin();
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
 
-    // Calculate time range
+    // Calculate time range in the venue's local timezone
+    // This ensures we compare against booking times which are stored in local time
+    const today = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
+
     // Look back 30 minutes for late arrivals
     const lookBackDate = new Date(now.getTime() - minutesBehind * 60 * 1000);
-    const lookBackTime = lookBackDate.toTimeString().split(' ')[0];
+    const lookBackTime = formatInTimeZone(lookBackDate, timezone, 'HH:mm:ss');
 
     // Look ahead for upcoming arrivals
     const lookAheadDate = new Date(now.getTime() + minutesAhead * 60 * 1000);
-    const lookAheadTime = lookAheadDate.toTimeString().split(' ')[0];
+    const lookAheadTime = formatInTimeZone(lookAheadDate, timezone, 'HH:mm:ss');
 
     // Only include confirmed or arrived bookings
     const validStatuses: BookingStatus[] = ['confirmed', 'arrived'];

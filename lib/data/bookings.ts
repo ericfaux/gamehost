@@ -12,6 +12,7 @@
  * - Cancelled bookings are excluded by default in list queries
  */
 
+import { formatInTimeZone } from 'date-fns-tz';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type {
   Booking,
@@ -279,19 +280,22 @@ export async function getBookingsByTable(
  *
  * @param venueId - The venue's UUID
  * @param minutesAhead - How many minutes ahead to look (default: 60)
+ * @param timezone - IANA timezone string for correct local time filtering (default: America/Los_Angeles)
  * @returns Count of upcoming bookings
  */
 export async function getUpcomingBookingsCount(
   venueId: string,
-  minutesAhead: number = 60
+  minutesAhead: number = 60,
+  timezone: string = 'America/Los_Angeles'
 ): Promise<number> {
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
 
-  // Calculate the current time and cutoff time in HH:MM:SS format
-  const currentTime = now.toTimeString().split(' ')[0];
+  // Calculate time range in the venue's local timezone
+  // This ensures we compare against booking times which are stored in local time
+  const today = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
+  const currentTime = formatInTimeZone(now, timezone, 'HH:mm:ss');
   const cutoffDate = new Date(now.getTime() + minutesAhead * 60 * 1000);
-  const cutoffTime = cutoffDate.toTimeString().split(' ')[0];
+  const cutoffTime = formatInTimeZone(cutoffDate, timezone, 'HH:mm:ss');
 
   // Only include confirmed or arrived bookings
   const validStatuses: BookingStatus[] = ['confirmed', 'arrived'];
