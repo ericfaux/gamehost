@@ -27,6 +27,8 @@ interface TablesManagerProps {
   selectedTableId?: string | null;
   /** Optional: Callback when a table is selected */
   onSelectTable?: (tableId: string | null) => void;
+  /** Optional: Callback to open zone manager */
+  onManageZones?: () => void;
 }
 
 export function TablesManager({
@@ -38,12 +40,14 @@ export function TablesManager({
   zones = [],
   selectedTableId,
   onSelectTable,
+  onManageZones,
 }: TablesManagerProps) {
   const { push } = useToast();
   const [tables, setTables] = useState<VenueTable[]>(initialTables);
   const [sortField, setSortField] = useState<SortField>('label');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [localZoneOverrides, setLocalZoneOverrides] = useState<Record<string, string | null>>({});
 
   // Create a map for quick zone name lookup
   const zoneMap = useMemo(() => {
@@ -63,6 +67,10 @@ export function TablesManager({
 
   // Get zone name for a table
   const getZoneName = (tableId: string): string | null => {
+    const overrideZoneId = localZoneOverrides[tableId];
+    if (overrideZoneId !== undefined) {
+      return overrideZoneId ? zoneMap.get(overrideZoneId) ?? null : null;
+    }
     const layout = getLayoutInfo(tableId);
     if (!layout?.zone_id) return null;
     return zoneMap.get(layout.zone_id) ?? null;
@@ -77,7 +85,7 @@ export function TablesManager({
       getZoneName(table.id)?.toLowerCase().includes(q) ||
       table.id.includes(q)
     );
-  }, [tables, searchQuery]);
+  }, [tables, searchQuery, zoneMap, layoutMap, localZoneOverrides]);
 
   // Sort tables based on current sort settings
   const sortedTables = useMemo(() => {
@@ -101,7 +109,7 @@ export function TablesManager({
 
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [filteredTables, sortField, sortDirection]);
+  }, [filteredTables, sortField, sortDirection, zoneMap, layoutMap, localZoneOverrides]);
 
   // Group tables by zone
   const tablesByZone = useMemo(() => {
@@ -111,7 +119,7 @@ export function TablesManager({
       acc[zone].push(table);
       return acc;
     }, {});
-  }, [sortedTables]);
+  }, [sortedTables, zoneMap, layoutMap, localZoneOverrides]);
 
   // Track expanded zones (all expanded by default)
   const [expandedZones, setExpandedZones] = useState<string[]>([]);
@@ -164,16 +172,19 @@ export function TablesManager({
   const [tableLabel, setTableLabel] = useState("");
   const [capacity, setCapacity] = useState("4");
   const [description, setDescription] = useState("");
+  const [selectedZoneId, setSelectedZoneId] = useState("");
   const [editingTable, setEditingTable] = useState<VenueTable | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [qrTable, setQrTable] = useState<VenueTable | null>(null);
+  const hasZones = zones.length > 0;
 
   const resetDialog = () => {
     setTableLabel("");
     setCapacity("4");
     setDescription("");
+    setSelectedZoneId(zones[0]?.id ?? "");
     setEditingTable(null);
     setIsDialogOpen(false);
   };
@@ -183,7 +194,29 @@ export function TablesManager({
     setCapacity("4");
     setDescription("");
     setEditingTable(null);
+    setSelectedZoneId(zones[0]?.id ?? "");
     setIsDialogOpen(true);
+  };
+
+  useEffect(() => {
+    if (!isDialogOpen || !hasZones) return;
+    const zoneStillValid = zones.some((zone) => zone.id === selectedZoneId);
+    if (!zoneStillValid) {
+      setSelectedZoneId(zones[0]?.id ?? "");
+    }
+  }, [hasZones, isDialogOpen, selectedZoneId, zones]);
+
+  const handleOpenCreateDialog = () => {
+    if (!hasZones) {
+      push({
+        title: "Create a zone first",
+        description: "Assign tables to a zone before adding them.",
+        tone: "neutral",
+      });
+      onManageZones?.();
+      return;
+    }
+    openCreateDialog();
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -191,6 +224,7 @@ export function TablesManager({
 
     const trimmedLabel = tableLabel.trim();
     const trimmedDescription = description.trim();
+    const trimmedZoneId = selectedZoneId.trim();
     const parsedCapacity =
       capacity.trim() === ""
         ? null
@@ -202,6 +236,15 @@ export function TablesManager({
       push({
         title: "Error",
         description: "Table label is required",
+        tone: "danger",
+      });
+      return;
+    }
+
+    if (!trimmedZoneId) {
+      push({
+        title: "Error",
+        description: "Select a zone for this table",
         tone: "danger",
       });
       return;
@@ -229,6 +272,7 @@ export function TablesManager({
     formData.set("label", trimmedLabel);
     formData.set("description", trimmedDescription);
     formData.set("capacity", capacity.trim());
+    formData.set("zone_id", trimmedZoneId);
 
     if (editingTable) {
       formData.set("id", editingTable.id);
@@ -257,6 +301,10 @@ export function TablesManager({
 
           return [...prev, updatedTable].sort((a, b) => a.label.localeCompare(b.label));
         });
+        setLocalZoneOverrides((prev) => ({
+          ...prev,
+          [updatedTable.id]: trimmedZoneId,
+        }));
 
         push({
           title: editingTable ? "Table updated" : "Table added",
@@ -312,10 +360,17 @@ export function TablesManager({
             </h2>
             <TokenChip tone="muted">{tables.length} registered</TokenChip>
           </div>
-          <Button variant="secondary" size="sm" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" />
-            Add table
-          </Button>
+          <div className="flex items-center gap-2">
+            {onManageZones && (
+              <Button variant="secondary" size="sm" onClick={onManageZones}>
+                Manage zones
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={handleOpenCreateDialog}>
+              <Plus className="h-4 w-4" />
+              Add table
+            </Button>
+          </div>
         </div>
 
         {/* Search bar */}
@@ -386,7 +441,7 @@ export function TablesManager({
                   Add your first table to start building your venue inventory.
                 </p>
               </div>
-              <Button variant="secondary" size="sm" onClick={openCreateDialog}>
+              <Button variant="secondary" size="sm" onClick={handleOpenCreateDialog}>
                 <Plus className="h-4 w-4" />
                 Register first table
               </Button>
@@ -534,10 +589,17 @@ export function TablesManager({
                               <button
                                 type="button"
                                 onClick={() => {
+                                  const layout = getLayoutInfo(table.id);
+                                  const fallbackZoneId =
+                                    localZoneOverrides[table.id] ??
+                                    layout?.zone_id ??
+                                    zones[0]?.id ??
+                                    "";
                                   setEditingTable(table);
                                   setTableLabel(table.label);
                                   setCapacity(table.capacity?.toString() ?? "");
                                   setDescription(table.description ?? "");
+                                  setSelectedZoneId(fallbackZoneId);
                                   setIsDialogOpen(true);
                                 }}
                                 disabled={isPending}
@@ -609,6 +671,32 @@ export function TablesManager({
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs uppercase tracking-rulebook text-ink-secondary">
+                    Zone
+                  </label>
+                  <select
+                    value={selectedZoneId}
+                    onChange={(e) => setSelectedZoneId(e.target.value)}
+                    disabled={isPending || !hasZones}
+                    className="w-full rounded-lg border border-[color:var(--color-structure)] bg-[color:var(--color-surface)] px-3 py-2 text-sm shadow-card focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+                    required
+                  >
+                    <option value="" disabled>
+                      Select a zone
+                    </option>
+                    {zones.map((zone) => (
+                      <option key={zone.id} value={zone.id}>
+                        {zone.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!hasZones && (
+                    <p className="text-xs text-ink-secondary">
+                      Create a zone before adding tables.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs uppercase tracking-rulebook text-ink-secondary">
                     Capacity
                   </label>
                   <Input
@@ -641,7 +729,10 @@ export function TablesManager({
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isPending || !tableLabel.trim()}>
+                  <Button
+                    type="submit"
+                    disabled={isPending || !tableLabel.trim() || !selectedZoneId || !hasZones}
+                  >
                     {editingTable ? "Save changes" : "Save table"}
                   </Button>
                 </div>
