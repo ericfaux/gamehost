@@ -27,6 +27,8 @@ interface TablesManagerProps {
   selectedTableId?: string | null;
   /** Optional: Callback when a table is selected */
   onSelectTable?: (tableId: string | null) => void;
+  /** Optional: Callback to open zone manager */
+  onManageZones?: () => void;
 }
 
 export function TablesManager({
@@ -38,6 +40,7 @@ export function TablesManager({
   zones = [],
   selectedTableId,
   onSelectTable,
+  onManageZones,
 }: TablesManagerProps) {
   const { push } = useToast();
   const [tables, setTables] = useState<VenueTable[]>(initialTables);
@@ -312,10 +315,17 @@ export function TablesManager({
             </h2>
             <TokenChip tone="muted">{tables.length} registered</TokenChip>
           </div>
-          <Button variant="secondary" size="sm" onClick={openCreateDialog}>
-            <Plus className="h-4 w-4" />
-            Add table
-          </Button>
+          <div className="flex items-center gap-2">
+            {onManageZones && (
+              <Button variant="secondary" size="sm" onClick={onManageZones}>
+                Manage zones
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={openCreateDialog}>
+              <Plus className="h-4 w-4" />
+              Add table
+            </Button>
+          </div>
         </div>
 
         {/* Search bar */}

@@ -530,30 +530,39 @@ export function FloorPlanPageClient({
     return (
       <>
         {/* Tab navigation - still show it so they can switch */}
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-structure bg-elevated p-1 w-fit">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-structure bg-elevated p-1 w-fit">
+            <button
+              type="button"
+              onClick={() => setView('map')}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                view === 'map'
+                  ? 'bg-surface shadow-card text-ink-primary'
+                  : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
+              }`}
+            >
+              <MapIcon className="h-4 w-4" />
+              Visual Map
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('list')}
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                view === 'list'
+                  ? 'bg-surface shadow-card text-ink-primary'
+                  : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
+              }`}
+            >
+              <List className="h-4 w-4" />
+              Table List
+            </button>
+          </div>
           <button
             type="button"
-            onClick={() => setView('map')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              view === 'map'
-                ? 'bg-surface shadow-card text-ink-primary'
-                : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
-            }`}
+            onClick={() => setShowZoneManager(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-structure bg-surface px-3 py-2 text-sm font-medium text-ink-primary shadow-card transition-colors hover:bg-muted/60"
           >
-            <MapIcon className="h-4 w-4" />
-            Visual Map
-          </button>
-          <button
-            type="button"
-            onClick={() => setView('list')}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              view === 'list'
-                ? 'bg-surface shadow-card text-ink-primary'
-                : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
-            }`}
-          >
-            <List className="h-4 w-4" />
-            Table List
+            Manage zones
           </button>
         </div>
 
@@ -598,6 +607,7 @@ export function FloorPlanPageClient({
               zones={initialZones}
               selectedTableId={selectedTableId}
               onSelectTable={handleListTableSelect}
+              onManageZones={() => setShowZoneManager(true)}
             />
           )}
         </div>
@@ -609,32 +619,41 @@ export function FloorPlanPageClient({
   return (
     <>
       {/* Tab navigation */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-structure bg-elevated p-1 w-fit">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-structure bg-elevated p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => setView('map')}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              view === 'map'
+                ? 'bg-surface shadow-card text-ink-primary'
+                : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
+            }`}
+            aria-pressed={view === 'map'}
+          >
+            <MapIcon className="h-4 w-4" />
+            Visual Map
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              view === 'list'
+                ? 'bg-surface shadow-card text-ink-primary'
+                : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
+            }`}
+            aria-pressed={view === 'list'}
+          >
+            <List className="h-4 w-4" />
+            Table List
+          </button>
+        </div>
         <button
           type="button"
-          onClick={() => setView('map')}
-          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            view === 'map'
-              ? 'bg-surface shadow-card text-ink-primary'
-              : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
-          }`}
-          aria-pressed={view === 'map'}
+          onClick={() => setShowZoneManager(true)}
+          className="inline-flex items-center gap-2 rounded-lg border border-structure bg-surface px-3 py-2 text-sm font-medium text-ink-primary shadow-card transition-colors hover:bg-muted/60"
         >
-          <MapIcon className="h-4 w-4" />
-          Visual Map
-        </button>
-        <button
-          type="button"
-          onClick={() => setView('list')}
-          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-            view === 'list'
-              ? 'bg-surface shadow-card text-ink-primary'
-              : 'text-ink-secondary hover:text-ink-primary hover:bg-muted/60'
-          }`}
-          aria-pressed={view === 'list'}
-        >
-          <List className="h-4 w-4" />
-          Table List
+          Manage zones
         </button>
       </div>
 
@@ -759,6 +778,7 @@ export function FloorPlanPageClient({
             zones={zones}
             selectedTableId={selectedTableId}
             onSelectTable={handleListTableSelect}
+            onManageZones={() => setShowZoneManager(true)}
           />
         )}
       </div>
