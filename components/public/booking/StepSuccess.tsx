@@ -12,10 +12,14 @@ import {
   Phone,
 } from '@/components/icons';
 import type { Booking } from '@/lib/db/types';
+import { AddToCalendar } from './AddToCalendar';
 
 interface StepSuccessProps {
   booking: Booking;
   venueName: string;
+  venueAddress?: string | null;
+  venueTimezone?: string | null;
+  reservedGame?: string | null;
 }
 
 // Format time for display (12-hour format)
@@ -37,7 +41,13 @@ function formatDateDisplay(dateStr: string): string {
   });
 }
 
-export function StepSuccess({ booking, venueName }: StepSuccessProps) {
+export function StepSuccess({
+  booking,
+  venueName,
+  venueAddress,
+  venueTimezone,
+  reservedGame,
+}: StepSuccessProps) {
   const [copied, setCopied] = useState(false);
 
   // Copy confirmation code to clipboard
@@ -54,9 +64,9 @@ export function StepSuccess({ booking, venueName }: StepSuccessProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-card border border-[color:var(--color-structure)] overflow-hidden">
+    <div className="bg-white rounded-xl shadow-card border border-[color:var(--color-structure)] overflow-visible">
       {/* Success Header */}
-      <div className="px-6 py-8 bg-gradient-to-br from-teal-500 to-teal-600 text-white text-center">
+      <div className="px-6 py-8 bg-gradient-to-br from-teal-500 to-teal-600 text-white text-center rounded-t-xl">
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
           <CheckCircle className="w-10 h-10" />
         </div>
@@ -149,8 +159,18 @@ export function StepSuccess({ booking, venueName }: StepSuccessProps) {
         </div>
       </div>
 
+      <div className="px-6 pb-6">
+        <AddToCalendar
+          booking={booking}
+          venueName={venueName}
+          venueAddress={venueAddress}
+          venueTimezone={venueTimezone}
+          reservedGame={reservedGame}
+        />
+      </div>
+
       {/* Footer */}
-      <div className="px-6 py-4 bg-[color:var(--color-muted)] border-t border-[color:var(--color-structure)]">
+      <div className="px-6 py-4 bg-[color:var(--color-muted)] border-t border-[color:var(--color-structure)] rounded-b-xl">
         <p className="text-xs text-[color:var(--color-ink-secondary)] text-center">
           Need to modify or cancel? Contact us with your confirmation code.
         </p>

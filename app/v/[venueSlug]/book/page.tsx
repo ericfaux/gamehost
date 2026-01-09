@@ -78,6 +78,8 @@ export default async function BookingPage({ params }: PageProps) {
               venueName={venue.name}
               venueSlug={venue.slug}
               settings={settings}
+              venueAddress={venue.address}
+              venueTimezone={venue.timezone}
             />
           </Suspense>
         </BookingErrorBoundary>
