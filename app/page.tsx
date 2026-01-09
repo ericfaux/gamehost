@@ -6,15 +6,15 @@ import { useState } from "react";
 const simulatorSteps = [
   {
     title: "Scan Table QR",
-    description: "Guest scans 'Scan to Play.' Table auto-associates; the host stand sees live availability.",
+    description: "No app download, no login. Guest scans and your host stand sees the table go live — one less thing for staff to track.",
   },
   {
     title: "Pick in 2 Minutes",
-    description: "Quick wizard narrows your café's library to 3–5 perfect matches (players, time, vibe).",
+    description: "BGG-powered wizard matches players to games fast. Less shelf-staring = more time (and rounds) at the table.",
   },
   {
     title: "Session & Feedback",
-    description: "Session starts with a timer and condition logging. At end, a 10-second feedback prompt feeds your library insights.",
+    description: "Timer runs, condition gets logged, and a quick prompt catches issues before they hit your reviews.",
   },
 ];
 
@@ -59,7 +59,7 @@ export default function LandingPage() {
               Booked. Picked. Played.
             </h1>
             <p className="text-lg md:text-xl text-ink-secondary max-w-2xl leading-relaxed">
-              Bookings + fast QR discovery + data-driven library management that gets guests playing sooner and coming back more often.
+              More revenue per table. Less staff running around. Guests who come back. GameLedger makes it happen with bookings, QR game discovery, and real-time library insights.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
               <Link
@@ -76,7 +76,7 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="text-sm text-ink-secondary max-w-2xl leading-relaxed">
-              GameLedger connects online reservations with a zero-login at-table QR flow so guests find the right game in under two minutes. Faster starts, fewer staff interrupts, and built-in feedback = better reviews and return customers.
+              Cafés using GameLedger see 15% higher F&B spend and 18% more return bookings. The secret? Guests pick games in 2 minutes (not 20), staff stay on the floor instead of explaining rules, and every session feeds your library intelligence.
             </p>
           </div>
 
@@ -176,7 +176,7 @@ export default function LandingPage() {
           <div className="space-y-4">
             <h2 className="text-3xl font-serif text-ink-primary">Friday Night? Smooth.</h2>
             <p className="text-lg text-ink-secondary leading-relaxed">
-              When the room fills, choice paralysis and staff interruptions cost revenue and hospitality. GameLedger choreographs the night: bookings pace the room, QR picks the game, and the dashboard closes the loop.
+              Every minute a guest spends staring at shelves is a minute they&apos;re not ordering another round. Every staff interrupt is hospitality you&apos;re not delivering elsewhere. GameLedger turns chaos into revenue.
             </p>
             <ul className="space-y-3 text-ink-primary font-medium">
               <li className="flex items-start gap-2">
@@ -221,9 +221,9 @@ export default function LandingPage() {
         </div>
         <div className="grid md:grid-cols-[0.95fr_1.05fr] gap-12 items-start">
           <div className="space-y-4">
-            <h2 className="text-3xl font-serif text-ink-primary">Host Dashboard & Bookings</h2>
+            <h2 className="text-3xl font-serif text-ink-primary">Run a Tighter Ship</h2>
             <p className="text-lg text-ink-secondary leading-relaxed">
-              One place to run the floor: live table availability, bookings and pacing, inventory condition, and guest feedback — all tied to real sessions.
+              No more double-bookings. No more guessing which games need repair. The Host Dashboard gives you real-time control so you spend less time firefighting and more time delighting guests.
             </p>
             <p className="text-sm font-mono text-ink-secondary">Mode: Floor Ops · Last Sync: 00:11</p>
           </div>
