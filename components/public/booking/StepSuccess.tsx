@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   CheckCircle,
   Calendar,
@@ -10,12 +11,67 @@ import {
   Check,
   Mail,
   Phone,
+  MapPin,
+  ExternalLink,
 } from '@/components/icons';
-import type { Booking } from '@/lib/db/types';
+import type { Booking, VenueBookingSettings } from '@/lib/db/types';
 
 interface StepSuccessProps {
   booking: Booking;
   venueName: string;
+  venueSlug: string;
+  settings: VenueBookingSettings;
+}
+
+// Build Google Maps directions URL from address components
+function buildDirectionsUrl(settings: VenueBookingSettings, venueName: string): string | null {
+  const parts: string[] = [];
+
+  if (settings.venue_address_street) parts.push(settings.venue_address_street);
+  if (settings.venue_address_city) parts.push(settings.venue_address_city);
+  if (settings.venue_address_state) parts.push(settings.venue_address_state);
+  if (settings.venue_address_postal_code) parts.push(settings.venue_address_postal_code);
+
+  if (parts.length === 0) return null;
+
+  // Include venue name for better search accuracy
+  const query = `${venueName}, ${parts.join(', ')}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+// Format address for display
+function formatAddress(settings: VenueBookingSettings): string[] {
+  const lines: string[] = [];
+
+  if (settings.venue_address_street) {
+    lines.push(settings.venue_address_street);
+  }
+
+  const cityLine: string[] = [];
+  if (settings.venue_address_city) cityLine.push(settings.venue_address_city);
+  if (settings.venue_address_state) cityLine.push(settings.venue_address_state);
+  if (settings.venue_address_postal_code) cityLine.push(settings.venue_address_postal_code);
+
+  if (cityLine.length > 0) {
+    // Format as "City, State Postal" or variations
+    if (settings.venue_address_city && settings.venue_address_state) {
+      lines.push(`${settings.venue_address_city}, ${settings.venue_address_state} ${settings.venue_address_postal_code || ''}`.trim());
+    } else {
+      lines.push(cityLine.join(' '));
+    }
+  }
+
+  return lines;
+}
+
+// Check if venue has any address info
+function hasAddress(settings: VenueBookingSettings): boolean {
+  return !!(
+    settings.venue_address_street ||
+    settings.venue_address_city ||
+    settings.venue_address_state ||
+    settings.venue_address_postal_code
+  );
 }
 
 // Format time for display (12-hour format)
@@ -37,8 +93,12 @@ function formatDateDisplay(dateStr: string): string {
   });
 }
 
-export function StepSuccess({ booking, venueName }: StepSuccessProps) {
+export function StepSuccess({ booking, venueName, venueSlug, settings }: StepSuccessProps) {
   const [copied, setCopied] = useState(false);
+
+  const directionsUrl = buildDirectionsUrl(settings, venueName);
+  const addressLines = formatAddress(settings);
+  const showAddress = hasAddress(settings);
 
   // Copy confirmation code to clipboard
   const handleCopy = async () => {
@@ -127,6 +187,35 @@ export function StepSuccess({ booking, venueName }: StepSuccessProps) {
           </div>
         </div>
 
+        {/* Location */}
+        {showAddress && (
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <MapPin className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-[color:var(--color-ink-secondary)]">Location</p>
+              <p className="font-medium text-[color:var(--color-ink-primary)]">{venueName}</p>
+              {addressLines.map((line, i) => (
+                <p key={i} className="text-sm text-[color:var(--color-ink-secondary)]">
+                  {line}
+                </p>
+              ))}
+              {directionsUrl && (
+                <a
+                  href={directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-2 text-sm font-medium text-teal-600 hover:text-teal-700 transition-colors"
+                >
+                  Get Directions
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Confirmation Sent */}
         <div className="mt-6 pt-4 border-t border-[color:var(--color-structure)]">
           <p className="text-sm text-[color:var(--color-ink-secondary)] text-center">
@@ -149,11 +238,19 @@ export function StepSuccess({ booking, venueName }: StepSuccessProps) {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer - Manage Reservation */}
       <div className="px-6 py-4 bg-[color:var(--color-muted)] border-t border-[color:var(--color-structure)]">
-        <p className="text-xs text-[color:var(--color-ink-secondary)] text-center">
-          Need to modify or cancel? Contact us with your confirmation code.
+        <p className="text-sm text-[color:var(--color-ink-secondary)] text-center mb-3">
+          Need to modify or cancel your reservation?
         </p>
+        <div className="flex justify-center">
+          <Link
+            href={`/v/${venueSlug}/book/manage/${booking.id}${booking.guest_email ? `?email=${encodeURIComponent(booking.guest_email)}` : ''}`}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-teal-600 bg-white border border-teal-200 rounded-lg hover:bg-teal-50 hover:border-teal-300 transition-colors"
+          >
+            Manage Reservation
+          </Link>
+        </div>
       </div>
     </div>
   );

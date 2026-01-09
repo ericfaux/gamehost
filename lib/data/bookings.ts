@@ -405,6 +405,12 @@ export const BOOKING_SETTINGS_DEFAULTS: Omit<VenueBookingSettings, 'id' | 'venue
   send_reminder_sms: false,
   reminder_hours_before: 2,
   booking_page_message: null,
+  // Venue address fields for display on booking confirmations
+  venue_address_street: null,
+  venue_address_city: null,
+  venue_address_state: null,
+  venue_address_postal_code: null,
+  venue_address_country: null,
 };
 
 /**

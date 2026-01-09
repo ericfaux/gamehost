@@ -44,6 +44,12 @@ export function BookingSettingsForm({ venueId, initialSettings }: BookingSetting
         send_reminder_sms: settings.send_reminder_sms,
         reminder_hours_before: settings.reminder_hours_before,
         booking_page_message: settings.booking_page_message,
+        // Venue address fields
+        venue_address_street: settings.venue_address_street,
+        venue_address_city: settings.venue_address_city,
+        venue_address_state: settings.venue_address_state,
+        venue_address_postal_code: settings.venue_address_postal_code,
+        venue_address_country: settings.venue_address_country,
       });
 
       if (result.success) {
@@ -62,6 +68,7 @@ export function BookingSettingsForm({ venueId, initialSettings }: BookingSetting
   // Common styles
   const labelClass = "text-xs uppercase tracking-rulebook text-ink-secondary block mb-1";
   const selectClass = "w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm shadow-card focus-ring";
+  const inputClass = "w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm shadow-card focus-ring placeholder:text-[color:var(--color-ink-secondary)]";
   const textareaClass = "w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm shadow-card focus-ring placeholder:text-[color:var(--color-ink-secondary)] resize-none";
   const helpTextClass = "text-xs text-ink-secondary mt-1";
 
@@ -312,6 +319,78 @@ export function BookingSettingsForm({ venueId, initialSettings }: BookingSetting
             <p className={helpTextClass}>
               Leave empty to use no custom message.
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Venue Location */}
+      <Card className="panel-surface">
+        <CardHeader>
+          <CardTitle>Venue Location</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-ink-secondary -mt-2 mb-4">
+            Your venue address is displayed on booking confirmations with a &quot;Get Directions&quot; link.
+          </p>
+
+          <div>
+            <label className={labelClass}>Street Address</label>
+            <input
+              type="text"
+              className={inputClass}
+              value={settings.venue_address_street ?? ''}
+              onChange={(e) => updateField('venue_address_street', e.target.value || null)}
+              placeholder="123 Main Street"
+            />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>City</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={settings.venue_address_city ?? ''}
+                onChange={(e) => updateField('venue_address_city', e.target.value || null)}
+                placeholder="Philadelphia"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>State / Province</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={settings.venue_address_state ?? ''}
+                onChange={(e) => updateField('venue_address_state', e.target.value || null)}
+                placeholder="PA"
+              />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Postal Code</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={settings.venue_address_postal_code ?? ''}
+                onChange={(e) => updateField('venue_address_postal_code', e.target.value || null)}
+                placeholder="19103"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Country</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={settings.venue_address_country ?? ''}
+                onChange={(e) => updateField('venue_address_country', e.target.value || null)}
+                placeholder="US"
+              />
+              <p className={helpTextClass}>Optional. Defaults to US if left empty.</p>
+            </div>
           </div>
         </CardContent>
       </Card>

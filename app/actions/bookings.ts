@@ -1972,6 +1972,12 @@ export interface UpdateVenueBookingSettingsParams {
   send_reminder_sms?: boolean;
   reminder_hours_before?: number;
   booking_page_message?: string | null;
+  // Venue address fields
+  venue_address_street?: string | null;
+  venue_address_city?: string | null;
+  venue_address_state?: string | null;
+  venue_address_postal_code?: string | null;
+  venue_address_country?: string | null;
 }
 
 /**
@@ -2403,5 +2409,137 @@ export async function checkBookingsOutsideHoursAction(
   return {
     success: true,
     data: conflicts,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Reservation Lookup (Self-Service)
+// -----------------------------------------------------------------------------
+
+/**
+ * Parameters for looking up a reservation.
+ */
+export interface LookupReservationParams {
+  venueId: string;
+  confirmationCode: string;
+  email: string;
+}
+
+/**
+ * Result type for reservation lookup.
+ */
+export interface LookupReservationResult {
+  bookingId: string;
+}
+
+// Simple in-memory rate limiting for lookup attempts
+// In production, this should use Redis or similar
+const lookupAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_LOOKUP_ATTEMPTS = 5;
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Checks and updates rate limit for lookup attempts.
+ * Returns true if the request should be rate limited.
+ */
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const record = lookupAttempts.get(key);
+
+  if (!record || now > record.resetAt) {
+    // No record or expired - create new window
+    lookupAttempts.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  if (record.count >= MAX_LOOKUP_ATTEMPTS) {
+    return true;
+  }
+
+  // Increment count
+  record.count++;
+  return false;
+}
+
+/**
+ * Looks up a reservation by confirmation code and email.
+ * Used for self-service reservation management.
+ *
+ * Security measures:
+ * - Rate limiting: Max 5 attempts per email per 15 minutes
+ * - Generic error messages to prevent enumeration
+ * - Case-insensitive email comparison
+ *
+ * @param params - Lookup parameters (venueId, confirmationCode, email)
+ * @returns ActionResult with booking ID or error
+ */
+export async function lookupReservation(
+  params: LookupReservationParams
+): Promise<ActionResult<LookupReservationResult>> {
+  const { venueId, confirmationCode, email } = params;
+
+  // --- Step 1: Validate inputs ---
+  if (!confirmationCode?.trim()) {
+    return {
+      success: false,
+      error: 'Please enter your confirmation code.',
+      code: 'VALIDATION',
+    };
+  }
+
+  if (!email?.trim()) {
+    return {
+      success: false,
+      error: 'Please enter your email address.',
+      code: 'VALIDATION',
+    };
+  }
+
+  // --- Step 2: Check rate limit ---
+  const rateLimitKey = `${venueId}:${email.toLowerCase().trim()}`;
+  if (isRateLimited(rateLimitKey)) {
+    return {
+      success: false,
+      error: 'Too many lookup attempts. Please try again in 15 minutes.',
+      code: 'VALIDATION',
+    };
+  }
+
+  // --- Step 3: Look up the booking ---
+  const supabase = getSupabaseAdmin();
+
+  const { data: booking, error: lookupError } = await supabase
+    .from('bookings')
+    .select('id, guest_email')
+    .eq('venue_id', venueId)
+    .eq('confirmation_code', confirmationCode.trim().toUpperCase())
+    .single();
+
+  if (lookupError || !booking) {
+    // Generic error message to prevent enumeration
+    return {
+      success: false,
+      error: 'Reservation not found. Please check your confirmation code and email address.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // --- Step 4: Verify email matches ---
+  // Case-insensitive comparison
+  if (!booking.guest_email || booking.guest_email.toLowerCase() !== email.toLowerCase().trim()) {
+    // Same generic error message to prevent enumeration
+    return {
+      success: false,
+      error: 'Reservation not found. Please check your confirmation code and email address.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  // --- Success ---
+  return {
+    success: true,
+    data: {
+      bookingId: booking.id,
+    },
   };
 }
