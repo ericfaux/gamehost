@@ -9,10 +9,10 @@ import { BookingDetailDrawer } from './BookingDetailDrawer';
 import { CreateBookingModal } from './CreateBookingModal';
 import { BookingsList } from './BookingsList';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Users, Check, UserCheck, Copy, ExternalLink, Settings } from '@/components/icons';
+import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Check, Copy, ExternalLink, Settings } from '@/components/icons';
 import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
 import { cn } from '@/lib/utils';
-import type { TimelineBlock, BookingWithDetails, BookingStatus, VenueTable } from '@/lib/db/types';
+import type { TimelineBlock, BookingWithDetails, VenueTable } from '@/lib/db/types';
 import type { TimelineViewMode } from '@/lib/data/timeline';
 
 // =============================================================================
@@ -24,174 +24,6 @@ interface BookingsPageClientProps {
   venueName: string;
   venueSlug: string;
   venueTables: VenueTable[];
-}
-
-interface ArrivalsEntry {
-  id: string;
-  guest_name: string;
-  party_size: number;
-  start_time: string;
-  status: BookingStatus;
-  table_label: string;
-  arrived_at?: string | null;
-}
-
-// =============================================================================
-// ArrivalsBoard Component
-// =============================================================================
-
-interface ArrivalsBoardProps {
-  venueId: string;
-  onSeatParty: (bookingId: string) => Promise<void>;
-}
-
-function ArrivalsBoard({ venueId, onSeatParty }: ArrivalsBoardProps) {
-  const [arrivals, setArrivals] = useState<ArrivalsEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [seatingId, setSeatingId] = useState<string | null>(null);
-
-  // Fetch upcoming arrivals
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchArrivals() {
-      try {
-        const response = await fetch(`/api/venues/${venueId}/arrivals`);
-        if (!response.ok) throw new Error('Failed to fetch arrivals');
-        const data = await response.json();
-        if (!cancelled) {
-          setArrivals(data || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch arrivals:', error);
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchArrivals();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchArrivals, 30000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [venueId]);
-
-  const handleSeat = async (bookingId: string) => {
-    setSeatingId(bookingId);
-    try {
-      await onSeatParty(bookingId);
-      // Remove from local list
-      setArrivals((prev) => prev.filter((a) => a.id !== bookingId));
-    } finally {
-      setSeatingId(null);
-    }
-  };
-
-  const formatTime = (time: string) => {
-    // Handle HH:MM:SS or HH:MM format
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'pm' : 'am';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes}${ampm}`;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-4">
-        <h3 className="font-serif font-semibold text-stone-900 mb-4">Arrivals</h3>
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse">
-              <div className="h-20 bg-stone-200 rounded-lg" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  const upcomingArrivals = arrivals.filter(
-    (a) => a.status === 'confirmed' || a.status === 'arrived'
-  );
-
-  return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-serif font-semibold text-stone-900">Arrivals</h3>
-        <span className="text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded-full">
-          {upcomingArrivals.length} upcoming
-        </span>
-      </div>
-
-      {upcomingArrivals.length === 0 ? (
-        <div className="text-center py-8">
-          <Users className="w-10 h-10 mx-auto text-stone-300 mb-2" />
-          <p className="text-sm text-stone-500">No upcoming arrivals</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {upcomingArrivals.map((arrival) => (
-            <div
-              key={arrival.id}
-              className={cn(
-                'bg-white rounded-lg border p-3 transition-colors',
-                arrival.status === 'arrived'
-                  ? 'border-teal-200 bg-teal-50/50'
-                  : 'border-stone-200'
-              )}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="font-medium text-stone-900 text-sm">
-                    {arrival.guest_name}
-                  </p>
-                  <p className="text-xs text-stone-500">
-                    {arrival.table_label} &middot; {arrival.party_size} guests
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-mono text-stone-700">
-                    {formatTime(arrival.start_time)}
-                  </p>
-                  {arrival.status === 'arrived' && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded">
-                      <Check className="w-3 h-3" />
-                      Arrived
-                    </span>
-                  )}
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant={arrival.status === 'arrived' ? 'primary' : 'secondary'}
-                className="w-full"
-                onClick={() => handleSeat(arrival.id)}
-                disabled={seatingId === arrival.id}
-              >
-                {seatingId === arrival.id ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    Seating...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    <UserCheck className="w-3.5 h-3.5" />
-                    Seat Party
-                  </span>
-                )}
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 // =============================================================================
@@ -300,14 +132,6 @@ export function BookingsPageClient({
       }
       refresh();
       setSelectedBookingId(null);
-    },
-    [refresh]
-  );
-
-  const handleSeatParty = useCallback(
-    async (bookingId: string) => {
-      await seatParty(bookingId);
-      refresh();
     },
     [refresh]
   );
@@ -443,38 +267,26 @@ export function BookingsPageClient({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Timeline / List View */}
-        <div className="flex-1 overflow-hidden">
-          {viewMode === 'timeline' ? (
-            <Calendar
-              key={refreshKey}
-              venueId={venueId}
-              initialDate={selectedDate}
-              onDateChange={setSelectedDate}
-              onBlockClick={handleBlockClick}
-              viewMode={timelineViewMode}
-              onViewModeChange={setTimelineViewMode}
-            />
-          ) : (
-            <BookingsList
-              key={refreshKey}
-              venueId={venueId}
-              venueTables={venueTables}
-              onBookingClick={handleBookingClick}
-              onAction={handleBlockAction}
-            />
-          )}
-        </div>
-
-        {/* Arrivals Sidebar (on larger screens) */}
-        <div className="hidden xl:block w-80 border-l bg-stone-50 overflow-y-auto">
-          <ArrivalsBoard
-            key={`arrivals-${refreshKey}`}
+      <div className="flex-1 overflow-hidden">
+        {viewMode === 'timeline' ? (
+          <Calendar
+            key={refreshKey}
             venueId={venueId}
-            onSeatParty={handleSeatParty}
+            initialDate={selectedDate}
+            onDateChange={setSelectedDate}
+            onBlockClick={handleBlockClick}
+            viewMode={timelineViewMode}
+            onViewModeChange={setTimelineViewMode}
           />
-        </div>
+        ) : (
+          <BookingsList
+            key={refreshKey}
+            venueId={venueId}
+            venueTables={venueTables}
+            onBookingClick={handleBookingClick}
+            onAction={handleBlockAction}
+          />
+        )}
       </div>
 
       {/* Modals & Drawers */}
