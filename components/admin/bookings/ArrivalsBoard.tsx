@@ -37,8 +37,10 @@ export function ArrivalsBoard({
 
   const loadArrivals = useCallback(async () => {
     try {
+      // Get the browser's timezone to ensure correct local time filtering
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const response = await fetch(
-        `/api/venues/${venueId}/arrivals?minutesAhead=${minutesAhead}`
+        `/api/venues/${venueId}/arrivals?minutesAhead=${minutesAhead}&tz=${encodeURIComponent(timezone)}`
       );
       if (response.ok) {
         const data = await response.json();
