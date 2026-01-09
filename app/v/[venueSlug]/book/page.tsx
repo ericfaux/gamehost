@@ -55,11 +55,21 @@ export default async function BookingPage({ params }: PageProps) {
       <header className="bg-white border-b border-[color:var(--color-structure)]">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
-            {/* Venue Initial */}
-            <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
-              <span className="text-teal-700 font-bold text-lg" aria-hidden="true">
-                {venue.name.charAt(0)}
-              </span>
+            {/* Venue Logo or GameHost fallback */}
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+              {venue.logo_url ? (
+                <img
+                  src={venue.logo_url}
+                  alt={`${venue.name} logo`}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <img
+                  src="/gamehost-logo.svg"
+                  alt="GameHost logo"
+                  className="w-full h-full object-contain"
+                />
+              )}
             </div>
             <div>
               <h1 className="text-xl font-serif font-bold text-stone-900">{venue.name}</h1>
