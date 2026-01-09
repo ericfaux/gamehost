@@ -8,12 +8,11 @@ import { Calendar } from './calendar';
 import { BookingDetailDrawer } from './BookingDetailDrawer';
 import { CreateBookingModal } from './CreateBookingModal';
 import { BookingsList } from './BookingsList';
-import { BookingSettingsPageClient } from './BookingSettingsPageClient';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Clock, Users, Check, UserCheck, Copy, ExternalLink } from '@/components/icons';
+import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Users, Check, UserCheck, Copy, ExternalLink, Settings } from '@/components/icons';
 import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
 import { cn } from '@/lib/utils';
-import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingStatus, VenueTable, VenueOperatingHours } from '@/lib/db/types';
+import type { TimelineBlock, BookingWithDetails, BookingStatus, VenueTable } from '@/lib/db/types';
 import type { TimelineViewMode } from '@/lib/data/timeline';
 
 // =============================================================================
@@ -24,9 +23,7 @@ interface BookingsPageClientProps {
   venueId: string;
   venueName: string;
   venueSlug: string;
-  settings: VenueBookingSettings;
   venueTables: VenueTable[];
-  operatingHours: VenueOperatingHours[];
 }
 
 interface ArrivalsEntry {
@@ -201,7 +198,7 @@ function ArrivalsBoard({ venueId, onSeatParty }: ArrivalsBoardProps) {
 // BookingsDisabledState Component
 // =============================================================================
 
-function BookingsDisabledState({ venueId }: { venueId: string }) {
+function BookingsDisabledState() {
   return (
     <div className="max-w-md mx-auto text-center py-12">
       <CalendarIcon className="w-12 h-12 mx-auto text-stone-300 mb-4" />
@@ -209,7 +206,7 @@ function BookingsDisabledState({ venueId }: { venueId: string }) {
       <p className="text-stone-500 mb-6">
         Enable the booking system to start accepting reservations.
       </p>
-      <Link href="/admin/settings">
+      <Link href="/admin/settings?section=bookings">
         <Button>Enable Bookings</Button>
       </Link>
     </div>
@@ -224,9 +221,7 @@ export function BookingsPageClient({
   venueId,
   venueName,
   venueSlug,
-  settings,
   venueTables,
-  operatingHours,
 }: BookingsPageClientProps) {
   const searchParams = useSearchParams();
   const currentView = searchParams.get('view') ?? 'calendar';
@@ -321,15 +316,12 @@ export function BookingsPageClient({
     setSelectedBookingId(booking.id);
   }, []);
 
-  // If viewing settings, render the settings page
+  // If viewing settings, redirect to unified settings page
   if (currentView === 'settings') {
-    return (
-      <BookingSettingsPageClient
-        venueId={venueId}
-        settings={settings}
-        operatingHours={operatingHours}
-      />
-    );
+    if (typeof window !== 'undefined') {
+      window.location.href = '/admin/settings?section=bookings';
+    }
+    return null;
   }
 
   // Note: If settings exist, bookings are enabled
@@ -343,7 +335,17 @@ export function BookingsPageClient({
           <h1 className="text-xl font-serif font-semibold text-stone-900">
             Bookings
           </h1>
-          <p className="text-sm text-stone-500">{venueName}</p>
+          <div className="flex items-center gap-2 text-sm text-stone-500">
+            <span>{venueName}</span>
+            <span className="text-stone-300">|</span>
+            <Link
+              href="/admin/settings?section=bookings"
+              className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-700 hover:underline"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Configure booking rules
+            </Link>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
