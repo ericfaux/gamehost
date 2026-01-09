@@ -64,9 +64,9 @@ export function StepSuccess({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-card border border-[color:var(--color-structure)] overflow-hidden">
+    <div className="bg-white rounded-xl shadow-card border border-[color:var(--color-structure)] overflow-visible">
       {/* Success Header */}
-      <div className="px-6 py-8 bg-gradient-to-br from-teal-500 to-teal-600 text-white text-center">
+      <div className="px-6 py-8 bg-gradient-to-br from-teal-500 to-teal-600 text-white text-center rounded-t-xl">
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center">
           <CheckCircle className="w-10 h-10" />
         </div>
@@ -170,7 +170,7 @@ export function StepSuccess({
       </div>
 
       {/* Footer */}
-      <div className="px-6 py-4 bg-[color:var(--color-muted)] border-t border-[color:var(--color-structure)]">
+      <div className="px-6 py-4 bg-[color:var(--color-muted)] border-t border-[color:var(--color-structure)] rounded-b-xl">
         <p className="text-xs text-[color:var(--color-ink-secondary)] text-center">
           Need to modify or cancel? Contact us with your confirmation code.
         </p>
