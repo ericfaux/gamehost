@@ -198,6 +198,27 @@ export function TablesManager({
     setIsDialogOpen(true);
   };
 
+  useEffect(() => {
+    if (!isDialogOpen || !hasZones) return;
+    const zoneStillValid = zones.some((zone) => zone.id === selectedZoneId);
+    if (!zoneStillValid) {
+      setSelectedZoneId(zones[0]?.id ?? "");
+    }
+  }, [hasZones, isDialogOpen, selectedZoneId, zones]);
+
+  const handleOpenCreateDialog = () => {
+    if (!hasZones) {
+      push({
+        title: "Create a zone first",
+        description: "Assign tables to a zone before adding them.",
+        tone: "neutral",
+      });
+      onManageZones?.();
+      return;
+    }
+    openCreateDialog();
+  };
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -345,7 +366,7 @@ export function TablesManager({
                 Manage zones
               </Button>
             )}
-            <Button variant="secondary" size="sm" onClick={openCreateDialog}>
+            <Button variant="secondary" size="sm" onClick={handleOpenCreateDialog}>
               <Plus className="h-4 w-4" />
               Add table
             </Button>
@@ -420,7 +441,7 @@ export function TablesManager({
                   Add your first table to start building your venue inventory.
                 </p>
               </div>
-              <Button variant="secondary" size="sm" onClick={openCreateDialog}>
+              <Button variant="secondary" size="sm" onClick={handleOpenCreateDialog}>
                 <Plus className="h-4 w-4" />
                 Register first table
               </Button>
