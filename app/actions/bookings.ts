@@ -1972,6 +1972,12 @@ export interface UpdateVenueBookingSettingsParams {
   send_reminder_sms?: boolean;
   reminder_hours_before?: number;
   booking_page_message?: string | null;
+  // Venue address fields
+  venue_address_street?: string | null;
+  venue_address_city?: string | null;
+  venue_address_state?: string | null;
+  venue_address_postal_code?: string | null;
+  venue_address_country?: string | null;
 }
 
 /**
