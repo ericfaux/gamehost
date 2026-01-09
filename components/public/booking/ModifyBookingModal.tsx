@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectItem } from '@/components/ui/select';
 import { Loader2, Calendar, Clock, Users } from '@/components/icons';
 import { cn } from '@/lib/utils';
+import { formatDateString } from '@/components/admin/bookings/utils/calendarUtils';
 import type { BookingWithDetails } from '@/lib/db/types';
 
 interface ModifyBookingModalProps {
@@ -155,8 +156,8 @@ export function ModifyBookingModal({
     }
   };
 
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split('T')[0];
+  // Get today's date in YYYY-MM-DD format (local time, not UTC)
+  const today = formatDateString(new Date());
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
