@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
-import { getOrCreateVenueBookingSettings } from '@/lib/data/bookings';
+import { getOrCreateVenueBookingSettings, getOrCreateVenueOperatingHours } from '@/lib/data/bookings';
 import { getVenueTables } from '@/lib/data/tables';
 import { BookingsPageClient } from '@/components/admin/bookings/BookingsPageClient';
 
@@ -26,9 +26,10 @@ export default async function BookingsPage() {
     );
   }
 
-  const [settings, venueTables] = await Promise.all([
+  const [settings, venueTables, operatingHours] = await Promise.all([
     getOrCreateVenueBookingSettings(venue.id),
     getVenueTables(venue.id),
+    getOrCreateVenueOperatingHours(venue.id),
   ]);
 
   return (
@@ -38,6 +39,7 @@ export default async function BookingsPage() {
       venueSlug={venue.slug}
       settings={settings}
       venueTables={venueTables}
+      operatingHours={operatingHours}
     />
   );
 }

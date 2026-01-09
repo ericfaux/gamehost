@@ -56,6 +56,20 @@ const navItems: NavItem[] = [
     label: 'Bookings',
     icon: CalendarDays,
     badgeKey: 'arrivals',
+    subItems: [
+      {
+        href: '/admin/bookings?view=calendar',
+        label: 'Calendar',
+        icon: CalendarDays,
+        viewParam: 'calendar',
+      },
+      {
+        href: '/admin/bookings?view=settings',
+        label: 'Settings',
+        icon: Settings,
+        viewParam: 'settings',
+      },
+    ],
   },
   {
     href: '/admin/library',
@@ -150,7 +164,7 @@ export function Sidebar({ venueId }: SidebarProps) {
 
     // For items with sub-items, check if any sub-item is active
     if (item.subItems && item.subItems.length > 0) {
-      return item.subItems.some((subItem) => isSubItemActive(subItem));
+      return item.subItems.some((subItem) => isSubItemActive(subItem, item.href));
     }
 
     // For regular items, check if pathname starts with href
@@ -159,17 +173,26 @@ export function Sidebar({ venueId }: SidebarProps) {
 
   /**
    * Determine if a sub-item is active.
-   * For Floor Plan sub-items, we check both pathname and view param.
+   * Works for any nav item with sub-items (Bookings, Floor Plan, etc.)
+   * Checks both pathname and view query param.
    */
-  const isSubItemActive = (subItem: SubNavItem): boolean => {
-    const pathMatch = pathname.startsWith('/admin/floorplan');
+  const isSubItemActive = (subItem: SubNavItem, parentHref: string): boolean => {
+    // Extract the base path from parent href (e.g., '/admin/bookings' or '/admin/floorplan')
+    const pathMatch = pathname.startsWith(parentHref);
 
     if (!pathMatch) return false;
 
     // If this sub-item has a viewParam, check it matches
     if (subItem.viewParam) {
-      // If no view param is set and this is "map" (default), it's active
-      if (!currentView && subItem.viewParam === 'map') {
+      // Determine the default view for each section
+      const defaultViews: Record<string, string> = {
+        '/admin/floorplan': 'map',
+        '/admin/bookings': 'calendar',
+      };
+      const defaultView = defaultViews[parentHref];
+
+      // If no view param is set and this is the default, it's active
+      if (!currentView && subItem.viewParam === defaultView) {
         return true;
       }
       // Otherwise, check exact match
@@ -228,12 +251,12 @@ export function Sidebar({ venueId }: SidebarProps) {
                 )}
               </Link>
 
-              {/* Sub-items (only for Floor Plan) */}
+              {/* Sub-items (for Bookings, Floor Plan, etc.) */}
               {hasSubItems && item.subItems && (
                 <div className="ml-6 mt-1 space-y-1 border-l-2 border-stone-200 pl-2">
                   {item.subItems.map((subItem) => {
                     const SubIcon = subItem.icon;
-                    const subActive = isSubItemActive(subItem);
+                    const subActive = isSubItemActive(subItem, item.href);
 
                     return (
                       <Link
