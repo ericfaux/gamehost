@@ -72,7 +72,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/pilot"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-full border-2 border-ink-primary text-ink-primary font-semibold bg-card shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:bg-paper"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-accent text-card font-semibold shadow-floating border border-ink-primary/5 transition-all duration-300 hover:-translate-y-0.5"
               >
                 Start a pilot weekend
               </Link>
@@ -90,17 +90,17 @@ export default function LandingPage() {
                 <button
                   type="button"
                   onClick={advanceTurn}
-                  className="px-3 py-2 rounded-full bg-accent-primary text-card text-sm font-semibold shadow-token border border-ink-primary/10 transition-all duration-300 hover:-translate-y-0.5"
+                  className="px-3 py-2 rounded-full bg-accent text-card text-sm font-semibold shadow-token border border-ink-primary/10 transition-all duration-300 hover:-translate-y-0.5"
                 >
                   Next Turn
                 </button>
               </div>
 
               <div className="space-y-6">
-                <div className="p-4 rounded-2xl border border-stroke bg-paper shadow-card transition-all duration-500">
+                <div className="p-4 rounded-2xl border border-stroke bg-surface shadow-card transition-all duration-500">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-mono text-ink-secondary">Step {turnStage + 1} / 3</span>
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent-secondary/10 text-accent-secondary border border-accent-secondary/30">
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-teal/10 text-teal border border-teal/30">
                       {currentStep.title}
                     </span>
                   </div>
@@ -126,7 +126,7 @@ export default function LandingPage() {
                 )}
 
                 {turnStage === 1 && (
-                  <div className="p-5 rounded-2xl border border-stroke bg-paper shadow-card transition-all duration-500">
+                  <div className="p-5 rounded-2xl border border-stroke bg-surface shadow-card transition-all duration-500">
                     <div className="flex justify-between items-center mb-4">
                       <p className="text-sm font-semibold text-ink-primary">Quick Wizard</p>
                       <span className="text-xs font-mono text-ink-secondary">Scan to Play</span>
@@ -149,9 +149,9 @@ export default function LandingPage() {
                 )}
 
                 {turnStage === 2 && (
-                  <div className="p-5 rounded-2xl border-2 border-accent-secondary/50 bg-card shadow-floating transition-all duration-500">
+                  <div className="p-5 rounded-2xl border-2 border-teal/50 bg-card shadow-floating transition-all duration-500">
                     <div className="flex items-center gap-3">
-                      <div className="h-14 w-14 rounded-2xl bg-accent-secondary text-card flex items-center justify-center font-serif text-2xl shadow-token">
+                      <div className="h-14 w-14 rounded-2xl bg-teal text-card flex items-center justify-center font-serif text-2xl shadow-token">
                         ●
                       </div>
                       <div className="space-y-1">
@@ -182,21 +182,21 @@ export default function LandingPage() {
             </p>
             <ul className="space-y-3 text-ink-primary font-medium">
               <li className="flex items-start gap-2">
-                <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
+                <span className="mt-1 h-2 w-2 rounded-full bg-accent"></span>
                 Flip the ratio: Turn 20 minutes of shelf-staring into 2 minutes of picking and more time playing.
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
+                <span className="mt-1 h-2 w-2 rounded-full bg-accent"></span>
                 Staff interruptions for recommendations and teaching drop dramatically.
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
+                <span className="mt-1 h-2 w-2 rounded-full bg-accent"></span>
                 Inventory damage and missing parts are tracked and acted upon immediately.
               </li>
             </ul>
           </div>
           <div className="relative h-full">
-            <div className="absolute inset-0 blur-3xl bg-accent-primary/10 -z-10"></div>
+            <div className="absolute inset-0 blur-3xl bg-accent/10 -z-10"></div>
             <div className="relative flex flex-col gap-4">
               {["Missing Pieces?", "What do we play?", "Box Torn"].map((title, idx) => (
                 <div
@@ -232,11 +232,11 @@ export default function LandingPage() {
           <div className="relative bg-card rounded-3xl border border-stroke shadow-floating p-6">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Live Tables</p>
-              <span className="px-3 py-1 rounded-full bg-accent-secondary/15 text-accent-secondary text-xs font-semibold border border-accent-secondary/30">
+              <span className="px-3 py-1 rounded-full bg-teal/15 text-teal text-xs font-semibold border border-teal/30">
                 IN PLAY
               </span>
             </div>
-            <div className="rounded-2xl border border-ink-primary/10 bg-paper overflow-hidden shadow-card">
+            <div className="rounded-2xl border border-ink-primary/10 bg-surface overflow-hidden shadow-card">
               <div className="grid grid-cols-[1.1fr_0.6fr_0.6fr_0.6fr] text-xs uppercase tracking-[0.12em] text-ink-secondary border-b border-stroke bg-card/80 px-4 py-3 font-mono">
                 <div>Title</div>
                 <div>Copy</div>
@@ -246,11 +246,11 @@ export default function LandingPage() {
               <div className="grid grid-cols-[1.1fr_0.6fr_0.6fr_0.6fr] items-center px-4 py-4 text-ink-primary font-mono text-sm">
                 <div className="font-semibold">Azul</div>
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-accent-primary shadow-token"></span>
+                  <span className="inline-flex h-2 w-2 rounded-full bg-accent shadow-token"></span>
                   Copy #2
                 </div>
                 <div>
-                  <span className="px-2 py-1 rounded-lg bg-accent-secondary/10 text-accent-secondary border border-accent-secondary/30 text-[11px] font-semibold">
+                  <span className="px-2 py-1 rounded-lg bg-teal/10 text-teal border border-teal/30 text-[11px] font-semibold">
                     IN PLAY
                   </span>
                 </div>
@@ -344,7 +344,7 @@ export default function LandingPage() {
           The Stat Sheet
         </h2>
         <div className="rounded-3xl border border-ink-primary/10 bg-card shadow-floating overflow-hidden">
-          <div className="grid grid-cols-3 text-xs uppercase tracking-[0.18em] text-ink-secondary bg-paper border-b border-stroke font-mono">
+          <div className="grid grid-cols-3 text-xs uppercase tracking-[0.18em] text-ink-secondary bg-surface border-b border-stroke font-mono">
             <div className="px-4 py-3 border-r border-stroke">Feature</div>
             <div className="px-4 py-3 border-r border-stroke">GameLedger</div>
             <div className="px-4 py-3">Spreadsheets</div>
@@ -379,7 +379,7 @@ export default function LandingPage() {
               className={`grid grid-cols-3 text-sm font-medium text-ink-primary bg-card ${idx !== 4 ? "border-b border-stroke" : ""}`}
             >
               <div className="px-4 py-4 border-r border-stroke font-serif">{row.feature}</div>
-              <div className="px-4 py-4 border-r border-stroke font-mono text-accent-secondary col-highlight-success">{row.gameledger}</div>
+              <div className="px-4 py-4 border-r border-stroke font-mono text-teal col-highlight-success">{row.gameledger}</div>
               <div className="px-4 py-4 font-mono text-ink-secondary">{row.spreadsheets}</div>
             </div>
           ))}
@@ -406,13 +406,13 @@ export default function LandingPage() {
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <Link
             href="/pilot"
-            className="px-6 py-3 rounded-full bg-accent-primary text-card font-semibold shadow-floating border border-ink-primary/5 transition-transform duration-300 hover:-translate-y-0.5"
+            className="px-6 py-3 rounded-full bg-accent text-card font-semibold shadow-floating border border-ink-primary/5 transition-transform duration-300 hover:-translate-y-0.5"
           >
             Request a pilot
           </Link>
           <Link
             href="/contact"
-            className="px-6 py-3 rounded-full border-2 border-ink-primary text-ink-primary font-semibold bg-card shadow-card transition-transform duration-300 hover:-translate-y-0.5"
+            className="px-6 py-3 rounded-full bg-accent text-card font-semibold shadow-floating border border-ink-primary/5 transition-transform duration-300 hover:-translate-y-0.5"
           >
             Talk to a host
           </Link>

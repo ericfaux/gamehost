@@ -25,6 +25,7 @@ const config: Config = {
         card: "var(--shadow-card)",
         token: "var(--shadow-token)",
         soft: "var(--shadow-soft)",
+        floating: "0 8px 32px rgba(45, 45, 42, 0.12)",
       },
       borderRadius: {
         token: "14px",
