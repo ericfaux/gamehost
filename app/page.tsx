@@ -59,7 +59,7 @@ export default function LandingPage() {
               Booked. Picked. Played.
             </h1>
             <p className="text-lg md:text-xl text-ink-secondary max-w-2xl leading-relaxed">
-              More revenue per table. Less staff running around. Guests who come back. GameLedger makes it happen with bookings, QR game discovery, and real-time library insights.
+              More revenue per table. Less staff running around. Guests who come back. GameLedger makes it happen with bookings, fast QR discovery, and smart inventory control.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
               <Link
@@ -76,7 +76,7 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="text-sm text-ink-secondary max-w-2xl leading-relaxed">
-              Cafés using GameLedger see 15% higher F&B spend and 18% more return bookings. The secret? Guests pick games in 2 minutes (not 20), staff stay on the floor instead of explaining rules, and every session feeds your library intelligence.
+              When guests pick games in 2 minutes instead of 20, they order more rounds. When staff aren&apos;t explaining rules, they&apos;re delivering hospitality. GameLedger is built to drive higher F&B spend and more return bookings.
             </p>
           </div>
 
