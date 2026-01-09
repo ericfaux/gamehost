@@ -36,12 +36,14 @@ export async function createTable(formData: FormData): Promise<ActionResult> {
   const description = typeof rawDescription === "string" ? rawDescription.trim() : null;
 
   const rawCapacity = formData.get("capacity");
+  const rawZoneId = formData.get("zone_id");
   const capacity =
     rawCapacity === null || rawCapacity === ""
       ? null
       : Number.isFinite(Number(rawCapacity))
         ? Number(rawCapacity)
         : NaN;
+  const zoneId = typeof rawZoneId === "string" ? rawZoneId.trim() : "";
 
   if (!label) {
     return { success: false, error: "Table label is required" };
@@ -51,8 +53,23 @@ export async function createTable(formData: FormData): Promise<ActionResult> {
     return { success: false, error: "Capacity must be a valid number" };
   }
 
+  if (!zoneId) {
+    return { success: false, error: "Zone selection is required" };
+  }
+
   if (capacity !== null && (!Number.isInteger(capacity) || capacity <= 0)) {
     return { success: false, error: "Capacity must be a positive whole number" };
+  }
+
+  const { data: zoneData, error: zoneError } = await getSupabaseAdmin()
+    .from("venue_zones")
+    .select("id")
+    .eq("id", zoneId)
+    .eq("venue_id", venue.id)
+    .single();
+
+  if (zoneError || !zoneData) {
+    return { success: false, error: "Selected zone is invalid" };
   }
 
   const { data: existingTable } = await getSupabaseAdmin()
@@ -75,6 +92,7 @@ export async function createTable(formData: FormData): Promise<ActionResult> {
       description: description || null,
       capacity,
       is_active: true,
+      zone_id: zoneId,
     });
 
   if (insertError) {
@@ -111,6 +129,7 @@ export async function updateTable(formData: FormData): Promise<ActionResult> {
   const rawLabel = formData.get("label");
   const rawCapacity = formData.get("capacity");
   const rawDescription = formData.get("description");
+  const rawZoneId = formData.get("zone_id");
 
   const id = typeof rawId === "string" ? rawId : "";
   const label = typeof rawLabel === "string" ? rawLabel.trim() : "";
@@ -121,6 +140,7 @@ export async function updateTable(formData: FormData): Promise<ActionResult> {
       : Number.isFinite(Number(rawCapacity))
         ? Number(rawCapacity)
         : NaN;
+  const zoneId = typeof rawZoneId === "string" ? rawZoneId.trim() : "";
 
   if (!id) {
     return { success: false, error: "Table ID is required" };
@@ -134,8 +154,23 @@ export async function updateTable(formData: FormData): Promise<ActionResult> {
     return { success: false, error: "Capacity must be a valid number" };
   }
 
+  if (!zoneId) {
+    return { success: false, error: "Zone selection is required" };
+  }
+
   if (capacity !== null && (!Number.isInteger(capacity) || capacity <= 0)) {
     return { success: false, error: "Capacity must be a positive whole number" };
+  }
+
+  const { data: zoneData, error: zoneError } = await getSupabaseAdmin()
+    .from("venue_zones")
+    .select("id")
+    .eq("id", zoneId)
+    .eq("venue_id", venue.id)
+    .single();
+
+  if (zoneError || !zoneData) {
+    return { success: false, error: "Selected zone is invalid" };
   }
 
   const { data: tableData, error: fetchError } = await getSupabaseAdmin()
@@ -158,6 +193,7 @@ export async function updateTable(formData: FormData): Promise<ActionResult> {
       label,
       capacity,
       description: description || null,
+      zone_id: zoneId,
     })
     .eq("id", id);
 
