@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from '@/components/icons';
 import type { Booking, VenueBookingSettings } from '@/lib/db/types';
+import { AddToCalendar } from './AddToCalendar';
 
 interface StepSuccessProps {
   booking: Booking;
@@ -236,6 +237,24 @@ export function StepSuccess({ booking, venueName, venueSlug, settings }: StepSuc
             )}
           </div>
         </div>
+
+        {/* Add to Calendar */}
+        {booking.confirmation_code && (
+          <div className="mt-6 pt-4 border-t border-[color:var(--color-structure)]">
+            <div className="flex justify-center">
+              <AddToCalendar
+                venueName={venueName}
+                bookingDate={booking.booking_date}
+                startTime={booking.start_time}
+                endTime={booking.end_time}
+                confirmationCode={booking.confirmation_code}
+                partySize={booking.party_size}
+                venueSettings={settings}
+                className="w-full sm:w-auto min-h-[48px]"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer - Manage Reservation */}

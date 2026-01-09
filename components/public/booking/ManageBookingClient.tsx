@@ -18,17 +18,22 @@ import {
   Phone,
 } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import type { BookingWithDetails } from '@/lib/db/types';
+import type { BookingWithDetails, VenueBookingSettings } from '@/lib/db/types';
 import { ModifyBookingModal } from './ModifyBookingModal';
 import { CancelBookingDialog } from './CancelBookingDialog';
 import { AddGameModal } from './AddGameModal';
+import { AddToCalendar } from './AddToCalendar';
 
 interface ManageBookingClientProps {
   booking: BookingWithDetails;
+  venueName: string;
+  venueSettings: VenueBookingSettings | null;
 }
 
 export function ManageBookingClient({
   booking: initialBooking,
+  venueName,
+  venueSettings,
 }: ManageBookingClientProps) {
   const router = useRouter();
   const [booking, setBooking] = useState(initialBooking);
@@ -163,6 +168,21 @@ export function ManageBookingClient({
           )}
         </CardContent>
       </Card>
+
+      {/* Add to Calendar - show for confirmed/pending bookings that haven't passed */}
+      {booking.confirmation_code && !isCompleted && !isPast && (
+        <AddToCalendar
+          venueName={venueName}
+          bookingDate={booking.booking_date}
+          startTime={booking.start_time}
+          endTime={booking.end_time}
+          confirmationCode={booking.confirmation_code}
+          partySize={booking.party_size}
+          gameTitle={booking.game?.title}
+          venueSettings={venueSettings}
+          className="w-full min-h-[48px]"
+        />
+      )}
 
       {/* Actions */}
       {!isCompleted && !isPast && (

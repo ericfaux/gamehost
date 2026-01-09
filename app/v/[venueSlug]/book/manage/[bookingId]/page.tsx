@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getVenueBySlug } from '@/lib/data/venues';
-import { getBookingById } from '@/lib/data/bookings';
+import { getBookingById, getVenueBookingSettings } from '@/lib/data/bookings';
 import { ManageBookingClient } from '@/components/public/booking/ManageBookingClient';
 import { ManageBookingSkeleton } from '@/components/public/booking/BookingSkeleton';
 import { BookingErrorBoundary } from '@/components/public/booking/BookingErrorBoundary';
@@ -60,6 +60,9 @@ export default async function ManageBookingPage({ params, searchParams }: Props)
     notFound();
   }
 
+  // Fetch venue settings for calendar integration
+  const venueSettings = await getVenueBookingSettings(venue.id);
+
   // Optional: Verify email matches (if provided in URL)
   if (email && booking.guest_email) {
     const emailMatch = email.toLowerCase() === booking.guest_email.toLowerCase();
@@ -103,7 +106,11 @@ export default async function ManageBookingPage({ params, searchParams }: Props)
       <main className="max-w-lg mx-auto px-4 py-6">
         <BookingErrorBoundary venueName={venue.name} venueSlug={venue.slug}>
           <Suspense fallback={<ManageBookingSkeleton />}>
-            <ManageBookingClient booking={booking} />
+            <ManageBookingClient
+              booking={booking}
+              venueName={venue.name}
+              venueSettings={venueSettings}
+            />
           </Suspense>
         </BookingErrorBoundary>
       </main>
