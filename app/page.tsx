@@ -181,7 +181,7 @@ export default function LandingPage() {
             <ul className="space-y-3 text-ink-primary font-medium">
               <li className="flex items-start gap-2">
                 <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
-                Guests spend minutes deciding → minutes playing. GameLedger flips that.
+                Flip the ratio: Turn 20 minutes of shelf-staring into 2 minutes of picking and more time playing.
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
@@ -189,7 +189,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-1 h-2 w-2 rounded-full bg-accent-primary"></span>
-                Inventory damage and missing parts are tracked and acted upon.
+                Inventory damage and missing parts are tracked and acted upon immediately.
               </li>
             </ul>
           </div>
@@ -321,23 +321,33 @@ export default function LandingPage() {
             <div className="px-4 py-3">Spreadsheets</div>
           </div>
           {[{
-            feature: "Live Availability",
-            gameledger: "Real-time tables & bookings",
-            spreadsheets: "Manual refresh",
-          },
-          {
             feature: "Guest Discovery",
-            gameledger: "QR wizard → 2-minute selection",
-            spreadsheets: "Wall browsing",
+            gameledger: "BGG-linked Wizard: Faster turns & happier guests",
+            spreadsheets: "Wall browsing & confusion",
           },
           {
-            feature: "Maintenance Tracking",
-            gameledger: "Condition logs per copy",
+            feature: "Live Availability",
+            gameledger: "Real-time Bookings: Zero double-booking errors",
+            spreadsheets: "Manual refresh & phone tag",
+          },
+          {
+            feature: "Library Condition",
+            gameledger: "Issue Tracking: Stop losing money on broken games",
             spreadsheets: "Lost between shifts",
+          },
+          {
+            feature: "Feedback Loop",
+            gameledger: "Auto-prompts: Catch bad experiences privately",
+            spreadsheets: "Ad-hoc notes (or nothing)",
+          },
+          {
+            feature: "Analytics",
+            gameledger: "Usage Data: Know exactly what to buy/sell",
+            spreadsheets: "Guesswork",
           }].map((row, idx) => (
             <div
               key={row.feature}
-              className={`grid grid-cols-3 text-sm font-medium text-ink-primary bg-card ${idx !== 2 ? "border-b border-stroke" : ""}`}
+              className={`grid grid-cols-3 text-sm font-medium text-ink-primary bg-card ${idx !== 4 ? "border-b border-stroke" : ""}`}
             >
               <div className="px-4 py-4 border-r border-stroke font-serif">{row.feature}</div>
               <div className="px-4 py-4 border-r border-stroke font-mono text-accent-secondary col-highlight-success">{row.gameledger}</div>
