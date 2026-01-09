@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { Calendar } from './calendar';
 import { BookingDetailDrawer } from './BookingDetailDrawer';
 import { CreateBookingModal } from './CreateBookingModal';
+import { EditBookingModal } from './EditBookingModal';
 import { BookingsList } from './BookingsList';
 import { Button } from '@/components/ui/button';
 import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Check, Copy, ExternalLink, Settings } from '@/components/icons';
@@ -60,6 +61,7 @@ export function BookingsPageClient({
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [editBookingId, setEditBookingId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'timeline' | 'list'>('timeline');
   const [timelineViewMode, setTimelineViewMode] = useState<TimelineViewMode>('day');
@@ -138,6 +140,11 @@ export function BookingsPageClient({
 
   const handleBookingClick = useCallback((booking: BookingWithDetails) => {
     setSelectedBookingId(booking.id);
+  }, []);
+
+  const handleEditBooking = useCallback((bookingId: string) => {
+    setEditBookingId(bookingId);
+    setSelectedBookingId(null); // Close detail drawer
   }, []);
 
   // If viewing settings, redirect to unified settings page
@@ -294,6 +301,7 @@ export function BookingsPageClient({
         bookingId={selectedBookingId}
         onClose={() => setSelectedBookingId(null)}
         onAction={handleBlockAction}
+        onEdit={handleEditBooking}
       />
 
       <CreateBookingModal
@@ -301,6 +309,14 @@ export function BookingsPageClient({
         onClose={() => setShowCreateModal(false)}
         venueId={venueId}
         preselectedDate={format(selectedDate, 'yyyy-MM-dd')}
+        onSuccess={refresh}
+      />
+
+      <EditBookingModal
+        open={!!editBookingId}
+        onClose={() => setEditBookingId(null)}
+        bookingId={editBookingId}
+        venueId={venueId}
         onSuccess={refresh}
       />
     </div>
