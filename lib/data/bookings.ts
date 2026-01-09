@@ -967,6 +967,35 @@ function sortTablesByFit(
 }
 
 /**
+ * Gets the total number of active tables that can accommodate a party size.
+ * Used to calculate availability status (e.g., "limited" when only 1-2 tables remain).
+ *
+ * @param venueId - The venue ID
+ * @param partySize - Minimum capacity required
+ * @returns Total number of tables that can fit the party size
+ */
+export async function getTotalTablesForPartySize(
+  venueId: string,
+  partySize: number
+): Promise<number> {
+  const supabase = getSupabaseAdmin();
+
+  const { count, error } = await supabase
+    .from('venue_tables')
+    .select('*', { count: 'exact', head: true })
+    .eq('venue_id', venueId)
+    .eq('is_active', true)
+    .gte('capacity', partySize);
+
+  if (error) {
+    console.error('Error getting total tables for party size:', error);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
+/**
  * Generates available time slots for a venue on a given date.
  * Checks availability at each interval and returns slots with their available tables.
  *

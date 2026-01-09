@@ -137,34 +137,62 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
 
   return (
     <div className="bg-white rounded-xl shadow-card border border-[color:var(--color-structure)] overflow-hidden">
-      {/* Enhanced Progress Header */}
+      {/* Enhanced Progress Header with Step Labels */}
       <div className="px-4 py-4 bg-[color:var(--color-muted)] border-b border-[color:var(--color-structure)]">
-        {/* Progress Dots with Connectors */}
-        <div className="flex items-center justify-between gap-1" role="progressbar" aria-valuenow={step} aria-valuemin={1} aria-valuemax={5}>
+        {/* Progress Dots with Connectors and Labels */}
+        <div
+          className="flex items-start justify-between gap-1"
+          role="progressbar"
+          aria-valuenow={step}
+          aria-valuemin={1}
+          aria-valuemax={5}
+          aria-label={`Booking progress: Step ${step} of 5, ${STEPS[step - 1]?.label}`}
+        >
           {STEPS.map((s, i) => (
-            <div key={s.num} className="flex items-center flex-1 last:flex-none">
-              {/* Step Dot */}
-              <div
-                className={cn(
-                  'w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300 flex-shrink-0',
-                  step > s.num && 'bg-teal-500 text-white',
-                  step === s.num && 'bg-teal-500 text-white ring-2 ring-teal-200 ring-offset-1',
-                  step < s.num && 'bg-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)]'
-                )}
-                aria-current={step === s.num ? 'step' : undefined}
-              >
-                {step > s.num ? (
-                  <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                ) : (
-                  <span>{s.num}</span>
-                )}
+            <div key={s.num} className="flex items-start flex-1 last:flex-none">
+              {/* Step Column with Dot and Label */}
+              <div className="flex flex-col items-center flex-shrink-0">
+                {/* Step Dot */}
+                <div
+                  className={cn(
+                    'w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all duration-300',
+                    step > s.num && 'bg-teal-500 text-white',
+                    step === s.num && 'bg-teal-500 text-white ring-2 ring-teal-200 ring-offset-1',
+                    step < s.num && 'bg-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)]'
+                  )}
+                  aria-current={step === s.num ? 'step' : undefined}
+                  aria-label={`Step ${s.num}: ${s.label}${step > s.num ? ' (completed)' : step === s.num ? ' (current)' : ''}`}
+                >
+                  {step > s.num ? (
+                    <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                  ) : (
+                    <span>{s.num}</span>
+                  )}
+                </div>
+
+                {/* Step Label - visible on all screen sizes */}
+                <span
+                  className={cn(
+                    'mt-1.5 text-[10px] sm:text-xs uppercase tracking-wider transition-all duration-300 text-center leading-tight',
+                    // Completed steps: brand color
+                    step > s.num && 'text-teal-600 font-medium',
+                    // Current step: emphasized/bold
+                    step === s.num && 'text-[color:var(--color-ink-primary)] font-semibold',
+                    // Future steps: dimmed
+                    step < s.num && 'text-[color:var(--color-ink-secondary)] opacity-60'
+                  )}
+                >
+                  {/* Short labels on mobile, full labels on larger screens */}
+                  <span className="sm:hidden">{s.shortLabel}</span>
+                  <span className="hidden sm:inline">{s.label}</span>
+                </span>
               </div>
 
               {/* Connector Line */}
               {i < STEPS.length - 1 && (
                 <div
                   className={cn(
-                    'flex-1 h-0.5 mx-1.5 transition-colors duration-300',
+                    'flex-1 h-0.5 mx-1 sm:mx-1.5 mt-3.5 transition-colors duration-300',
                     step > s.num ? 'bg-teal-500' : 'bg-[color:var(--color-structure)]'
                   )}
                   aria-hidden="true"
@@ -174,13 +202,10 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
           ))}
         </div>
 
-        {/* Step Label */}
-        <div className="flex items-center justify-between text-xs mt-3">
+        {/* Step Counter (mobile-friendly summary) */}
+        <div className="flex items-center justify-center text-xs mt-3 sm:hidden">
           <span className="text-[color:var(--color-ink-secondary)]">
             Step {step} of 5
-          </span>
-          <span className="font-medium text-[color:var(--color-ink-primary)]">
-            {STEPS[step - 1]?.label}
           </span>
         </div>
       </div>
