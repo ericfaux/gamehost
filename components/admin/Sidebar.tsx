@@ -56,20 +56,6 @@ const navItems: NavItem[] = [
     label: 'Bookings',
     icon: CalendarDays,
     badgeKey: 'arrivals',
-    subItems: [
-      {
-        href: '/admin/bookings?view=calendar',
-        label: 'Calendar',
-        icon: CalendarDays,
-        viewParam: 'calendar',
-      },
-      {
-        href: '/admin/bookings?view=settings',
-        label: 'Settings',
-        icon: Settings,
-        viewParam: 'settings',
-      },
-    ],
   },
   {
     href: '/admin/library',
