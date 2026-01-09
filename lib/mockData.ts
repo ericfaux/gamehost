@@ -6,6 +6,7 @@ export const mockVenues: Venue[] = [
     owner_id: "owner-1",
     name: "Atlas Boardroom",
     slug: "atlas-boardroom",
+    logo_url: null,
     created_at: "2024-01-04T12:00:00Z",
   },
   {
@@ -13,6 +14,7 @@ export const mockVenues: Venue[] = [
     owner_id: "owner-1",
     name: "Rook & River Annex",
     slug: "rook-river-annex",
+    logo_url: null,
     created_at: "2024-06-12T12:00:00Z",
   },
 ];
