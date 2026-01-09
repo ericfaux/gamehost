@@ -410,6 +410,8 @@ export const BOOKING_SETTINGS_DEFAULTS: Omit<VenueBookingSettings, 'id' | 'venue
   send_reminder_sms: false,
   reminder_hours_before: 2,
   booking_page_message: null,
+  // Venue timezone for accurate time calculations
+  timezone: 'America/Los_Angeles',
   // Venue address fields for display on booking confirmations
   venue_address_street: null,
   venue_address_city: null,
@@ -1031,18 +1033,25 @@ export async function getAvailableSlots(
     intervalMinutes = 30,
   } = params;
 
-  // Get venue settings for min_advance_hours
+  // Get venue settings for min_advance_hours and timezone
   const settings = await getVenueBookingSettings(venueId);
   const minNoticeHours = settings?.min_advance_hours ?? BOOKING_SETTINGS_DEFAULTS.min_advance_hours;
+  const timezone = settings?.timezone ?? BOOKING_SETTINGS_DEFAULTS.timezone;
 
   const slots: AvailableSlotWithTables[] = [];
   const now = new Date();
-  const isToday = date === now.toISOString().split('T')[0];
+
+  // Use venue's timezone for date/time comparisons
+  const todayInVenue = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
+  const isToday = date === todayInVenue;
 
   // Calculate the earliest allowed booking time based on notice requirement
   let earliestMinutes = startHour * 60;
   if (isToday) {
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    // Get current time in venue's timezone for accurate comparison
+    const currentTimeInVenue = formatInTimeZone(now, timezone, 'HH:mm');
+    const [hours, mins] = currentTimeInVenue.split(':').map(Number);
+    const currentMinutes = hours * 60 + mins;
     const minNoticeMinutes = minNoticeHours * 60;
     earliestMinutes = Math.max(earliestMinutes, currentMinutes + minNoticeMinutes);
   }

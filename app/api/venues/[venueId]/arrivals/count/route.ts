@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getUpcomingBookingsCount } from '@/lib/data/bookings';
+import { getUpcomingBookingsCount, getVenueBookingSettings, BOOKING_SETTINGS_DEFAULTS } from '@/lib/data/bookings';
 
 /**
  * GET /api/venues/[venueId]/arrivals/count
@@ -28,9 +28,13 @@ export async function GET(
   // Parse query parameters
   const { searchParams } = new URL(request.url);
   const minutesAhead = parseInt(searchParams.get('minutesAhead') ?? '60', 10);
-  const timezone = searchParams.get('tz') || 'America/Los_Angeles';
+  const clientTimezone = searchParams.get('tz');
 
   try {
+    // Fetch venue's configured timezone (prefer over client-provided)
+    const venueSettings = await getVenueBookingSettings(venueId);
+    const timezone = venueSettings?.timezone ?? clientTimezone ?? BOOKING_SETTINGS_DEFAULTS.timezone;
+
     const count = await getUpcomingBookingsCount(venueId, minutesAhead, timezone);
     return NextResponse.json({ count });
   } catch (error) {

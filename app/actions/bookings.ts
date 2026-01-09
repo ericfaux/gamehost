@@ -1,5 +1,6 @@
 'use server';
 
+import { formatInTimeZone } from 'date-fns-tz';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
@@ -12,6 +13,7 @@ import {
   addMinutesToTime,
   logBookingModification,
   determineModificationType,
+  BOOKING_SETTINGS_DEFAULTS,
 } from '@/lib/data/bookings';
 import type {
   Booking,
@@ -256,11 +258,16 @@ function validateBookingParams(
   settings: {
     min_advance_hours: number;
     max_advance_days: number;
+    timezone: string;
   }
 ): ValidationResult {
   const errors: string[] = [];
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Use venue's timezone for date/time comparisons
+  const todayInVenue = formatInTimeZone(now, settings.timezone, 'yyyy-MM-dd');
+  const todayParts = todayInVenue.split('-').map(Number);
+  const today = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
 
   // --- Required Fields ---
   if (!params.venue_id?.trim()) {
@@ -357,8 +364,10 @@ function validateBookingParams(
     if (isToday && isValidTime(params.start_time)) {
       const normalizedTime = normalizeTime(params.start_time);
 
-      // Check minimum notice requirement
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      // Check minimum notice requirement using venue's timezone
+      const currentTimeInVenue = formatInTimeZone(now, settings.timezone, 'HH:mm');
+      const [hours, mins] = currentTimeInVenue.split(':').map(Number);
+      const currentMinutes = hours * 60 + mins;
       const bookingMinutes = timeToMinutes(normalizedTime);
       const minutesUntilBooking = bookingMinutes - currentMinutes;
       const requiredMinutes = settings.min_advance_hours * 60;
@@ -464,6 +473,7 @@ export async function createBooking(
   const validation = validateBookingParams(params, {
     min_advance_hours: settings.min_advance_hours,
     max_advance_days: settings.max_advance_days,
+    timezone: settings.timezone,
   });
 
   if (!validation.valid) {
@@ -1127,22 +1137,43 @@ export async function markNoShow(
     };
   }
 
-  // Check if grace period has passed
+  // Check if grace period has passed using venue's timezone
   const now = new Date();
-  const bookingDateStr = booking.booking_date;
+
+  // Fetch venue settings for timezone
+  const settings = await getOrCreateVenueBookingSettings(booking.venue_id);
+  const timezone = settings?.timezone ?? BOOKING_SETTINGS_DEFAULTS.timezone;
+
+  // Get current date/time in venue's timezone
+  const currentDateInVenue = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
+  const currentTimeInVenue = formatInTimeZone(now, timezone, 'HH:mm');
+  const [currentHours, currentMins] = currentTimeInVenue.split(':').map(Number);
+  const currentMinutes = currentHours * 60 + currentMins;
+
+  // Parse booking time (already in venue's timezone)
   const bookingTimeStr = booking.start_time;
-
-  // Parse the booking date and time
-  const [year, month, day] = bookingDateStr.split('-').map(Number);
   const timeParts = bookingTimeStr.split(':').map(Number);
-  const hours = timeParts[0];
-  const minutes = timeParts[1];
+  const bookingMinutes = timeParts[0] * 60 + timeParts[1];
 
-  const bookingDateTime = new Date(year, month - 1, day, hours, minutes);
-  const graceDeadline = new Date(bookingDateTime.getTime() + NO_SHOW_GRACE_PERIOD_MINUTES * 60 * 1000);
+  // Calculate minutes until booking (negative if booking time has passed)
+  // Only compare times if it's the same day
+  const isSameDay = currentDateInVenue === booking.booking_date;
+  const isPastDay = currentDateInVenue > booking.booking_date;
 
-  if (now < graceDeadline) {
-    const minutesRemaining = Math.ceil((graceDeadline.getTime() - now.getTime()) / (60 * 1000));
+  let minutesSinceBooking: number;
+  if (isPastDay) {
+    // Booking was on a previous day, definitely past grace period
+    minutesSinceBooking = NO_SHOW_GRACE_PERIOD_MINUTES + 1;
+  } else if (isSameDay) {
+    // Same day - calculate the difference
+    minutesSinceBooking = currentMinutes - bookingMinutes;
+  } else {
+    // Booking is in the future
+    minutesSinceBooking = -1;
+  }
+
+  if (minutesSinceBooking < NO_SHOW_GRACE_PERIOD_MINUTES) {
+    const minutesRemaining = NO_SHOW_GRACE_PERIOD_MINUTES - minutesSinceBooking;
     return {
       success: false,
       error: `Cannot mark as no-show until ${NO_SHOW_GRACE_PERIOD_MINUTES} minutes after booking time. ${minutesRemaining} minute(s) remaining.`,
@@ -1592,20 +1623,40 @@ export async function seatParty(
   // --- Step 4: Check for early seating and generate warning ---
   let warning: string | undefined;
   const now = new Date();
-  const bookingDateStr = booking.booking_date;
+
+  // Fetch venue settings for timezone
+  const settings = await getOrCreateVenueBookingSettings(booking.venue_id);
+  const timezone = settings?.timezone ?? BOOKING_SETTINGS_DEFAULTS.timezone;
+
+  // Get current date/time in venue's timezone
+  const currentDateInVenue = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
+  const currentTimeInVenue = formatInTimeZone(now, timezone, 'HH:mm');
+  const [currentHours, currentMins] = currentTimeInVenue.split(':').map(Number);
+  const currentMinutes = currentHours * 60 + currentMins;
+
+  // Parse booking time (already in venue's timezone)
   const bookingTimeStr = booking.start_time;
-
-  // Parse the booking date and time
-  const [year, month, day] = bookingDateStr.split('-').map(Number);
   const timeParts = bookingTimeStr.split(':').map(Number);
-  const hours = timeParts[0];
-  const minutes = timeParts[1];
+  const bookingMinutes = timeParts[0] * 60 + timeParts[1];
 
-  const bookingDateTime = new Date(year, month - 1, day, hours, minutes);
-  const minutesUntilBooking = (bookingDateTime.getTime() - now.getTime()) / (60 * 1000);
+  // Calculate minutes until booking
+  const isSameDay = currentDateInVenue === booking.booking_date;
+  const isFutureDay = currentDateInVenue < booking.booking_date;
+
+  let minutesUntilBooking: number;
+  if (isFutureDay) {
+    // Booking is on a future day, calculate rough estimate
+    minutesUntilBooking = EARLY_SEATING_THRESHOLD_MINUTES + 1;
+  } else if (isSameDay) {
+    // Same day - calculate the difference
+    minutesUntilBooking = bookingMinutes - currentMinutes;
+  } else {
+    // Booking was in the past
+    minutesUntilBooking = 0;
+  }
 
   if (minutesUntilBooking > EARLY_SEATING_THRESHOLD_MINUTES) {
-    const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    const formattedTime = `${String(timeParts[0]).padStart(2, '0')}:${String(timeParts[1]).padStart(2, '0')}`;
     warning = `Early seating: This booking is scheduled for ${formattedTime} (${Math.round(minutesUntilBooking)} minutes from now).`;
   }
 
@@ -2125,6 +2176,8 @@ export interface UpdateVenueBookingSettingsParams {
   send_reminder_sms?: boolean;
   reminder_hours_before?: number;
   booking_page_message?: string | null;
+  // Venue timezone for accurate time calculations
+  timezone?: string;
   // Venue address fields
   venue_address_street?: string | null;
   venue_address_city?: string | null;

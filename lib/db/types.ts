@@ -142,6 +142,8 @@ export interface VenueBookingSettings {
   send_reminder_sms: boolean;
   reminder_hours_before: number;
   booking_page_message: string | null;
+  // Venue timezone for accurate time calculations
+  timezone: string;
   // Venue address fields for display on booking confirmations
   venue_address_street: string | null;
   venue_address_city: string | null;
