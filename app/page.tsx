@@ -80,15 +80,6 @@ export default function LandingPage() {
             <p className="text-sm text-ink-secondary max-w-2xl leading-relaxed">
               When guests pick games in 2 minutes instead of 20, they order more rounds. When staff aren&apos;t explaining rules, they&apos;re delivering hospitality. GameLedger is built to drive higher F&B spend and more return bookings.
             </p>
-            <div className="pt-4">
-              <Image
-                src="/meeple-group.svg"
-                alt="Board game meeples"
-                width={160}
-                height={96}
-                className="opacity-80"
-              />
-            </div>
           </div>
 
           <div className="relative">
@@ -279,7 +270,16 @@ export default function LandingPage() {
           <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">🎲 Chapter IV</span>
           <div className="h-px flex-1 bg-stroke"></div>
         </div>
-        <p className="text-sm uppercase tracking-[0.3em] text-ink-secondary mb-6">Why It Matters</p>
+        <div className="flex items-center gap-4 mb-6">
+          <p className="text-sm uppercase tracking-[0.3em] text-ink-secondary">Why It Matters</p>
+          <Image
+            src="/meeple-group.svg"
+            alt="Board game meeples representing Revenue, Time, and Brand"
+            width={120}
+            height={72}
+            className="opacity-75"
+          />
+        </div>
         <div className="grid md:grid-cols-[0.9fr_1.1fr] gap-12 items-start">
           <div className="grid grid-cols-3 gap-4">
             {[
