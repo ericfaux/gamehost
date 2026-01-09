@@ -1953,6 +1953,116 @@ export async function checkAvailableTablesAction(
 }
 
 // -----------------------------------------------------------------------------
+// Get All Time Slots with Availability Status
+// -----------------------------------------------------------------------------
+
+/**
+ * Time slot with availability status for public booking flow.
+ */
+export interface TimeSlotWithAvailability {
+  start_time: string;
+  end_time: string;
+  status: 'available' | 'limited' | 'unavailable';
+  available_tables: number;
+  total_tables: number;
+  tables: Array<{
+    table_id: string;
+    table_label: string;
+    capacity: number | null;
+  }>;
+}
+
+/**
+ * Gets all time slots for a date with their availability status.
+ * This allows the UI to show unavailable slots as disabled and limited slots with urgency indicators.
+ *
+ * @param params - Slot availability parameters
+ * @returns ActionResult with array of time slots including availability status
+ */
+export async function getTimeSlotsWithAvailabilityAction(
+  params: {
+    venueId: string;
+    date: string;
+    partySize: number;
+    durationMinutes: number;
+    limitedThreshold?: number; // Default: 2 - show "limited" when this many or fewer tables remain
+  }
+): Promise<ActionResult<TimeSlotWithAvailability[]>> {
+  try {
+    const { getAvailableTables, getTotalTablesForPartySize } = await import('@/lib/data/bookings');
+    const { DEFAULT_SLOT_INTERVAL_MINUTES } = await import('@/lib/data/bookings');
+
+    const limitedThreshold = params.limitedThreshold ?? 2;
+
+    // Get total number of tables that can fit the party size
+    const totalTables = await getTotalTablesForPartySize(params.venueId, params.partySize);
+
+    // Generate all possible time slots for the day
+    const slots: TimeSlotWithAvailability[] = [];
+    const startMinutes = 10 * 60; // 10:00 AM
+    const endMinutes = 22 * 60; // 10:00 PM
+
+    for (let minutes = startMinutes; minutes < endMinutes; minutes += DEFAULT_SLOT_INTERVAL_MINUTES) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      const startTime = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+      // Calculate end time
+      const endTotalMinutes = minutes + params.durationMinutes;
+      const endHours = Math.floor(endTotalMinutes / 60) % 24;
+      const endMins = endTotalMinutes % 60;
+      const endTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+      // Check availability for this slot
+      const tables = await getAvailableTables({
+        venueId: params.venueId,
+        date: params.date,
+        startTime,
+        endTime,
+        partySize: params.partySize,
+      });
+
+      const availableCount = tables.length;
+
+      // Determine status
+      let status: 'available' | 'limited' | 'unavailable';
+      if (availableCount === 0) {
+        status = 'unavailable';
+      } else if (availableCount <= limitedThreshold) {
+        status = 'limited';
+      } else {
+        status = 'available';
+      }
+
+      slots.push({
+        start_time: startTime,
+        end_time: endTime,
+        status,
+        available_tables: availableCount,
+        total_tables: totalTables,
+        tables: tables.map(t => ({
+          table_id: t.table_id,
+          table_label: t.table_label,
+          capacity: t.capacity,
+        })),
+      });
+    }
+
+    return {
+      success: true,
+      data: slots,
+    };
+  } catch (error) {
+    console.error('Error getting time slots with availability:', error);
+    return {
+      success: false,
+      error: 'Failed to load availability',
+      code: 'UNKNOWN',
+    };
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Venue Booking Settings Actions
 // -----------------------------------------------------------------------------
 

@@ -10,9 +10,12 @@ import {
   TableProperties,
   Users,
   RefreshCw,
+  Flame,
 } from '@/components/icons';
-import { checkAvailableTablesAction } from '@/app/actions/bookings';
-import { DEFAULT_SLOT_INTERVAL_MINUTES } from '@/lib/data/bookings';
+import {
+  getTimeSlotsWithAvailabilityAction,
+  type TimeSlotWithAvailability,
+} from '@/app/actions/bookings';
 import { SlotsSkeleton } from './BookingSkeleton';
 import { NetworkError } from './BookingErrorBoundary';
 import type { BookingData } from './BookingWizard';
@@ -29,39 +32,14 @@ interface StepAvailabilityProps {
 
 interface TimeSlotGroup {
   period: 'Morning' | 'Afternoon' | 'Evening';
-  slots: AvailableSlot[];
+  slots: TimeSlotWithAvailability[];
 }
 
-// Helper to add minutes to a time string
-function addMinutesToTime(time: string, minutes: number): string {
-  const [hours, mins] = time.split(':').map(Number);
-  const totalMinutes = hours * 60 + mins + minutes;
-  const newHours = Math.floor(totalMinutes / 60) % 24;
-  const newMins = totalMinutes % 60;
-  return `${String(newHours).padStart(2, '0')}:${String(newMins).padStart(2, '0')}`;
-}
-
-// Generate time slots for the day based on interval
-function generateTimeSlots(intervalMinutes: number): string[] {
-  const slots: string[] = [];
-  // Start at 10:00 AM, end at 10:00 PM
-  const startMinutes = 10 * 60; // 10:00 AM
-  const endMinutes = 22 * 60; // 10:00 PM
-
-  for (let minutes = startMinutes; minutes < endMinutes; minutes += intervalMinutes) {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    slots.push(`${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`);
-  }
-
-  return slots;
-}
-
-// Group slots by time period
-function groupSlotsByPeriod(slots: AvailableSlot[]): TimeSlotGroup[] {
-  const morning: AvailableSlot[] = [];
-  const afternoon: AvailableSlot[] = [];
-  const evening: AvailableSlot[] = [];
+// Group slots by time period (includes all slots - available, limited, and unavailable)
+function groupSlotsByPeriod(slots: TimeSlotWithAvailability[]): TimeSlotGroup[] {
+  const morning: TimeSlotWithAvailability[] = [];
+  const afternoon: TimeSlotWithAvailability[] = [];
+  const evening: TimeSlotWithAvailability[] = [];
 
   slots.forEach(slot => {
     const hour = parseInt(slot.start_time.split(':')[0], 10);
@@ -80,6 +58,20 @@ function groupSlotsByPeriod(slots: AvailableSlot[]): TimeSlotGroup[] {
   if (evening.length > 0) groups.push({ period: 'Evening', slots: evening });
 
   return groups;
+}
+
+// Get availability badge text
+function getAvailabilityBadgeText(slot: TimeSlotWithAvailability): string | null {
+  if (slot.status === 'limited') {
+    if (slot.available_tables === 1) {
+      return 'Only 1 left!';
+    }
+    return `${slot.available_tables} spots left`;
+  }
+  if (slot.status === 'unavailable') {
+    return 'Fully booked';
+  }
+  return null;
 }
 
 // Format time for display (12-hour format)
@@ -111,7 +103,7 @@ export function StepAvailability({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [allSlots, setAllSlots] = useState<TimeSlotWithAvailability[]>([]);
   const [selectedSlotTime, setSelectedSlotTime] = useState<string | null>(
     data.startTime || null
   );
@@ -123,49 +115,26 @@ export function StepAvailability({
     setError(null);
 
     try {
-      // Generate all possible time slots for the day
-      const timeSlots = generateTimeSlots(DEFAULT_SLOT_INTERVAL_MINUTES);
-      const durationMinutes = settings.default_duration_minutes;
-      const slots: AvailableSlot[] = [];
+      // Fetch all slots with their availability status in a single call
+      const result = await getTimeSlotsWithAvailabilityAction({
+        venueId,
+        date: data.date,
+        partySize: data.partySize,
+        durationMinutes: settings.default_duration_minutes,
+        limitedThreshold: 2, // Show "limited" when 2 or fewer tables remain
+      });
 
-      // Check each time slot
-      for (const startTime of timeSlots) {
-        const endTime = addMinutesToTime(startTime, durationMinutes);
-
-        const result = await checkAvailableTablesAction({
-          venueId,
-          date: data.date,
-          startTime,
-          endTime,
-          partySize: data.partySize,
-        });
-
-        if (result.success && result.data && result.data.length > 0) {
-          // Transform the result to match AvailableSlot type
-          const tables: AvailableTable[] = result.data.map(t => ({
-            table_id: t.table_id,
-            table_label: t.table_label,
-            capacity: t.capacity,
-            available_from: startTime,
-            available_until: endTime,
-          }));
-
-          slots.push({
-            start_time: startTime,
-            end_time: endTime,
-            tables,
-          });
-        }
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load availability');
       }
 
-      setAvailableSlots(slots);
+      const slots = result.data ?? [];
+      setAllSlots(slots);
 
-      // If previously selected slot is still available, keep it selected
+      // If previously selected slot is no longer available, clear selection
       if (data.startTime) {
-        const stillAvailable = slots.some(
-          s => s.start_time === data.startTime
-        );
-        if (!stillAvailable) {
+        const selectedSlot = slots.find(s => s.start_time === data.startTime);
+        if (!selectedSlot || selectedSlot.status === 'unavailable') {
           onUpdate({
             selectedSlot: null,
             selectedTableId: '',
@@ -191,7 +160,7 @@ export function StepAvailability({
     } finally {
       setLoading(false);
     }
-  }, [venueId, data.date, data.partySize, data.startTime, settings.default_duration_minutes, onUpdate]);
+  }, [venueId, data.date, data.partySize, settings.default_duration_minutes, onUpdate]);
 
   // Fetch availability when component mounts or date/party size changes
   useEffect(() => {
@@ -200,15 +169,33 @@ export function StepAvailability({
     }
   }, [data.date, data.partySize, fetchAvailability]);
 
-  // Handle slot selection
-  const handleSlotSelect = (slot: AvailableSlot) => {
+  // Handle slot selection (only for available/limited slots)
+  const handleSlotSelect = (slot: TimeSlotWithAvailability) => {
+    // Don't allow selection of unavailable slots
+    if (slot.status === 'unavailable') {
+      return;
+    }
+
     setSelectedSlotTime(slot.start_time);
+
+    // Convert to AvailableSlot format for compatibility with BookingData
+    const availableSlot: AvailableSlot = {
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      tables: slot.tables.map(t => ({
+        table_id: t.table_id,
+        table_label: t.table_label,
+        capacity: t.capacity,
+        available_from: slot.start_time,
+        available_until: slot.end_time,
+      })),
+    };
 
     // If only one table, auto-select it
     if (slot.tables.length === 1) {
       const table = slot.tables[0];
       onUpdate({
-        selectedSlot: slot,
+        selectedSlot: availableSlot,
         selectedTableId: table.table_id,
         startTime: slot.start_time,
         endTime: slot.end_time,
@@ -218,7 +205,7 @@ export function StepAvailability({
       // Show table options
       setExpandedSlot(slot.start_time);
       onUpdate({
-        selectedSlot: slot,
+        selectedSlot: availableSlot,
         selectedTableId: '',
         startTime: slot.start_time,
         endTime: slot.end_time,
@@ -227,9 +214,22 @@ export function StepAvailability({
   };
 
   // Handle table selection
-  const handleTableSelect = (slot: AvailableSlot, tableId: string) => {
+  const handleTableSelect = (slot: TimeSlotWithAvailability, tableId: string) => {
+    // Convert to AvailableSlot format for compatibility with BookingData
+    const availableSlot: AvailableSlot = {
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      tables: slot.tables.map(t => ({
+        table_id: t.table_id,
+        table_label: t.table_label,
+        capacity: t.capacity,
+        available_from: slot.start_time,
+        available_until: slot.end_time,
+      })),
+    };
+
     onUpdate({
-      selectedSlot: slot,
+      selectedSlot: availableSlot,
       selectedTableId: tableId,
       startTime: slot.start_time,
       endTime: slot.end_time,
@@ -239,8 +239,11 @@ export function StepAvailability({
   // Check if can proceed
   const canProceed = data.selectedSlot && data.selectedTableId;
 
-  // Group slots by period
-  const groupedSlots = groupSlotsByPeriod(availableSlots);
+  // Group all slots by period (including unavailable)
+  const groupedSlots = groupSlotsByPeriod(allSlots);
+
+  // Check if any slots are available at all
+  const hasAnyAvailability = allSlots.some(s => s.status !== 'unavailable');
 
   // Loading State with Skeleton
   if (loading) {
@@ -290,18 +293,18 @@ export function StepAvailability({
         </p>
       </div>
 
-      {/* No Availability */}
-      {availableSlots.length === 0 && (
+      {/* No Availability - shown when ALL slots are unavailable */}
+      {!hasAnyAvailability && allSlots.length > 0 && (
         <div className="py-8 flex flex-col items-center gap-3 text-center">
           <div className="w-14 h-14 rounded-full bg-[color:var(--color-muted)] flex items-center justify-center">
             <Clock className="w-7 h-7 text-[color:var(--color-ink-secondary)]" aria-hidden="true" />
           </div>
           <div>
             <p className="font-medium text-[color:var(--color-ink-primary)]">
-              No availability
+              Fully booked
             </p>
             <p className="text-sm text-[color:var(--color-ink-secondary)] mt-1">
-              Sorry, we don&apos;t have any tables available for{' '}
+              Sorry, all time slots are booked for{' '}
               {data.partySize} {data.partySize === 1 ? 'guest' : 'guests'} on
               this date.
             </p>
@@ -316,9 +319,9 @@ export function StepAvailability({
         </div>
       )}
 
-      {/* Time Slots Grid */}
-      {availableSlots.length > 0 && (
-        <div className="space-y-6" role="region" aria-label="Available time slots">
+      {/* Time Slots Grid - shows all slots including unavailable */}
+      {allSlots.length > 0 && hasAnyAvailability && (
+        <div className="space-y-6" role="region" aria-label="Time slots">
           {groupedSlots.map(group => (
             <div key={group.period}>
               <h3 className="text-xs uppercase tracking-rulebook text-[color:var(--color-ink-secondary)] mb-3">
@@ -333,6 +336,9 @@ export function StepAvailability({
                   const isSelected = selectedSlotTime === slot.start_time;
                   const isExpanded = expandedSlot === slot.start_time;
                   const hasMultipleTables = slot.tables.length > 1;
+                  const isUnavailable = slot.status === 'unavailable';
+                  const isLimited = slot.status === 'limited';
+                  const badgeText = getAvailabilityBadgeText(slot);
 
                   return (
                     <div key={slot.start_time} className="contents">
@@ -341,18 +347,44 @@ export function StepAvailability({
                         role="option"
                         aria-selected={isSelected}
                         aria-expanded={hasMultipleTables ? isExpanded : undefined}
+                        aria-disabled={isUnavailable}
+                        disabled={isUnavailable}
                         onClick={() => handleSlotSelect(slot)}
                         className={cn(
-                          'px-3 py-3 rounded-token text-sm font-medium transition-all touch-manipulation',
-                          'border focus-ring min-h-[48px]', // 48px touch target
-                          'active:scale-95',
-                          isSelected
-                            ? 'bg-teal-500 text-white border-teal-500'
-                            : 'bg-[color:var(--color-elevated)] text-[color:var(--color-ink-primary)] border-[color:var(--color-structure)] hover:border-teal-500'
+                          'px-3 py-2.5 rounded-token text-sm font-medium transition-all touch-manipulation',
+                          'border focus-ring min-h-[48px]',
+                          // Selected state
+                          isSelected && 'bg-teal-500 text-white border-teal-500 active:scale-95',
+                          // Unavailable state
+                          isUnavailable && 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60',
+                          // Limited availability state
+                          isLimited && !isSelected && 'bg-[color:var(--color-elevated)] text-[color:var(--color-ink-primary)] border-orange-300 hover:border-orange-400',
+                          // Available (normal) state
+                          !isSelected && !isUnavailable && !isLimited && 'bg-[color:var(--color-elevated)] text-[color:var(--color-ink-primary)] border-[color:var(--color-structure)] hover:border-teal-500 active:scale-95'
                         )}
                       >
-                        <span>{formatTime(slot.start_time)}</span>
-                        {hasMultipleTables && !isSelected && (
+                        {/* Time display */}
+                        <span className={cn(isUnavailable && 'line-through')}>
+                          {formatTime(slot.start_time)}
+                        </span>
+
+                        {/* Availability badge for limited slots */}
+                        {isLimited && !isSelected && badgeText && (
+                          <span className="flex items-center justify-center gap-1 text-[10px] text-orange-600 font-medium mt-0.5">
+                            <Flame className="w-3 h-3" aria-hidden="true" />
+                            {badgeText}
+                          </span>
+                        )}
+
+                        {/* Unavailable indicator */}
+                        {isUnavailable && (
+                          <span className="block text-[10px] text-gray-400 mt-0.5">
+                            {badgeText}
+                          </span>
+                        )}
+
+                        {/* Multiple tables indicator (for available/limited slots) */}
+                        {hasMultipleTables && !isSelected && !isUnavailable && !isLimited && (
                           <span className="block text-xs opacity-70 mt-0.5">
                             {slot.tables.length} tables
                           </span>
@@ -360,7 +392,7 @@ export function StepAvailability({
                       </button>
 
                       {/* Table Selection (when expanded) */}
-                      {isExpanded && hasMultipleTables && (
+                      {isExpanded && hasMultipleTables && !isUnavailable && (
                         <div
                           className="col-span-full mt-2 mb-2 p-3 bg-[color:var(--color-muted)] rounded-token"
                           role="listbox"
@@ -431,7 +463,7 @@ export function StepAvailability({
       )}
 
       {/* Navigation Buttons */}
-      {availableSlots.length > 0 && (
+      {allSlots.length > 0 && hasAnyAvailability && (
         <div className="flex gap-3 pt-2">
           <button
             type="button"
