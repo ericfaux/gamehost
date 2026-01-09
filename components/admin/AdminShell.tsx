@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,8 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
   const [openMobile, setOpenMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [venueId, setVenueId] = useState(userVenues[0]?.id ?? '');
+  const pathname = usePathname();
+  const isSettingsPage = pathname.startsWith('/admin/settings');
 
   return (
     <div className="min-h-screen grid lg:grid-cols-[260px_1fr] bg-noise">
@@ -122,7 +125,13 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
 
         {/* Main Content */}
         <main className="flex-1 px-4 md:px-6 py-6 bg-rulebook-grid">
-          <div className="max-w-6xl mx-auto space-y-4" data-density={density}>
+          <div
+            className={cn(
+              'mx-auto space-y-4 w-full',
+              isSettingsPage ? 'max-w-none' : 'max-w-6xl'
+            )}
+            data-density={density}
+          >
             {children}
           </div>
         </main>
