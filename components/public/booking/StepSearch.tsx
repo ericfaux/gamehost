@@ -3,6 +3,7 @@
 import { useState, useMemo, useId } from 'react';
 import { cn } from '@/lib/utils';
 import { Calendar, Users, ChevronRight, Minus, Plus } from '@/components/icons';
+import { formatDateString } from '@/components/admin/bookings/utils/calendarUtils';
 import type { BookingData } from './BookingWizard';
 import type { VenueBookingSettings } from '@/lib/db/types';
 
@@ -23,7 +24,7 @@ export function StepSearch({ data, settings, onUpdate, onNext }: StepSearchProps
   const dateErrorId = useId();
   const partySizeErrorId = useId();
 
-  // Calculate date constraints
+  // Calculate date constraints using local dates (not UTC)
   const dateConstraints = useMemo(() => {
     const today = new Date();
     const minDate = new Date(today);
@@ -33,8 +34,8 @@ export function StepSearch({ data, settings, onUpdate, onNext }: StepSearchProps
     maxDate.setDate(maxDate.getDate() + settings.max_advance_days);
 
     return {
-      min: minDate.toISOString().split('T')[0],
-      max: maxDate.toISOString().split('T')[0],
+      min: formatDateString(minDate),
+      max: formatDateString(maxDate),
     };
   }, [settings.min_advance_hours, settings.max_advance_days]);
 

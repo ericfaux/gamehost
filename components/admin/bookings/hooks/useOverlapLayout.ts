@@ -232,11 +232,9 @@ export function useOverlapLayout(
         const column = columnAssignments.get(block.id) ?? 0;
         const leftPercent = column * (widthPercent + columnGapPercent);
 
-        const startTime = new Date(block.start_time);
-        const endTime = new Date(block.end_time);
-
-        const top = timeToPixels(startTime, startHour, pixelsPerHour);
-        const height = calculateBlockHeight(startTime, endTime, pixelsPerHour);
+        // Pass strings directly to preserve venue local time (avoid Date timezone conversion)
+        const top = timeToPixels(block.start_time, startHour, pixelsPerHour);
+        const height = calculateBlockHeight(block.start_time, block.end_time, pixelsPerHour);
 
         positionedBlocks.push({
           block,
@@ -284,11 +282,9 @@ export function calculateOverlapLayout(
       const column = columnAssignments.get(block.id) ?? 0;
       const leftPercent = column * (widthPercent + columnGapPercent);
 
-      const startTime = new Date(block.start_time);
-      const endTime = new Date(block.end_time);
-
-      const top = timeToPixels(startTime, startHour, pixelsPerHour);
-      const height = calculateBlockHeight(startTime, endTime, pixelsPerHour);
+      // Pass strings directly to preserve venue local time (avoid Date timezone conversion)
+      const top = timeToPixels(block.start_time, startHour, pixelsPerHour);
+      const height = calculateBlockHeight(block.start_time, block.end_time, pixelsPerHour);
 
       positionedBlocks.push({
         block,
@@ -306,6 +302,19 @@ export function calculateOverlapLayout(
 }
 
 /**
+ * Extracts the date portion from an ISO string or Date object.
+ * Returns YYYY-MM-DD format without timezone conversion.
+ */
+function extractDateFromTime(time: string): string {
+  // ISO string format: "2026-01-09T14:30:00.000Z"
+  if (time.includes('T')) {
+    return time.split('T')[0];
+  }
+  // Fallback for non-ISO strings (shouldn't happen in practice)
+  return time;
+}
+
+/**
  * Utility to filter positioned blocks by date (for week view).
  */
 export function filterBlocksByDate(
@@ -313,10 +322,8 @@ export function filterBlocksByDate(
   dateString: string
 ): PositionedBlock[] {
   return blocks.filter((pb) => {
-    const blockDate = new Date(pb.block.start_time);
-    const year = blockDate.getFullYear();
-    const month = String(blockDate.getMonth() + 1).padStart(2, '0');
-    const day = String(blockDate.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}` === dateString;
+    // Extract date from ISO string without timezone conversion
+    const blockDate = extractDateFromTime(pb.block.start_time);
+    return blockDate === dateString;
   });
 }

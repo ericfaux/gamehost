@@ -6,6 +6,48 @@
  */
 
 /**
+ * Extracts hours and minutes from a time value.
+ * Handles ISO strings (2026-01-09T22:30:00.000Z), HH:MM strings, and Date objects.
+ * For ISO strings and Date objects, extracts the time as-is without timezone conversion
+ * since times represent venue local time.
+ *
+ * @param time - Date object, ISO string, or HH:MM(:SS) string
+ * @returns Object with hours (0-23) and minutes (0-59)
+ */
+function extractTimeComponents(time: Date | string): { hours: number; minutes: number } {
+  if (typeof time === 'string') {
+    // Check if it's an ISO string (contains 'T')
+    if (time.includes('T')) {
+      // Extract time portion from ISO string: "2026-01-09T22:30:00.000Z" -> "22:30"
+      const timeMatch = time.match(/T(\d{2}):(\d{2})/);
+      if (timeMatch) {
+        return {
+          hours: parseInt(timeMatch[1], 10),
+          minutes: parseInt(timeMatch[2], 10),
+        };
+      }
+      // Fallback: parse as Date and use UTC (ISO strings are UTC)
+      const d = new Date(time);
+      return {
+        hours: d.getUTCHours(),
+        minutes: d.getUTCMinutes(),
+      };
+    }
+    // HH:MM or HH:MM:SS format
+    const parts = time.split(':');
+    return {
+      hours: parseInt(parts[0], 10),
+      minutes: parseInt(parts[1], 10),
+    };
+  }
+  // Date object - use local time (assumes Date was created correctly)
+  return {
+    hours: time.getHours(),
+    minutes: time.getMinutes(),
+  };
+}
+
+/**
  * Gets an array of 7 dates for a week, starting from Sunday.
  *
  * @param date - Any date within the desired week
@@ -73,18 +115,7 @@ export function timeToPixels(
   pixelsPerHour: number,
   referenceDate?: string
 ): number {
-  let hours: number;
-  let minutes: number;
-
-  if (typeof time === 'string') {
-    // Parse time string (HH:MM or HH:MM:SS)
-    const parts = time.split(':');
-    hours = parseInt(parts[0], 10);
-    minutes = parseInt(parts[1], 10);
-  } else {
-    hours = time.getHours();
-    minutes = time.getMinutes();
-  }
+  const { hours, minutes } = extractTimeComponents(time);
 
   const totalMinutes = (hours - startHour) * 60 + minutes;
   return (totalMinutes / 60) * pixelsPerHour;
@@ -147,17 +178,7 @@ export function formatDateString(date: Date): string {
  * @returns Formatted time string
  */
 export function formatTimeDisplay(time: Date | string): string {
-  let hours: number;
-  let minutes: number;
-
-  if (typeof time === 'string') {
-    const parts = time.split(':');
-    hours = parseInt(parts[0], 10);
-    minutes = parseInt(parts[1], 10);
-  } else {
-    hours = time.getHours();
-    minutes = time.getMinutes();
-  }
+  const { hours, minutes } = extractTimeComponents(time);
 
   const period = hours >= 12 ? 'PM' : 'AM';
   const displayHours = hours % 12 || 12;
@@ -218,22 +239,18 @@ export function getDurationMinutes(
   endTime: Date | string,
   referenceDate: string = '2000-01-01'
 ): number {
-  let startMs: number;
-  let endMs: number;
+  const start = extractTimeComponents(startTime);
+  const end = extractTimeComponents(endTime);
 
-  if (typeof startTime === 'string') {
-    startMs = new Date(`${referenceDate}T${startTime}`).getTime();
-  } else {
-    startMs = startTime.getTime();
+  const startMinutes = start.hours * 60 + start.minutes;
+  const endMinutes = end.hours * 60 + end.minutes;
+
+  // Handle crossing midnight (e.g., 10 PM to 1 AM)
+  if (endMinutes < startMinutes) {
+    return (24 * 60 - startMinutes) + endMinutes;
   }
 
-  if (typeof endTime === 'string') {
-    endMs = new Date(`${referenceDate}T${endTime}`).getTime();
-  } else {
-    endMs = endTime.getTime();
-  }
-
-  return Math.round((endMs - startMs) / (1000 * 60));
+  return endMinutes - startMinutes;
 }
 
 /**
