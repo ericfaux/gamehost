@@ -1062,3 +1062,33 @@ export function CreditCard(props: IconProps) {
     </IconBase>
   );
 }
+
+export function Hourglass(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M5 22h14" />
+      <path d="M5 2h14" />
+      <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" />
+      <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
+    </IconBase>
+  );
+}
+
+export function Coins(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+      <path d="M7 6h1v4" />
+      <path d="m16.71 13.88.7.71-2.82 2.82" />
+    </IconBase>
+  );
+}
+
+export function Crown(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
+    </IconBase>
+  );
+}

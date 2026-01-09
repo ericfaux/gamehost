@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
+import { Coins, Hourglass, Crown } from "@/components/icons/lucide-react";
 
 const simulatorSteps = [
   {
@@ -268,11 +270,33 @@ export default function LandingPage() {
           <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">🎲 Chapter IV</span>
           <div className="h-px flex-1 bg-stroke"></div>
         </div>
+        <div className="flex items-center gap-4 mb-6">
+          <p className="text-sm uppercase tracking-[0.3em] text-ink-secondary">Why It Matters</p>
+          <Image
+            src="/meeple-group.svg"
+            alt="Board game meeples representing Revenue, Time, and Brand"
+            width={120}
+            height={72}
+            className="opacity-75"
+          />
+        </div>
         <div className="grid md:grid-cols-[0.9fr_1.1fr] gap-12 items-start">
           <div className="grid grid-cols-3 gap-4">
-            {[{ label: "F&B Revenue Lift", value: "15%" }, { label: "Minutes Saved per Table", value: "12m" }, { label: "Return Booking Rate", value: "+18%" }].map(
+            {[
+              { label: "F&B Revenue Lift", value: "15%", pillar: "Revenue", icon: Coins, color: "accent" },
+              { label: "Minutes Saved per Table", value: "12m", pillar: "Time", icon: Hourglass, color: "teal" },
+              { label: "Return Booking Rate", value: "+18%", pillar: "Brand", icon: Crown, color: "success" }
+            ].map(
               (stat) => (
-                <div key={stat.label} className="p-5 rounded-2xl bg-card border border-stroke shadow-card">
+                <div
+                  key={stat.label}
+                  className="p-5 rounded-2xl bg-card border border-stroke shadow-card"
+                  style={{ borderTopWidth: "4px", borderTopColor: stat.color === "accent" ? "var(--color-accent)" : stat.color === "teal" ? "var(--color-teal)" : "var(--color-success)" }}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <stat.icon className={`h-4 w-4 ${stat.color === "accent" ? "text-accent" : stat.color === "teal" ? "text-teal" : "text-success"}`} />
+                    <span className={`text-[10px] uppercase tracking-[0.2em] font-semibold ${stat.color === "accent" ? "text-accent" : stat.color === "teal" ? "text-teal" : "text-success"}`}>{stat.pillar}</span>
+                  </div>
                   <p className="text-xs uppercase tracking-[0.2em] text-ink-secondary">{stat.label}</p>
                   <p className="mt-3 text-3xl font-serif text-ink-primary">{stat.value}</p>
                 </div>
@@ -303,13 +327,18 @@ export default function LandingPage() {
 
       <section
         id="comparison"
-        className="max-w-6xl mx-auto px-6 pb-20 md:pb-24"
+        className="max-w-6xl mx-auto px-6 pb-20 md:pb-24 bg-section-teal py-10 rounded-3xl"
         aria-labelledby="comparison-heading"
       >
-        <div className="flex items-center gap-3 mb-8">
-          <div className="h-px flex-1 bg-stroke"></div>
+        <div className="flex flex-col items-center gap-2 mb-8">
+          <Image
+            src="/medieval-flourish.svg"
+            alt=""
+            width={200}
+            height={24}
+            className="opacity-70"
+          />
           <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Appendix A</span>
-          <div className="h-px flex-1 bg-stroke"></div>
         </div>
         <h2 id="comparison-heading" className="text-3xl font-serif text-ink-primary mb-6">
           The Stat Sheet
@@ -357,7 +386,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="max-w-4xl mx-auto px-6 pb-16 md:pb-24 text-center bg-cta-warm py-12 rounded-3xl">
+      <section className="max-w-4xl mx-auto px-6 pb-16 md:pb-24 text-center bg-cta-warm py-12 rounded-3xl relative overflow-hidden">
+        <Image
+          src="/dice-pair.svg"
+          alt=""
+          width={80}
+          height={60}
+          className="absolute top-6 right-8 opacity-60 hidden md:block"
+        />
         <div className="flex items-center justify-center gap-3 mb-6">
           <div className="h-px flex-1 bg-stroke"></div>
           <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Final Scoring</span>

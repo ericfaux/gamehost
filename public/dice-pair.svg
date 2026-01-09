@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60" fill="none">
+  <!-- First die (orange tinted) -->
+  <g transform="rotate(-8, 25, 30)">
+    <rect x="5" y="10" width="40" height="40" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.5"/>
+    <!-- Pips for 5 -->
+    <circle cx="15" cy="20" r="3" fill="#ea580c"/>
+    <circle cx="35" cy="20" r="3" fill="#ea580c"/>
+    <circle cx="25" cy="30" r="3" fill="#ea580c"/>
+    <circle cx="15" cy="40" r="3" fill="#ea580c"/>
+    <circle cx="35" cy="40" r="3" fill="#ea580c"/>
+  </g>
+
+  <!-- Second die (teal tinted) -->
+  <g transform="rotate(12, 55, 30)">
+    <rect x="35" y="10" width="40" height="40" rx="6" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+    <!-- Pips for 6 -->
+    <circle cx="45" cy="18" r="3" fill="#0d9488"/>
+    <circle cx="65" cy="18" r="3" fill="#0d9488"/>
+    <circle cx="45" cy="30" r="3" fill="#0d9488"/>
+    <circle cx="65" cy="30" r="3" fill="#0d9488"/>
+    <circle cx="45" cy="42" r="3" fill="#0d9488"/>
+    <circle cx="65" cy="42" r="3" fill="#0d9488"/>
+  </g>
+</svg>
