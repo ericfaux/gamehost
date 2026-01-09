@@ -12,10 +12,14 @@ import {
   Phone,
 } from '@/components/icons';
 import type { Booking } from '@/lib/db/types';
+import { AddToCalendar } from './AddToCalendar';
 
 interface StepSuccessProps {
   booking: Booking;
   venueName: string;
+  venueAddress?: string | null;
+  venueTimezone?: string | null;
+  reservedGame?: string | null;
 }
 
 // Format time for display (12-hour format)
@@ -37,7 +41,13 @@ function formatDateDisplay(dateStr: string): string {
   });
 }
 
-export function StepSuccess({ booking, venueName }: StepSuccessProps) {
+export function StepSuccess({
+  booking,
+  venueName,
+  venueAddress,
+  venueTimezone,
+  reservedGame,
+}: StepSuccessProps) {
   const [copied, setCopied] = useState(false);
 
   // Copy confirmation code to clipboard
@@ -147,6 +157,16 @@ export function StepSuccess({ booking, venueName }: StepSuccessProps) {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="px-6 pb-6">
+        <AddToCalendar
+          booking={booking}
+          venueName={venueName}
+          venueAddress={venueAddress}
+          venueTimezone={venueTimezone}
+          reservedGame={reservedGame}
+        />
       </div>
 
       {/* Footer */}

@@ -16,6 +16,8 @@ interface BookingWizardProps {
   venueName: string;
   venueSlug: string;
   settings: VenueBookingSettings;
+  venueAddress?: string | null;
+  venueTimezone?: string | null;
 }
 
 export interface BookingData {
@@ -63,7 +65,14 @@ const STEPS = [
   { num: 5, label: 'Confirm', shortLabel: 'Done' },
 ];
 
-export function BookingWizard({ venueId, venueName, venueSlug, settings }: BookingWizardProps) {
+export function BookingWizard({
+  venueId,
+  venueName,
+  venueSlug,
+  settings,
+  venueAddress,
+  venueTimezone,
+}: BookingWizardProps) {
   const [step, setStep] = useState(1);
   const [data, setData] = useState<BookingData>(initialData);
   const [completedBooking, setCompletedBooking] = useState<Booking | null>(null);
@@ -125,7 +134,15 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
 
   // Success state - show confirmation
   if (step === 6 && completedBooking) {
-    return <StepSuccess booking={completedBooking} venueName={venueName} />;
+    return (
+      <StepSuccess
+        booking={completedBooking}
+        venueName={venueName}
+        venueAddress={venueAddress}
+        venueTimezone={venueTimezone}
+        reservedGame={data.gameTitle}
+      />
+    );
   }
 
   return (

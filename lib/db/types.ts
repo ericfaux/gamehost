@@ -43,6 +43,8 @@ export interface Venue {
   owner_id: string;
   name: string;
   slug: string;
+  address?: string | null;
+  timezone?: string | null;
   created_at: string;
 }
 
