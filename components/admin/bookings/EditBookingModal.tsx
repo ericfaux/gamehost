@@ -400,7 +400,7 @@ export function EditBookingModal({
 
       if (result.success && result.data) {
         // Include current table even if it shows as unavailable (it's available for this booking)
-        let tables = result.data;
+        const tables = result.data;
 
         // If current table isn't in the list and we have it selected, we need to handle that
         // For now, the availability check excludes the current booking, so this should be fine
