@@ -711,12 +711,11 @@ export function UnifiedSettingsClient({
   };
 
   return (
-    <div className="h-full flex">
+    <div className="-mx-4 md:-mx-6 -my-6 min-h-[calc(100vh-80px)] flex">
       {/* Left Navigation Sidebar */}
-      <nav className="w-52 flex-shrink-0 border-r border-[color:var(--color-structure)] bg-stone-50/50 p-3 overflow-y-auto">
+      <nav className="w-48 flex-shrink-0 border-r border-[color:var(--color-structure)] bg-stone-50/50 p-3 overflow-y-auto">
         <div className="mb-4">
           <h1 className="text-lg font-serif font-semibold text-stone-900">Settings</h1>
-          <p className="text-xs text-stone-500">Manage your venue configuration</p>
         </div>
 
         <div className="space-y-0.5">
@@ -729,7 +728,7 @@ export function UnifiedSettingsClient({
                 key={item.id}
                 onClick={() => navigateToSection(item.id)}
                 className={cn(
-                  'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-all duration-150',
+                  'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-all duration-150',
                   isActive
                     ? 'bg-orange-50 text-orange-700'
                     : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
