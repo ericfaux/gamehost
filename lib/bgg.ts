@@ -1,5 +1,6 @@
 import { XMLParser } from 'fast-xml-parser';
 import type { GameComplexity } from '@/lib/db/types';
+import { calculateMatchScore } from '@/lib/utils/strings';
 
 const BGG_API_TOKEN = process.env.BGG_API_TOKEN;
 
@@ -20,6 +21,8 @@ export interface BggSearchResult {
   id: string;
   title: string;
   year: string;
+  /** Match score from fuzzy comparison (0-1, higher is better) */
+  matchScore?: number;
 }
 
 export interface BggGameDetails {
@@ -160,6 +163,32 @@ export async function searchBggGames(query: string): Promise<BggSearchResult[]> 
     console.error('Failed to search BGG games', error);
     return [];
   }
+}
+
+/**
+ * Ranks BGG search results by how well they match the search query.
+ * Uses fuzzy matching with length penalty to prefer exact matches
+ * over expansions/variants with longer titles.
+ *
+ * @param query - The original search query
+ * @param results - Array of search results from BGG
+ * @returns Results sorted by match score (highest first), with scores attached
+ *
+ * @example
+ * const results = await searchBggGames("Catan");
+ * const ranked = rankSearchResults("Catan", results);
+ * // ranked[0] will be "Catan" (score: 1.0), not "Catan: Seafarers" (score: ~0.11)
+ */
+export function rankSearchResults(
+  query: string,
+  results: BggSearchResult[]
+): BggSearchResult[] {
+  return results
+    .map((result) => ({
+      ...result,
+      matchScore: calculateMatchScore(query, result.title),
+    }))
+    .sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
 }
 
 export async function getBggGameDetails(bggId: string): Promise<BggGameDetails | null> {
