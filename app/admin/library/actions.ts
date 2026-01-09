@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { normalizeTitle } from '@/lib/utils/strings';
-import { getBggHotGames, searchBggGames, getBggGameDetails } from '@/lib/bgg';
+import { getBggHotGames, searchBggGames, getBggGameDetails, rankSearchResults } from '@/lib/bgg';
 import type { GameComplexity, GameStatus, GameCondition } from '@/lib/db/types';
 
 // Valid enum values for validation
@@ -653,9 +653,21 @@ export async function fetchCoverFromBgg(
     return { success: false, error: 'No match found on BGG' };
   }
 
-  // Get full details for the top result (includes full-size image URL)
-  const topResult = searchResults[0];
-  const details = await getBggGameDetails(topResult.id);
+  // Rank results by fuzzy match score and pick the best match
+  const rankedResults = rankSearchResults(title, searchResults);
+  const bestMatch = rankedResults[0];
+
+  // Reject if score is too low to avoid wrong matches
+  const MIN_SCORE_THRESHOLD = 0.3;
+  if ((bestMatch.matchScore ?? 0) < MIN_SCORE_THRESHOLD) {
+    return {
+      success: false,
+      error: `Best match "${bestMatch.title}" scored too low (${((bestMatch.matchScore ?? 0) * 100).toFixed(0)}%)`,
+    };
+  }
+
+  // Get full details for the best match (includes full-size image URL)
+  const details = await getBggGameDetails(bestMatch.id);
   if (!details || !details.cover_image_url) {
     return { success: false, error: 'Could not retrieve cover image from BGG' };
   }
