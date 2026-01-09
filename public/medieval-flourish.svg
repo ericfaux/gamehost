@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 24" fill="none">
+  <!-- Left flourish -->
+  <path d="M0 12 Q15 6 30 12 Q45 18 60 12" stroke="#d6d3d1" stroke-width="1.5" fill="none"/>
+  <circle cx="65" cy="12" r="2" fill="#0d9488"/>
+
+  <!-- Center diamond -->
+  <path d="M95 4 L100 12 L95 20 L90 12 Z" fill="none" stroke="#ea580c" stroke-width="1.5"/>
+  <path d="M105 4 L110 12 L105 20 L100 12 Z" fill="none" stroke="#ea580c" stroke-width="1.5"/>
+
+  <!-- Right flourish -->
+  <circle cx="135" cy="12" r="2" fill="#0d9488"/>
+  <path d="M140 12 Q155 6 170 12 Q185 18 200 12" stroke="#d6d3d1" stroke-width="1.5" fill="none"/>
+</svg>
