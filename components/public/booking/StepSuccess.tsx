@@ -14,6 +14,7 @@ import {
   MapPin,
   ExternalLink,
 } from '@/components/icons';
+import { AddToCalendar } from './AddToCalendar';
 import type { Booking, VenueBookingSettings } from '@/lib/db/types';
 
 interface StepSuccessProps {
@@ -21,6 +22,7 @@ interface StepSuccessProps {
   venueName: string;
   venueSlug: string;
   settings: VenueBookingSettings;
+  reservedGameTitle?: string | null;
 }
 
 // Build Google Maps directions URL from address components
@@ -93,7 +95,13 @@ function formatDateDisplay(dateStr: string): string {
   });
 }
 
-export function StepSuccess({ booking, venueName, venueSlug, settings }: StepSuccessProps) {
+export function StepSuccess({
+  booking,
+  venueName,
+  venueSlug,
+  settings,
+  reservedGameTitle,
+}: StepSuccessProps) {
   const [copied, setCopied] = useState(false);
 
   const directionsUrl = buildDirectionsUrl(settings, venueName);
@@ -236,6 +244,15 @@ export function StepSuccess({ booking, venueName, venueSlug, settings }: StepSuc
             )}
           </div>
         </div>
+      </div>
+
+      <div className="px-6 pb-6">
+        <AddToCalendar
+          booking={booking}
+          venueName={venueName}
+          settings={settings}
+          reservedGameTitle={reservedGameTitle}
+        />
       </div>
 
       {/* Footer - Manage Reservation */}

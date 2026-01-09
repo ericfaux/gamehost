@@ -131,6 +131,7 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
         venueName={venueName}
         venueSlug={venueSlug}
         settings={settings}
+        reservedGameTitle={data.gameTitle}
       />
     );
   }
