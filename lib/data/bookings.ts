@@ -2478,6 +2478,50 @@ export async function upsertVenueOperatingHours(
 }
 
 /**
+ * Default operating hours for initialization.
+ * Mon-Fri: 10am-10pm, Sat-Sun: 11am-11pm
+ */
+const DEFAULT_OPERATING_HOURS: OperatingHoursInput[] = [
+  { day_of_week: 0, is_closed: false, open_time: '11:00:00', close_time: '21:00:00' }, // Sunday
+  { day_of_week: 1, is_closed: false, open_time: '10:00:00', close_time: '22:00:00' }, // Monday
+  { day_of_week: 2, is_closed: false, open_time: '10:00:00', close_time: '22:00:00' }, // Tuesday
+  { day_of_week: 3, is_closed: false, open_time: '10:00:00', close_time: '22:00:00' }, // Wednesday
+  { day_of_week: 4, is_closed: false, open_time: '10:00:00', close_time: '22:00:00' }, // Thursday
+  { day_of_week: 5, is_closed: false, open_time: '10:00:00', close_time: '23:00:00' }, // Friday
+  { day_of_week: 6, is_closed: false, open_time: '11:00:00', close_time: '23:00:00' }, // Saturday
+];
+
+/**
+ * Gets operating hours for a venue, creating default hours if none exist.
+ * This ensures venues always have operating hours to display and edit.
+ *
+ * @param venueId - The venue UUID
+ * @returns Array of operating hours for each day of the week
+ */
+export async function getOrCreateVenueOperatingHours(
+  venueId: string
+): Promise<VenueOperatingHours[]> {
+  // First, try to get existing hours
+  const existingHours = await getVenueOperatingHours(venueId);
+
+  // If hours exist, return them
+  if (existingHours.length > 0) {
+    return existingHours;
+  }
+
+  // No hours exist, create defaults
+  console.log(`Creating default operating hours for venue ${venueId}`);
+  try {
+    const newHours = await upsertVenueOperatingHours(venueId, DEFAULT_OPERATING_HOURS);
+    return newHours;
+  } catch (error) {
+    console.error('Error creating default operating hours:', error);
+    // Return empty array if creation fails - the UI can handle this
+    return [];
+  }
+}
+
+/**
  * Creates or updates booking settings for a venue using upsert.
  *
  * @param venueId - The venue UUID

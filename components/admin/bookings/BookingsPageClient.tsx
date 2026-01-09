@@ -2,16 +2,18 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
 import { Calendar } from './calendar';
 import { BookingDetailDrawer } from './BookingDetailDrawer';
 import { CreateBookingModal } from './CreateBookingModal';
 import { BookingsList } from './BookingsList';
+import { BookingSettingsPageClient } from './BookingSettingsPageClient';
 import { Button } from '@/components/ui/button';
 import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Clock, Users, Check, UserCheck, Copy, ExternalLink } from '@/components/icons';
 import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
 import { cn } from '@/lib/utils';
-import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingStatus, VenueTable } from '@/lib/db/types';
+import type { VenueBookingSettings, TimelineBlock, BookingWithDetails, BookingStatus, VenueTable, VenueOperatingHours } from '@/lib/db/types';
 import type { TimelineViewMode } from '@/lib/data/timeline';
 
 // =============================================================================
@@ -24,6 +26,7 @@ interface BookingsPageClientProps {
   venueSlug: string;
   settings: VenueBookingSettings;
   venueTables: VenueTable[];
+  operatingHours: VenueOperatingHours[];
 }
 
 interface ArrivalsEntry {
@@ -223,7 +226,11 @@ export function BookingsPageClient({
   venueSlug,
   settings,
   venueTables,
+  operatingHours,
 }: BookingsPageClientProps) {
+  const searchParams = useSearchParams();
+  const currentView = searchParams.get('view') ?? 'calendar';
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -243,6 +250,7 @@ export function BookingsPageClient({
 
   const relativePath = `/v/${venueSlug}/book`;
   const fullUrl = origin ? `${origin}${relativePath}` : relativePath;
+
   // Copy to clipboard with fallback
   const copyToClipboard = useCallback(async (text: string, type: 'link' | 'html') => {
     try {
@@ -312,6 +320,17 @@ export function BookingsPageClient({
   const handleBookingClick = useCallback((booking: BookingWithDetails) => {
     setSelectedBookingId(booking.id);
   }, []);
+
+  // If viewing settings, render the settings page
+  if (currentView === 'settings') {
+    return (
+      <BookingSettingsPageClient
+        venueId={venueId}
+        settings={settings}
+        operatingHours={operatingHours}
+      />
+    );
+  }
 
   // Note: If settings exist, bookings are enabled
   // The BookingsDisabledState can be shown if a `bookings_enabled` field is added later

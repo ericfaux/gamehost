@@ -2115,3 +2115,293 @@ export async function updateVenueBookingSettingsAction(
     data: { updated: true },
   };
 }
+
+// -----------------------------------------------------------------------------
+// Venue Operating Hours Actions
+// -----------------------------------------------------------------------------
+
+/**
+ * Parameters for updating venue operating hours.
+ */
+export interface OperatingHoursInput {
+  day_of_week: number; // 0-6, Sunday = 0
+  is_closed: boolean;
+  open_time: string | null; // HH:MM:SS format
+  close_time: string | null; // HH:MM:SS format
+}
+
+/**
+ * Updates operating hours for a venue.
+ * Replaces all existing operating hours with the new values.
+ *
+ * @param venueId - The venue's UUID
+ * @param hours - Array of operating hours for each day of the week
+ * @returns ActionResult with success or error
+ */
+export async function updateVenueOperatingHoursAction(
+  venueId: string,
+  hours: OperatingHoursInput[]
+): Promise<ActionResult<{ updated: true }>> {
+  // --- Step 1: Verify user is authenticated and owns the venue ---
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      error: 'You must be logged in to update operating hours.',
+      code: 'UNAUTHORIZED',
+    };
+  }
+
+  // Verify the venue belongs to this user
+  const supabase = getSupabaseAdmin();
+  const { data: venue, error: venueError } = await supabase
+    .from('venues')
+    .select('id, owner_id')
+    .eq('id', venueId)
+    .single();
+
+  if (venueError || !venue) {
+    return {
+      success: false,
+      error: 'Venue not found.',
+      code: 'NOT_FOUND',
+    };
+  }
+
+  if (venue.owner_id !== user.id) {
+    return {
+      success: false,
+      error: 'You do not have permission to update this venue.',
+      code: 'UNAUTHORIZED',
+    };
+  }
+
+  // --- Step 2: Validate the operating hours ---
+  if (!Array.isArray(hours) || hours.length === 0) {
+    return {
+      success: false,
+      error: 'Operating hours must be provided.',
+      code: 'VALIDATION',
+    };
+  }
+
+  // Validate each day's hours
+  for (const day of hours) {
+    if (day.day_of_week < 0 || day.day_of_week > 6) {
+      return {
+        success: false,
+        error: 'Invalid day of week. Must be 0-6 (Sunday-Saturday).',
+        code: 'VALIDATION',
+      };
+    }
+
+    if (!day.is_closed) {
+      if (!day.open_time || !day.close_time) {
+        return {
+          success: false,
+          error: 'Open and close times are required for open days.',
+          code: 'VALIDATION',
+        };
+      }
+
+      // Basic time format validation (HH:MM:SS or HH:MM)
+      const timeRegex = /^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+      if (!timeRegex.test(day.open_time) || !timeRegex.test(day.close_time)) {
+        return {
+          success: false,
+          error: 'Invalid time format. Use HH:MM or HH:MM:SS.',
+          code: 'VALIDATION',
+        };
+      }
+    }
+  }
+
+  // --- Step 3: Update the operating hours ---
+  const { upsertVenueOperatingHours } = await import('@/lib/data/bookings');
+
+  try {
+    await upsertVenueOperatingHours(venueId, hours);
+  } catch (error) {
+    console.error('Error updating operating hours:', error);
+    return {
+      success: false,
+      error: 'Failed to update operating hours. Please try again.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  // --- Step 4: Revalidate paths ---
+  revalidatePath('/admin/bookings');
+  revalidatePath('/admin/settings/bookings');
+
+  return {
+    success: true,
+    data: { updated: true },
+  };
+}
+
+// -----------------------------------------------------------------------------
+// Check Bookings Outside Operating Hours (Conflict Detection)
+// -----------------------------------------------------------------------------
+
+/**
+ * Booking conflict information for operating hours changes.
+ */
+export interface OperatingHoursConflict {
+  id: string;
+  guest_name: string;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  table_label: string;
+  conflict_reason: string;
+}
+
+/**
+ * Checks for existing bookings that would fall outside proposed operating hours.
+ * This helps warn venue owners before they change hours in a way that affects
+ * existing reservations.
+ *
+ * @param venueId - The venue's UUID
+ * @param proposedHours - The proposed new operating hours
+ * @returns ActionResult with array of conflicting bookings or error
+ */
+export async function checkBookingsOutsideHoursAction(
+  venueId: string,
+  proposedHours: OperatingHoursInput[]
+): Promise<ActionResult<OperatingHoursConflict[]>> {
+  // --- Step 1: Verify user is authenticated ---
+  const authClient = await createClient();
+  const { data: { user } } = await authClient.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      error: 'You must be logged in.',
+      code: 'UNAUTHORIZED',
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+
+  // --- Step 2: Fetch upcoming bookings for this venue ---
+  // Only check confirmed/pending bookings in the future
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data: bookings, error: bookingsError } = await supabase
+    .from('bookings')
+    .select(`
+      id,
+      guest_name,
+      booking_date,
+      start_time,
+      end_time,
+      venue_tables:table_id (label)
+    `)
+    .eq('venue_id', venueId)
+    .gte('booking_date', today)
+    .in('status', ['pending', 'confirmed'])
+    .order('booking_date', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  if (bookingsError) {
+    console.error('Error fetching bookings for conflict check:', bookingsError);
+    return {
+      success: false,
+      error: 'Failed to check for conflicts.',
+      code: 'UNKNOWN',
+    };
+  }
+
+  if (!bookings || bookings.length === 0) {
+    return {
+      success: true,
+      data: [],
+    };
+  }
+
+  // --- Step 3: Build hours lookup by day of week ---
+  const hoursByDay = new Map<number, OperatingHoursInput>();
+  for (const h of proposedHours) {
+    hoursByDay.set(h.day_of_week, h);
+  }
+
+  // --- Step 4: Check each booking against proposed hours ---
+  const conflicts: OperatingHoursConflict[] = [];
+
+  for (const booking of bookings) {
+    const bookingDate = new Date(booking.booking_date + 'T00:00:00');
+    const dayOfWeek = bookingDate.getDay(); // 0 = Sunday
+    const dayHours = hoursByDay.get(dayOfWeek);
+
+    // Handle table label from join
+    const tableData = booking.venue_tables as unknown;
+    let tableLabel = 'Unknown table';
+    if (Array.isArray(tableData) && tableData.length > 0) {
+      tableLabel = (tableData[0] as { label: string }).label;
+    } else if (tableData && typeof tableData === 'object' && 'label' in tableData) {
+      tableLabel = (tableData as { label: string }).label;
+    }
+
+    // Check if day is closed
+    if (!dayHours || dayHours.is_closed) {
+      const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
+      conflicts.push({
+        id: booking.id,
+        guest_name: booking.guest_name,
+        booking_date: booking.booking_date,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+        table_label: tableLabel,
+        conflict_reason: `Falls on ${dayName}, which will be closed`,
+      });
+      continue;
+    }
+
+    // Check if booking times fall outside operating hours
+    const bookingStart = booking.start_time.substring(0, 5); // HH:MM
+    const bookingEnd = booking.end_time.substring(0, 5); // HH:MM
+    const openTime = dayHours.open_time?.substring(0, 5) ?? '00:00';
+    const closeTime = dayHours.close_time?.substring(0, 5) ?? '23:59';
+
+    // Convert to comparable format
+    const toMinutes = (time: string) => {
+      const [h, m] = time.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const bookingStartMins = toMinutes(bookingStart);
+    const bookingEndMins = toMinutes(bookingEnd);
+    const openMins = toMinutes(openTime);
+    const closeMins = toMinutes(closeTime);
+
+    if (bookingStartMins < openMins) {
+      conflicts.push({
+        id: booking.id,
+        guest_name: booking.guest_name,
+        booking_date: booking.booking_date,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+        table_label: tableLabel,
+        conflict_reason: `Starts at ${bookingStart}, before opening time ${openTime}`,
+      });
+    } else if (bookingEndMins > closeMins) {
+      conflicts.push({
+        id: booking.id,
+        guest_name: booking.guest_name,
+        booking_date: booking.booking_date,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+        table_label: tableLabel,
+        conflict_reason: `Ends at ${bookingEnd}, after closing time ${closeTime}`,
+      });
+    }
+  }
+
+  return {
+    success: true,
+    data: conflicts,
+  };
+}
