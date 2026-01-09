@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Check } from '@/components/icons';
+import { Check, Loader2 } from '@/components/icons';
 import { StepSearch } from './StepSearch';
 import { StepAvailability } from './StepAvailability';
 import { StepDetails } from './StepDetails';
@@ -68,6 +68,8 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
   const [data, setData] = useState<BookingData>(initialData);
   const [completedBooking, setCompletedBooking] = useState<Booking | null>(null);
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward');
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [targetStep, setTargetStep] = useState<number | null>(null);
   const stepContainerRef = useRef<HTMLDivElement>(null);
   const isNavigatingRef = useRef(false);
 
@@ -75,12 +77,22 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
     setData((prev: BookingData) => ({ ...prev, ...updates }));
   };
 
-  // Navigate to step with direction tracking
+  // Navigate to step with direction tracking and brief loading state
   const navigateToStep = useCallback((newStep: number, dir?: 'forward' | 'backward') => {
-    if (newStep === step) return;
-    setDirection(dir || (newStep > step ? 'forward' : 'backward'));
-    setStep(newStep);
-  }, [step]);
+    if (newStep === step || isTransitioning) return;
+
+    const newDirection = dir || (newStep > step ? 'forward' : 'backward');
+    setDirection(newDirection);
+    setTargetStep(newStep);
+    setIsTransitioning(true);
+
+    // Brief delay to show loading state, then transition
+    setTimeout(() => {
+      setStep(newStep);
+      setIsTransitioning(false);
+      setTargetStep(null);
+    }, 150);
+  }, [step, isTransitioning]);
 
   const handleComplete = (booking: Booking) => {
     setCompletedBooking(booking);
@@ -219,66 +231,79 @@ export function BookingWizard({ venueId, venueName, venueSlug, settings }: Booki
         aria-live="polite"
         className="p-4 sm:p-6 outline-none"
       >
-        <div
-          className={cn(
-            'transition-all duration-200 ease-out',
-            direction === 'forward'
-              ? 'animate-in fade-in slide-in-from-right-4'
-              : 'animate-in fade-in slide-in-from-left-4'
-          )}
-          key={step}
-        >
-          {step === 1 && (
-            <StepSearch
-              data={data}
-              settings={settings}
-              onUpdate={updateData}
-              onNext={() => navigateToStep(2, 'forward')}
-            />
-          )}
+        {/* Loading state during step transition */}
+        {isTransitioning && targetStep && (
+          <div className="flex flex-col items-center justify-center py-12 gap-3 animate-in fade-in duration-100">
+            <Loader2 className="w-6 h-6 text-teal-500 animate-spin" aria-hidden="true" />
+            <p className="text-sm text-[color:var(--color-ink-secondary)]">
+              Loading {STEPS[targetStep - 1]?.label}...
+            </p>
+          </div>
+        )}
 
-          {step === 2 && (
-            <StepAvailability
-              venueId={venueId}
-              data={data}
-              settings={settings}
-              onUpdate={updateData}
-              onNext={() => navigateToStep(3, 'forward')}
-              onBack={() => navigateToStep(1, 'backward')}
-            />
-          )}
+        {/* Step content */}
+        {!isTransitioning && (
+          <div
+            className={cn(
+              'transition-all duration-200 ease-out',
+              direction === 'forward'
+                ? 'animate-in fade-in slide-in-from-right-4'
+                : 'animate-in fade-in slide-in-from-left-4'
+            )}
+            key={step}
+          >
+            {step === 1 && (
+              <StepSearch
+                data={data}
+                settings={settings}
+                onUpdate={updateData}
+                onNext={() => navigateToStep(2, 'forward')}
+              />
+            )}
 
-          {step === 3 && (
-            <StepDetails
-              data={data}
-              settings={settings}
-              onUpdate={updateData}
-              onNext={() => navigateToStep(4, 'forward')}
-              onBack={() => navigateToStep(2, 'backward')}
-            />
-          )}
+            {step === 2 && (
+              <StepAvailability
+                venueId={venueId}
+                data={data}
+                settings={settings}
+                onUpdate={updateData}
+                onNext={() => navigateToStep(3, 'forward')}
+                onBack={() => navigateToStep(1, 'backward')}
+              />
+            )}
 
-          {step === 4 && (
-            <StepGame
-              venueId={venueId}
-              data={data}
-              onUpdate={updateData}
-              onNext={() => navigateToStep(5, 'forward')}
-              onBack={() => navigateToStep(3, 'backward')}
-            />
-          )}
+            {step === 3 && (
+              <StepDetails
+                data={data}
+                settings={settings}
+                onUpdate={updateData}
+                onNext={() => navigateToStep(4, 'forward')}
+                onBack={() => navigateToStep(2, 'backward')}
+              />
+            )}
 
-          {step === 5 && (
-            <StepConfirm
-              venueId={venueId}
-              data={data}
-              settings={settings}
-              onComplete={handleComplete}
-              onBack={() => navigateToStep(4, 'backward')}
-              onEditStep={(targetStep: number) => navigateToStep(targetStep, 'backward')}
-            />
-          )}
-        </div>
+            {step === 4 && (
+              <StepGame
+                venueId={venueId}
+                data={data}
+                onUpdate={updateData}
+                onNext={() => navigateToStep(5, 'forward')}
+                onBack={() => navigateToStep(3, 'backward')}
+              />
+            )}
+
+            {step === 5 && (
+              <StepConfirm
+                venueId={venueId}
+                data={data}
+                settings={settings}
+                onComplete={handleComplete}
+                onBack={() => navigateToStep(4, 'backward')}
+                onEditStep={(targetStepNum: number) => navigateToStep(targetStepNum, 'backward')}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
