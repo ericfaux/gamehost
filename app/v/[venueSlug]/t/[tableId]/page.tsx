@@ -151,22 +151,35 @@ export default async function TableLandingPage({ params }: PageProps) {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-8 rulebook-grid">
       <div className="w-full max-w-md text-center space-y-8">
-        {/* Venue icon/logo placeholder */}
-        <div className="w-20 h-20 mx-auto bg-[color:var(--color-accent-soft)] border border-[color:var(--color-accent)]/20 rounded-2xl flex items-center justify-center shadow-[var(--shadow-token)]">
-          <svg
-            className="w-10 h-10 text-[color:var(--color-accent)]"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        {/* Venue logo or default icon */}
+        {venue.logo_url ? (
+          <div className="w-20 h-20 mx-auto bg-[color:var(--color-accent-soft)] border border-[color:var(--color-accent)]/20 rounded-2xl overflow-hidden shadow-[var(--shadow-token)]">
+            <Image
+              src={venue.logo_url}
+              alt={`${venue.name} logo`}
+              width={80}
+              height={80}
+              className="w-full h-full object-contain"
+              priority
             />
-          </svg>
-        </div>
+          </div>
+        ) : (
+          <div className="w-20 h-20 mx-auto bg-[color:var(--color-accent-soft)] border border-[color:var(--color-accent)]/20 rounded-2xl flex items-center justify-center shadow-[var(--shadow-token)]">
+            <svg
+              className="w-10 h-10 text-[color:var(--color-accent)]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+        )}
 
         {/* Welcome text */}
         <div className="space-y-2">
