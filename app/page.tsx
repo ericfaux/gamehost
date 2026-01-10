@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { Coins, Hourglass, Crown } from "@/components/icons/lucide-react";
+import { EarlyAccessForm } from "@/components/public/EarlyAccessForm";
 
 const simulatorSteps = [
   {
@@ -54,6 +55,9 @@ export default function LandingPage() {
             </Link>
             <Link className="hover:text-ink-primary transition-colors" href="#comparison">
               Stat Sheet
+            </Link>
+            <Link className="hover:text-accent transition-colors font-semibold text-accent" href="#early-access">
+              Early Access
             </Link>
           </div>
         </div>
@@ -325,6 +329,39 @@ export default function LandingPage() {
                 </article>
               ),
             )}
+          </div>
+        </div>
+      </section>
+
+      <section id="early-access" className="max-w-4xl mx-auto px-6 pb-20 md:pb-24">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-stroke"></div>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Join the Waitlist</span>
+          <div className="h-px flex-1 bg-stroke"></div>
+        </div>
+        <div className="grid md:grid-cols-[1fr_1.1fr] gap-10 items-start">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-serif text-ink-primary">Request Early Access</h2>
+            <p className="text-lg text-ink-secondary leading-relaxed">
+              Be among the first board game cafés to run GameLedger. We&apos;re onboarding a limited number of venues for our pilot program.
+            </p>
+            <ul className="space-y-2 text-ink-primary text-sm">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-teal"></span>
+                Priority access to new features
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-teal"></span>
+                Dedicated onboarding support
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-2 w-2 rounded-full bg-teal"></span>
+                Founding member pricing
+              </li>
+            </ul>
+          </div>
+          <div className="bg-card rounded-2xl border border-stroke shadow-floating p-6">
+            <EarlyAccessForm />
           </div>
         </div>
       </section>
