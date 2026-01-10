@@ -157,6 +157,9 @@ export default function LandingPage() {
                         <span className="text-xs text-ink-primary font-semibold">&ldquo;Scythe&rdquo; Reserved — Skipped the line</span>
                       </div>
                     </div>
+                    <div className="mt-4 pt-3 border-t border-stroke flex items-center justify-end gap-1.5 opacity-60">
+                      <span className="text-[10px] uppercase tracking-wider text-ink-secondary">Data via BoardGameGeek API</span>
+                    </div>
                   </div>
                 )}
 
@@ -353,6 +356,44 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="max-w-3xl mx-auto px-6 pb-20 md:pb-24">
+        <div className="flex items-center gap-3 mb-8 justify-center">
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Common Questions</span>
+        </div>
+        <h2 className="text-3xl font-serif text-ink-primary mb-8 text-center">For Owners &amp; Managers</h2>
+        <div className="space-y-4">
+          <details className="group border border-stroke rounded-2xl bg-card open:shadow-card transition-all duration-300">
+            <summary className="flex cursor-pointer items-center justify-between p-5 font-medium text-ink-primary list-none">
+              <span>How hard is it to import my game library?</span>
+              <span className="transition-transform duration-300 group-open:rotate-180 text-ink-secondary">▼</span>
+            </summary>
+            <div className="px-5 pb-5 text-ink-secondary leading-relaxed border-t border-stroke/50 pt-4">
+              It&apos;s instant. We integrate directly with the <strong>BoardGameGeek (BGG)</strong> API. You don&apos;t need to manually type in player counts, playtimes, or complexity ratings—just select your games and we pull the metadata automatically.
+            </div>
+          </details>
+
+          <details className="group border border-stroke rounded-2xl bg-card open:shadow-card transition-all duration-300">
+            <summary className="flex cursor-pointer items-center justify-between p-5 font-medium text-ink-primary list-none">
+              <span>Does this replace my reservation system?</span>
+              <span className="transition-transform duration-300 group-open:rotate-180 text-ink-secondary">▼</span>
+            </summary>
+            <div className="px-5 pb-5 text-ink-secondary leading-relaxed border-t border-stroke/50 pt-4">
+              Yes. GameLedger includes a native booking system that understands your inventory. However, if you prefer your current tool, we can operate as a &ldquo;Library OS&rdquo; alongside it—though you lose the benefit of preventing &ldquo;Ghost Tables.&rdquo;
+            </div>
+          </details>
+
+          <details className="group border border-stroke rounded-2xl bg-card open:shadow-card transition-all duration-300">
+            <summary className="flex cursor-pointer items-center justify-between p-5 font-medium text-ink-primary list-none">
+              <span>How does the library management work?</span>
+              <span className="transition-transform duration-300 group-open:rotate-180 text-ink-secondary">▼</span>
+            </summary>
+            <div className="px-5 pb-5 text-ink-secondary leading-relaxed border-t border-stroke/50 pt-4">
+              We track every play session. If a guest or staff flags a game as &ldquo;Damaged,&rdquo; it is instantly removed from the recommendation engine. You get a dashboard showing exactly which games are earning their keep and which should be retired.
+            </div>
+          </details>
+        </div>
+      </section>
+
       <section id="early-access" className="max-w-4xl mx-auto px-6 pb-20 md:pb-24">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-stroke"></div>
@@ -411,24 +452,24 @@ export default function LandingPage() {
             <div className="px-4 py-3">Generic Tools</div>
           </div>
           {[{
-            feature: "Guest Discovery",
-            gameledger: "BGG-linked Wizard: Faster turns & happier guests",
-            genericTools: "Wall browsing & confusion",
+            feature: "Guest Experience",
+            gameledger: "BGG-Powered Wizard: Accurate metadata & smart recs",
+            genericTools: "Confusion & analysis paralysis",
           },
           {
-            feature: "Staff Efficiency",
-            gameledger: "Automated Rules & Setup: Staff focus on F&B",
-            genericTools: "Repetitive teaching loops",
+            feature: "Library Setup",
+            gameledger: "Instant BGG Import: Add 500+ games in minutes",
+            genericTools: "Weeks of manual data entry",
           },
           {
-            feature: "Library Condition",
-            gameledger: "Issue Tracking: Stop losing money on broken games",
-            genericTools: "Lost between shifts",
+            feature: "Bookings",
+            gameledger: "Inventory-Aware: Zero 'Ghost Tables' or double-bookings",
+            genericTools: "Time-slots only (Blind to actual capacity)",
           },
           {
-            feature: "Reservations",
-            gameledger: "Inventory-Aware: Books tables AND specific games",
-            genericTools: "Time-slots only",
+            feature: "Library Management",
+            gameledger: "Asset Tracking: Stop losing money on broken games",
+            genericTools: "Manual notes lost between shifts",
           },
           {
             feature: "Analytics",
