@@ -26,6 +26,10 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "GameHost",
   description: "GameHost – The operating system for board game cafés.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

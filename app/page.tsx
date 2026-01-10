@@ -33,9 +33,13 @@ export default function LandingPage() {
       <section className="relative max-w-6xl mx-auto px-6 pt-12 pb-16 md:pt-16 md:pb-24">
         <div className="flex items-center justify-between border-b border-stroke pb-6 mb-8">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-ink-primary text-card flex items-center justify-center font-serif text-xl shadow-token">
-              GL
-            </div>
+            <Image
+              src="/logo.png"
+              alt="GameLedger logo"
+              width={40}
+              height={40}
+              className="rounded-lg shadow-token"
+            />
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-ink-secondary">Edition 2025</p>
               <p className="text-lg font-semibold text-ink-primary">GameLedger Rulebook</p>
