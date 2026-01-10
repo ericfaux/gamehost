@@ -88,7 +88,7 @@ function transformBookingWithDetails(raw: Record<string, unknown>): BookingWithD
       : null;
 
   // Remove the arrays and add the extracted objects
-  const { venue_tables, games, ...booking } = raw;
+  const { venue_tables: _venue_tables, games: _games, ...booking } = raw;
 
   return {
     ...booking,
@@ -117,7 +117,7 @@ function transformBookingWithTable(raw: Record<string, unknown>): BookingWithTab
       : null;
 
   // Remove the array and add the extracted object
-  const { venue_tables, ...booking } = raw;
+  const { venue_tables: _venue_tables, ...booking } = raw;
 
   return {
     ...booking,
@@ -955,7 +955,7 @@ async function getAvailableTablesManual(
  */
 function sortTablesByFit(
   tables: AvailableTableWithFit[],
-  partySize: number
+  _partySize: number
 ): AvailableTableWithFit[] {
   return [...tables].sort((a, b) => {
     // Exact fit first
@@ -2306,7 +2306,7 @@ export async function getBookingsForExport(
     tableId,
     search,
     includeHistorical = false,
-    sortField = 'booking_date',
+    sortField: _sortField = 'booking_date',
     sortDir = 'desc',
   } = filters;
 

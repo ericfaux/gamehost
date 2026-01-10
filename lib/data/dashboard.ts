@@ -6,7 +6,7 @@
  */
 
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
-import type { Game, Session, VenueTable } from '@/lib/db/types';
+import type { Game, Session } from '@/lib/db/types';
 import {
   getActiveSessionsForVenue,
   getCopiesInUseByGame,
@@ -293,14 +293,8 @@ function generateGameBottleneckAlerts(
   const alerts: Alert[] = [];
   const seenGames = new Set<string>();
 
-  // Build map of tables waiting for each game (browsing sessions)
-  const waitingTablesMap = new Map<string, string[]>();
-  for (const session of activeSessions) {
-    if (session.game_id === null) {
-      // We can't know which game they're waiting for from a browsing session
-      // This would require additional UX tracking
-    }
-  }
+  // Note: Could build a map of tables waiting for each game from browsing sessions,
+  // but this would require additional UX tracking to know which game they're waiting for.
 
   for (const game of games) {
     if (game.status !== 'in_rotation') continue;
