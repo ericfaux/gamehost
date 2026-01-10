@@ -37,6 +37,7 @@ export interface BggGameDetails {
   pitch: string;
   vibes: string[];
   complexity: GameComplexity;
+  instructional_video_url: string | null;
 }
 
 /**
@@ -195,8 +196,9 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
   if (!bggId.trim()) return null;
 
   try {
+    // Include videos=1 to fetch instructional video in the same request
     const response = await fetch(
-      `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(bggId)}&stats=1`,
+      `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(bggId)}&stats=1&videos=1`,
       {
         headers: getBggHeaders(),
         cache: 'force-cache',
@@ -265,6 +267,55 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
       })
       .filter(Boolean);
 
+    // Parse videos to find best instructional video
+    const videosContainer = item.videos as Record<string, unknown> | undefined;
+    const videoEntries = normalizeArray(videosContainer?.video as unknown[]);
+
+    let instructionalVideoUrl: string | null = null;
+
+    if (videoEntries.length > 0) {
+      // Parse and sort videos to find the best instructional one
+      const videos = videoEntries
+        .map((entry) => {
+          if (typeof entry !== 'object' || entry === null) return null;
+          const data = entry as Record<string, unknown>;
+          const link = data['@_link'];
+          const category = String(data['@_category'] || '').toLowerCase();
+          const language = String(data['@_language'] || '');
+          const videoTitle = String(data['@_title'] || '');
+
+          // Normalize YouTube URL
+          const normalizedLink = link ? normalizeYouTubeUrl(String(link)) : null;
+          if (!normalizedLink) return null;
+
+          return { link: normalizedLink, category, language, title: videoTitle };
+        })
+        .filter((v): v is NonNullable<typeof v> => v !== null);
+
+      // Sort: instructional first, English preferred, keywords in title
+      videos.sort((a, b) => {
+        if (a.category === 'instructional' && b.category !== 'instructional') return -1;
+        if (a.category !== 'instructional' && b.category === 'instructional') return 1;
+
+        const aIsEnglish = a.language.toLowerCase() === 'english';
+        const bIsEnglish = b.language.toLowerCase() === 'english';
+        if (aIsEnglish && !bIsEnglish) return -1;
+        if (!aIsEnglish && bIsEnglish) return 1;
+
+        const keywords = ['how to play', 'tutorial', 'rules', 'learn'];
+        const aHasKeyword = keywords.some((kw) => a.title.toLowerCase().includes(kw));
+        const bHasKeyword = keywords.some((kw) => b.title.toLowerCase().includes(kw));
+        if (aHasKeyword && !bHasKeyword) return -1;
+        if (!aHasKeyword && bHasKeyword) return 1;
+
+        return 0;
+      });
+
+      if (videos.length > 0) {
+        instructionalVideoUrl = videos[0].link;
+      }
+    }
+
     return {
       title,
       min_players: minPlayers,
@@ -277,6 +328,7 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
       pitch: cleanedDescription,
       vibes,
       complexity,
+      instructional_video_url: instructionalVideoUrl,
     };
   } catch (error) {
     if ((error as { status?: number }).status === 401) {

@@ -233,6 +233,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
         bggRating: details.bgg_rating ? String(details.bgg_rating) : '',
         imageUrl: details.cover_image_url || '',
         vibes: details.vibes ?? [],
+        instructionalVideoUrl: details.instructional_video_url || '',
       }));
       setShowResults(false);
       setSearchResults([]);
