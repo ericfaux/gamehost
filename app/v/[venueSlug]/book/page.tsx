@@ -65,7 +65,7 @@ export default async function BookingPage({ params }: PageProps) {
                 />
               ) : (
                 <img
-                  src="/gamehost-logo.svg"
+                  src="/logo.png"
                   alt="GameHost logo"
                   className="w-full h-full object-contain"
                 />

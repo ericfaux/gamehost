@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   LayoutGrid,
@@ -194,9 +195,13 @@ export function Sidebar({ venueId }: SidebarProps) {
     <aside className="w-full lg:w-[260px] border-r border-[color:var(--color-structure)] bg-[color:var(--color-surface)]/90 backdrop-blur-sm min-h-screen">
       {/* Header */}
       <div className="p-5 flex items-center gap-3 border-b border-[color:var(--color-structure)]">
-        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-white flex items-center justify-center font-serif text-xl shadow-lg">
-          GH
-        </div>
+        <Image
+          src="/logo.png"
+          alt="GameHost logo"
+          width={44}
+          height={44}
+          className="rounded-2xl shadow-lg"
+        />
         <div>
           <p className="text-xs tracking-rulebook uppercase text-[color:var(--color-ink-secondary)]">
             Admin Console
