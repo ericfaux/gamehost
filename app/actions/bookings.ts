@@ -527,7 +527,7 @@ export async function createBooking(
   // --- Step 5: Verify Table Exists and Check Capacity ---
   const { data: table, error: tableError } = await supabase
     .from('venue_tables')
-    .select('id, venue_id, label, capacity, is_active')
+    .select('id, venue_id, label, capacity, is_active, zone_id')
     .eq('id', params.table_id)
     .single();
 
@@ -545,6 +545,23 @@ export async function createBooking(
       error: 'This table is not currently available for booking.',
       code: 'NOT_FOUND',
     };
+  }
+
+  // Check if table's zone is active (if it has a zone)
+  if (table.zone_id) {
+    const { data: zone } = await supabase
+      .from('venue_zones')
+      .select('is_active')
+      .eq('id', table.zone_id)
+      .single();
+
+    if (zone && !zone.is_active) {
+      return {
+        success: false,
+        error: 'This table is not currently available for booking.',
+        code: 'NOT_FOUND',
+      };
+    }
   }
 
   if (table.venue_id !== params.venue_id) {
@@ -1378,7 +1395,7 @@ export async function updateBooking(
   if ((hasPartySizeChange || hasTableChange) && newTableId) {
     const { data: table, error: tableError } = await supabase
       .from('venue_tables')
-      .select('id, capacity, is_active')
+      .select('id, capacity, is_active, zone_id')
       .eq('id', newTableId)
       .single();
 
@@ -1396,6 +1413,23 @@ export async function updateBooking(
         error: 'This table is not currently available for booking.',
         code: 'NOT_FOUND',
       };
+    }
+
+    // Check if table's zone is active (if it has a zone)
+    if (table.zone_id) {
+      const { data: zone } = await supabase
+        .from('venue_zones')
+        .select('is_active')
+        .eq('id', table.zone_id)
+        .single();
+
+      if (zone && !zone.is_active) {
+        return {
+          success: false,
+          error: 'This table is not currently available for booking.',
+          code: 'NOT_FOUND',
+        };
+      }
     }
 
     if (table.capacity !== null && newPartySize > table.capacity) {

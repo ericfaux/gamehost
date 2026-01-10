@@ -40,6 +40,7 @@ import {
   uploadZoneBackgroundAction,
   type TableLayoutPayload,
 } from '@/app/admin/sessions/floor-plan-actions';
+import { toggleTableActive, toggleZoneActive } from '@/app/admin/settings/actions';
 import type { VenueZone, VenueTableWithLayout, VenueTable, TableShape } from '@/lib/db/types';
 import { AlertTriangle, List, Map as MapIcon } from '@/components/icons';
 
@@ -358,6 +359,7 @@ export function FloorPlanPageClient({
         background_image_url: null,
         canvas_width: 1200,
         canvas_height: 800,
+        is_active: true,
         created_at: new Date().toISOString(),
       };
       setZones((prev) => [...prev, newZone]);
@@ -449,6 +451,78 @@ export function FloorPlanPageClient({
     setBookingPreselectedTableId(tableId);
     setShowBookingModal(true);
   }, []);
+
+  /**
+   * handleToggleTableActive - Toggle a table's active status
+   */
+  const handleToggleTableActive = useCallback(
+    async (tableId: string, setActive: boolean, force: boolean = false) => {
+      const result = await toggleTableActive(tableId, setActive, force);
+
+      if (result.success) {
+        // Update local state
+        setLayoutState((prev) =>
+          prev.map((t) => (t.id === tableId ? { ...t, is_active: setActive } : t))
+        );
+        push({
+          title: setActive ? 'Table activated' : 'Table deactivated',
+          tone: setActive ? 'success' : 'neutral',
+        });
+        return {};
+      }
+
+      if (result.needsConfirmation) {
+        return {
+          needsConfirmation: true,
+          futureBookingCount: result.futureBookingCount,
+        };
+      }
+
+      push({
+        title: 'Error',
+        description: result.error ?? 'Failed to update table',
+        tone: 'danger',
+      });
+      return { error: result.error };
+    },
+    [push]
+  );
+
+  /**
+   * handleToggleZoneActive - Toggle a zone's active status
+   */
+  const handleToggleZoneActive = useCallback(
+    async (zoneId: string, setActive: boolean, force: boolean = false) => {
+      const result = await toggleZoneActive(zoneId, setActive, force);
+
+      if (result.success) {
+        // Update local state
+        setZones((prev) =>
+          prev.map((z) => (z.id === zoneId ? { ...z, is_active: setActive } : z))
+        );
+        push({
+          title: setActive ? 'Zone activated' : 'Zone deactivated',
+          tone: setActive ? 'success' : 'neutral',
+        });
+        return {};
+      }
+
+      if (result.needsConfirmation) {
+        return {
+          needsConfirmation: true,
+          futureBookingCount: result.futureBookingCount,
+        };
+      }
+
+      push({
+        title: 'Error',
+        description: result.error ?? 'Failed to update zone',
+        tone: 'danger',
+      });
+      return { error: result.error };
+    },
+    [push]
+  );
 
   // ---------------------------------------------------------------------------
   // PERSISTENCE: "Save Game"
@@ -756,6 +830,7 @@ export function FloorPlanPageClient({
                       onRotationChange={handleRotate}
                       onShapeChange={handleShapeChange}
                       onZoneChange={handleTableZoneChange}
+                      onToggleActive={handleToggleTableActive}
                     />
                     <UnplacedTablesList
                       tables={layoutState}
@@ -803,6 +878,7 @@ export function FloorPlanPageClient({
         onUpdateZone={handleUpdateZone}
         onDeleteZone={handleDeleteZone}
         onUploadBackground={handleUploadBackground}
+        onToggleActive={handleToggleZoneActive}
       />
 
       {/* Create booking modal */}

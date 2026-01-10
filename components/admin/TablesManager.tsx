@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useTransition, useMemo, useEffect } from "react";
-import { ChevronDown, ChevronUp, MapPin, Pencil, Plus, QrCode, Search, Trash2, X } from "@/components/icons/lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, MapPin, Pencil, Plus, Power, QrCode, Search, Trash2, X } from "@/components/icons/lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { CardContent, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast, TokenChip } from "@/components/AppShell";
-import { createTable, deleteTable, updateTable } from "@/app/admin/settings/actions";
+import { createTable, deleteTable, updateTable, toggleTableActive } from "@/app/admin/settings/actions";
 import { QRCodeModal } from "@/components/admin/QRCodeModal";
 import type { VenueTable, VenueTableWithLayout, VenueZone } from "@/lib/db/types";
 
@@ -29,6 +29,8 @@ interface TablesManagerProps {
   onSelectTable?: (tableId: string | null) => void;
   /** Optional: Callback to open zone manager */
   onManageZones?: () => void;
+  /** Optional: Callback when table active status changes (for syncing with parent) */
+  onTableActiveChange?: (tableId: string, isActive: boolean) => void;
 }
 
 export function TablesManager({
@@ -41,6 +43,7 @@ export function TablesManager({
   selectedTableId,
   onSelectTable,
   onManageZones,
+  onTableActiveChange,
 }: TablesManagerProps) {
   const { push } = useToast();
   const [tables, setTables] = useState<VenueTable[]>(initialTables);
@@ -48,6 +51,9 @@ export function TablesManager({
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [searchQuery, setSearchQuery] = useState('');
   const [localZoneOverrides, setLocalZoneOverrides] = useState<Record<string, string | null>>({});
+  const [showInactive, setShowInactive] = useState(true);
+  const [togglingTableId, setTogglingTableId] = useState<string | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ tableId: string; bookingCount: number } | null>(null);
 
   // Create a map for quick zone name lookup
   const zoneMap = useMemo(() => {
@@ -76,16 +82,32 @@ export function TablesManager({
     return zoneMap.get(layout.zone_id) ?? null;
   };
 
-  // Filter tables based on search query
+  // Filter tables based on search query and active status
   const filteredTables = useMemo(() => {
-    if (!searchQuery.trim()) return tables;
-    const q = searchQuery.toLowerCase();
-    return tables.filter(table =>
-      table.label.toLowerCase().includes(q) ||
-      getZoneName(table.id)?.toLowerCase().includes(q) ||
-      table.id.includes(q)
-    );
-  }, [tables, searchQuery, zoneMap, layoutMap, localZoneOverrides]);
+    let filtered = tables;
+
+    // Filter by active status
+    if (!showInactive) {
+      filtered = filtered.filter(table => table.is_active);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(table =>
+        table.label.toLowerCase().includes(q) ||
+        getZoneName(table.id)?.toLowerCase().includes(q) ||
+        table.id.includes(q)
+      );
+    }
+
+    return filtered;
+  }, [tables, searchQuery, showInactive, zoneMap, layoutMap, localZoneOverrides]);
+
+  // Count inactive tables
+  const inactiveCount = useMemo(() => {
+    return tables.filter(t => !t.is_active).length;
+  }, [tables]);
 
   // Sort tables based on current sort settings
   const sortedTables = useMemo(() => {
@@ -348,6 +370,44 @@ export function TablesManager({
     });
   };
 
+  const handleToggleTableActive = async (table: VenueTable, force = false) => {
+    if (togglingTableId) return;
+
+    setTogglingTableId(table.id);
+    try {
+      const newActiveState = !table.is_active;
+      const result = await toggleTableActive(table.id, newActiveState, force);
+
+      if (result.success) {
+        setTables((prev) =>
+          prev.map((t) => (t.id === table.id ? { ...t, is_active: newActiveState } : t))
+        );
+        onTableActiveChange?.(table.id, newActiveState);
+        push({
+          title: newActiveState ? "Table activated" : "Table deactivated",
+          description: newActiveState
+            ? `"${table.label}" is now available for bookings`
+            : `"${table.label}" is now hidden from bookings`,
+          tone: newActiveState ? "success" : "neutral",
+        });
+        setConfirmDeactivate(null);
+      } else if (result.needsConfirmation && !force) {
+        setConfirmDeactivate({
+          tableId: table.id,
+          bookingCount: result.futureBookingCount ?? 0,
+        });
+      } else {
+        push({
+          title: "Error",
+          description: result.error ?? "Failed to update table",
+          tone: "danger",
+        });
+      }
+    } finally {
+      setTogglingTableId(null);
+    }
+  };
+
   return (
     <>
       {/* Inventory Ledger Container */}
@@ -359,8 +419,27 @@ export function TablesManager({
               Component Manifest
             </h2>
             <TokenChip tone="muted">{tables.length} registered</TokenChip>
+            {inactiveCount > 0 && (
+              <TokenChip tone="warn">{inactiveCount} inactive</TokenChip>
+            )}
           </div>
           <div className="flex items-center gap-2">
+            {inactiveCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowInactive(!showInactive)}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors",
+                  showInactive
+                    ? "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500"
+                )}
+                title={showInactive ? "Hide inactive tables" : "Show inactive tables"}
+              >
+                {showInactive ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                <span>{showInactive ? "Showing inactive" : "Hiding inactive"}</span>
+              </button>
+            )}
             {onManageZones && (
               <Button variant="secondary" size="sm" onClick={onManageZones}>
                 Manage zones
@@ -575,10 +654,31 @@ export function TablesManager({
                             </div>
 
                             {/* Actions - visible on hover */}
-                            <div className="w-24 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-32 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 type="button"
-                                onClick={() => setQrTable(table)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleTableActive(table);
+                                }}
+                                disabled={togglingTableId === table.id}
+                                className={cn(
+                                  "p-1.5 rounded transition-colors",
+                                  table.is_active
+                                    ? "hover:bg-slate-200 dark:hover:bg-slate-700 text-emerald-600 dark:text-emerald-400"
+                                    : "hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-slate-400 dark:text-slate-500"
+                                )}
+                                aria-label={table.is_active ? `Deactivate ${table.label}` : `Activate ${table.label}`}
+                                title={table.is_active ? "Deactivate" : "Activate"}
+                              >
+                                <Power className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setQrTable(table);
+                                }}
                                 disabled={isPending}
                                 className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
                                 aria-label={`View QR code for ${table.label}`}
@@ -588,7 +688,8 @@ export function TablesManager({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   const layout = getLayoutInfo(table.id);
                                   const fallbackZoneId =
                                     localZoneOverrides[table.id] ??
@@ -611,7 +712,10 @@ export function TablesManager({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteTable(table)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTable(table);
+                                }}
                                 disabled={isPending || deletingId === table.id}
                                 className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
                                 aria-label={`Archive ${table.label}`}
@@ -620,6 +724,36 @@ export function TablesManager({
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
+
+                            {/* Deactivation confirmation inline */}
+                            {confirmDeactivate?.tableId === table.id && (
+                              <div
+                                className="col-span-full px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-xs text-amber-800 dark:text-amber-200 mb-2">
+                                  This table has {confirmDeactivate.bookingCount} upcoming booking{confirmDeactivate.bookingCount === 1 ? '' : 's'}.
+                                  Deactivating will not cancel them.
+                                </p>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDeactivate(null)}
+                                    className="px-2 py-1 text-xs font-medium rounded border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTableActive(table, true)}
+                                    disabled={togglingTableId === table.id}
+                                    className="px-2 py-1 text-xs font-medium rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                                  >
+                                    {togglingTableId === table.id ? 'Deactivating...' : 'Deactivate anyway'}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}

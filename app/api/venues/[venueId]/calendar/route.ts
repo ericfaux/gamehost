@@ -126,14 +126,28 @@ async function getTables(
   supabase: ReturnType<typeof getSupabaseAdmin>,
   venueId: string
 ): Promise<TableForColor[]> {
+  // First, get all active zone IDs for this venue
+  const { data: activeZones } = await supabase
+    .from('venue_zones')
+    .select('id')
+    .eq('venue_id', venueId)
+    .eq('is_active', true);
+
+  const activeZoneIds = (activeZones ?? []).map((z) => z.id);
+
   const { data } = await supabase
     .from('venue_tables')
-    .select('id, label, color_index')
+    .select('id, label, color_index, zone_id')
     .eq('venue_id', venueId)
     .eq('is_active', true)
     .order('label', { ascending: true });
 
-  return (data ?? []) as TableForColor[];
+  // Filter to only tables in active zones or unassigned
+  const filteredTables = (data ?? []).filter(
+    (t) => t.zone_id === null || activeZoneIds.includes(t.zone_id)
+  );
+
+  return filteredTables as TableForColor[];
 }
 
 async function getBookingsForDay(

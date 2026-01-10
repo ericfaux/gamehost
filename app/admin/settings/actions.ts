@@ -15,6 +15,13 @@ interface ActionResult {
   error?: string;
 }
 
+interface ToggleActiveResult {
+  success: boolean;
+  error?: string;
+  needsConfirmation?: boolean;
+  futureBookingCount?: number;
+}
+
 /**
  * Creates a new table for the current user's venue.
  * @param formData - Form data containing 'label' field
@@ -359,4 +366,181 @@ export async function removeVenueLogoAction(): Promise<ActionResult> {
       error: error instanceof Error ? error.message : "Failed to remove logo",
     };
   }
+}
+
+/**
+ * Toggles a table's active status.
+ * When deactivating, checks for future bookings and returns a warning if any exist.
+ *
+ * @param tableId - The table's UUID
+ * @param setActive - Whether to activate (true) or deactivate (false) the table
+ * @param force - If true, proceeds with deactivation even if future bookings exist
+ */
+export async function toggleTableActive(
+  tableId: string,
+  setActive: boolean,
+  force: boolean = false
+): Promise<ToggleActiveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "You must be logged in to update a table" };
+  }
+
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    return { success: false, error: "No venue found for your account" };
+  }
+
+  // Verify table belongs to venue
+  const { data: tableData, error: fetchError } = await getSupabaseAdmin()
+    .from("venue_tables")
+    .select("id, venue_id, is_active")
+    .eq("id", tableId)
+    .single();
+
+  if (fetchError || !tableData) {
+    return { success: false, error: "Table not found" };
+  }
+
+  if (tableData.venue_id !== venue.id) {
+    return { success: false, error: "You do not have permission to update this table" };
+  }
+
+  // If deactivating and not forcing, check for future bookings
+  if (!setActive && !force) {
+    const today = new Date().toISOString().split('T')[0];
+    const { count, error: countError } = await getSupabaseAdmin()
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("table_id", tableId)
+      .gte("booking_date", today)
+      .not("status", "in", "(cancelled_by_guest,cancelled_by_venue,no_show,completed)");
+
+    if (countError) {
+      console.error("Error checking future bookings:", countError);
+    } else if (count && count > 0) {
+      return {
+        success: false,
+        needsConfirmation: true,
+        futureBookingCount: count,
+        error: `This table has ${count} upcoming booking${count === 1 ? '' : 's'}. Deactivating will not cancel them automatically.`,
+      };
+    }
+  }
+
+  // Perform the update
+  const { error: updateError } = await getSupabaseAdmin()
+    .from("venue_tables")
+    .update({ is_active: setActive })
+    .eq("id", tableId);
+
+  if (updateError) {
+    console.error("Failed to toggle table active status:", updateError);
+    return { success: false, error: "Failed to update table. Please try again." };
+  }
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/sessions");
+  revalidatePath("/admin/floorplan");
+
+  return { success: true };
+}
+
+/**
+ * Toggles a zone's active status.
+ * When deactivating, checks for future bookings on tables in this zone.
+ *
+ * @param zoneId - The zone's UUID
+ * @param setActive - Whether to activate (true) or deactivate (false) the zone
+ * @param force - If true, proceeds with deactivation even if future bookings exist
+ */
+export async function toggleZoneActive(
+  zoneId: string,
+  setActive: boolean,
+  force: boolean = false
+): Promise<ToggleActiveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "You must be logged in to update a zone" };
+  }
+
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    return { success: false, error: "No venue found for your account" };
+  }
+
+  // Verify zone belongs to venue
+  const { data: zoneData, error: fetchError } = await getSupabaseAdmin()
+    .from("venue_zones")
+    .select("id, venue_id, is_active")
+    .eq("id", zoneId)
+    .single();
+
+  if (fetchError || !zoneData) {
+    return { success: false, error: "Zone not found" };
+  }
+
+  if (zoneData.venue_id !== venue.id) {
+    return { success: false, error: "You do not have permission to update this zone" };
+  }
+
+  // If deactivating and not forcing, check for future bookings on tables in this zone
+  if (!setActive && !force) {
+    // First get all tables in this zone
+    const { data: tablesInZone, error: tablesError } = await getSupabaseAdmin()
+      .from("venue_tables")
+      .select("id")
+      .eq("zone_id", zoneId)
+      .eq("is_active", true);
+
+    if (tablesError) {
+      console.error("Error fetching tables in zone:", tablesError);
+    } else if (tablesInZone && tablesInZone.length > 0) {
+      const tableIds = tablesInZone.map((t: { id: string }) => t.id);
+      const today = new Date().toISOString().split('T')[0];
+
+      const { count, error: countError } = await getSupabaseAdmin()
+        .from("bookings")
+        .select("*", { count: "exact", head: true })
+        .in("table_id", tableIds)
+        .gte("booking_date", today)
+        .not("status", "in", "(cancelled_by_guest,cancelled_by_venue,no_show,completed)");
+
+      if (countError) {
+        console.error("Error checking future bookings:", countError);
+      } else if (count && count > 0) {
+        return {
+          success: false,
+          needsConfirmation: true,
+          futureBookingCount: count,
+          error: `Tables in this zone have ${count} upcoming booking${count === 1 ? '' : 's'}. Deactivating will not cancel them automatically.`,
+        };
+      }
+    }
+  }
+
+  // Perform the update
+  const { error: updateError } = await getSupabaseAdmin()
+    .from("venue_zones")
+    .update({ is_active: setActive })
+    .eq("id", zoneId);
+
+  if (updateError) {
+    console.error("Failed to toggle zone active status:", updateError);
+    return { success: false, error: "Failed to update zone. Please try again." };
+  }
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/sessions");
+  revalidatePath("/admin/floorplan");
+
+  return { success: true };
 }
