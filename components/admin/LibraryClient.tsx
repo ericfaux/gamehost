@@ -387,32 +387,40 @@ export function LibraryClient({
       ),
     },
     {
-      key: 'actions',
+      key: 'feedback',
       header: 'Feedback',
-      minWidth: 130,
+      minWidth: 70,
+      render: (row) => {
+        const hasFeedback = feedbackSummaries[row.id]?.responseCount > 0;
+
+        if (!hasFeedback) return null;
+
+        return (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => handleOpenFeedbackDrawer(row)}
+            title="View feedback"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        );
+      },
+    },
+    {
+      key: 'edit',
+      header: 'Edit',
+      minWidth: 100,
       render: (row) => {
         const copies = row.copies_in_rotation ?? 1;
         const inUse = copiesInUse[row.id] ?? 0;
         const available = copies - inUse;
         const hasAvailableCopies = available > 0;
         const hasBrowsingSessions = browsingSessions.length > 0;
-        const hasFeedback = feedbackSummaries[row.id]?.responseCount > 0;
 
         return (
           <div className="flex items-center gap-1">
-            {/* View feedback button - only if has feedback */}
-            {hasFeedback && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => handleOpenFeedbackDrawer(row)}
-                title="View feedback"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-            )}
-
             {/* Edit button - always visible */}
             <Button
               variant="ghost"
@@ -513,6 +521,7 @@ export function LibraryClient({
             columns={columns}
             getRowId={(game) => game.id}
             highlightedRowId={highlightedGameId}
+            pageSize={25}
           />
         </CardContent>
       </Card>
