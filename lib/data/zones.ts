@@ -8,6 +8,23 @@
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { VenueZone, VenueTableWithLayout, TableShape } from '@/lib/db/types';
 
+// =============================================================================
+// COLUMN SELECTIONS - Explicit column lists for query optimization
+// =============================================================================
+
+/**
+ * All columns for the VenueZone type.
+ */
+const ZONE_COLUMNS = 'id, venue_id, name, sort_order, background_image_url, canvas_width, canvas_height, created_at' as const;
+
+/**
+ * All columns for VenueTableWithLayout (VenueTable + layout fields).
+ */
+const TABLE_WITH_LAYOUT_COLUMNS = `
+  id, venue_id, label, description, capacity, is_active, created_at,
+  zone_id, layout_x, layout_y, layout_w, layout_h, rotation_deg, layout_shape
+` as const;
+
 /**
  * Gets all zones for a venue, ordered by sort_order.
  *
@@ -17,7 +34,7 @@ import type { VenueZone, VenueTableWithLayout, TableShape } from '@/lib/db/types
 export async function getVenueZones(venueId: string): Promise<VenueZone[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('venue_zones')
-    .select('*')
+    .select(ZONE_COLUMNS)
     .eq('venue_id', venueId)
     .order('sort_order', { ascending: true });
 
@@ -38,7 +55,7 @@ export async function getVenueZones(venueId: string): Promise<VenueZone[]> {
 export async function getZoneById(zoneId: string): Promise<VenueZone | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('venue_zones')
-    .select('*')
+    .select(ZONE_COLUMNS)
     .eq('id', zoneId)
     .single();
 
@@ -72,7 +89,7 @@ export async function createZone(
       canvas_width: 1200,
       canvas_height: 800,
     })
-    .select('*')
+    .select(ZONE_COLUMNS)
     .single();
 
   if (error) {
@@ -97,7 +114,7 @@ export async function updateZone(
     .from('venue_zones')
     .update(updates)
     .eq('id', zoneId)
-    .select('*')
+    .select(ZONE_COLUMNS)
     .single();
 
   if (error) {
@@ -180,7 +197,7 @@ export async function saveVenueZones(
 export async function getVenueTablesWithLayout(venueId: string): Promise<VenueTableWithLayout[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('venue_tables')
-    .select('*')
+    .select(TABLE_WITH_LAYOUT_COLUMNS)
     .eq('venue_id', venueId)
     .eq('is_active', true)
     .order('label', { ascending: true });
@@ -226,7 +243,7 @@ export async function updateTableLayout(
     .from('venue_tables')
     .update(layout)
     .eq('id', tableId)
-    .select('*')
+    .select(TABLE_WITH_LAYOUT_COLUMNS)
     .single();
 
   if (error) {

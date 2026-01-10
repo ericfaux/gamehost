@@ -1,8 +1,12 @@
 'use client';
 
+import { memo } from 'react';
+
 /**
  * Small chip component for displaying tags like vibes or complexity.
  * Uses theme tokens for consistent "Tabletop Tactile" styling.
+ *
+ * Memoized to prevent unnecessary re-renders in list contexts.
  */
 
 interface TagChipProps {
@@ -22,7 +26,7 @@ export function formatTagLabel(tag: string): string {
     .join(' ');
 }
 
-export function TagChip({ label, variant = 'default', onClick, className = '' }: TagChipProps) {
+export const TagChip = memo(function TagChip({ label, variant = 'default', onClick, className = '' }: TagChipProps) {
   const baseClasses =
     'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-all border';
 
@@ -59,4 +63,4 @@ export function TagChip({ label, variant = 'default', onClick, className = '' }:
       {formatTagLabel(label)}
     </span>
   );
-}
+});

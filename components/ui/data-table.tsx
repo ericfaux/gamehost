@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, memo, useCallback } from "react";
 import { ChevronDown, ChevronUp, ChevronsLeft, ChevronsRight } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useDensity } from "../AppShell";
@@ -24,6 +24,41 @@ export interface DataTableProps<T> {
   /** ID of the row to highlight */
   highlightedRowId?: string | null;
 }
+
+// =============================================================================
+// Memoized Row Component for Performance
+// =============================================================================
+
+interface DataTableRowProps<T> {
+  row: T;
+  rowId: string | undefined;
+  isHighlighted: boolean;
+  columns: Column<T>[];
+}
+
+// Generic memoized row component
+const DataTableRow = memo(function DataTableRow<T>({
+  row,
+  rowId,
+  isHighlighted,
+  columns,
+}: DataTableRowProps<T>) {
+  return (
+    <tr
+      data-row-id={rowId}
+      className={cn(
+        "border-b border-[color:var(--color-structure)]/80 hover:bg-[color:var(--color-muted)]/60 transition-colors",
+        isHighlighted && "bg-[color:var(--color-accent)]/10 ring-2 ring-inset ring-[color:var(--color-accent)] animate-pulse"
+      )}
+    >
+      {columns.map((col) => (
+        <td key={String(col.key)} className="px-4 text-[color:var(--color-ink-primary)]">
+          {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key as string] as React.ReactNode}
+        </td>
+      ))}
+    </tr>
+  );
+}) as <T>(props: DataTableRowProps<T>) => React.ReactElement;
 
 export function DataTable<T>({
   data,
@@ -107,23 +142,16 @@ export function DataTable<T>({
           <tbody className="text-sm text-[color:var(--color-ink-primary)]">
             {paged.map((row, idx) => {
               const rowId = getRowId?.(row);
-              const isHighlighted = rowId && highlightedRowId === rowId;
+              const isHighlighted = !!(rowId && highlightedRowId === rowId);
 
               return (
-                <tr
+                <DataTableRow
                   key={rowId ?? idx}
-                  data-row-id={rowId}
-                  className={cn(
-                    "border-b border-[color:var(--color-structure)]/80 hover:bg-[color:var(--color-muted)]/60 transition-colors",
-                    isHighlighted && "bg-[color:var(--color-accent)]/10 ring-2 ring-inset ring-[color:var(--color-accent)] animate-pulse"
-                  )}
-                >
-                  {columns.map((col) => (
-                    <td key={String(col.key)} className="px-4 text-[color:var(--color-ink-primary)]">
-                      {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key as string] as React.ReactNode}
-                    </td>
-                  ))}
-                </tr>
+                  row={row}
+                  rowId={rowId}
+                  isHighlighted={isHighlighted}
+                  columns={columns}
+                />
               );
             })}
           </tbody>

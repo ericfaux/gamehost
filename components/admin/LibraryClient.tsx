@@ -4,17 +4,14 @@ import { useMemo, useState, useCallback, useEffect, useRef, useTransition } from
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { Plus, Play, Pencil, Star, Eye, Gamepad2, Download, Loader2 } from "@/components/icons";
 import { TokenChip, useToast } from '@/components/AppShell';
 import { Button } from '@/components/ui/button';
 import { DataTable, Column } from '@/components/ui/data-table';
 import { Card, CardContent } from '@/components/ui/card';
-import { GameFormModal } from '@/components/admin/AddGameModal';
 import { ImportGamesButton } from '@/components/admin/ImportGamesButton';
 import { LibraryCommandBar, LibraryFilter } from '@/components/admin/LibraryCommandBar';
-import { GameLiveDrawer } from '@/components/admin/GameLiveDrawer';
-import { GameFeedbackDrawer } from '@/components/admin/GameFeedbackDrawer';
-import { AssignToTableModal } from '@/components/admin/AssignToTableModal';
 import {
   StatusSelect,
   ConditionSelect,
@@ -26,6 +23,30 @@ import {
 import { Game } from '@/lib/db/types';
 import type { LibraryAggregatedData, SessionWithTable } from '@/app/admin/library/page';
 import { fetchCoverFromBgg } from '@/app/admin/library/actions';
+
+// =============================================================================
+// Dynamic Imports for Modals/Drawers - Reduces initial bundle size
+// =============================================================================
+
+const GameFormModal = dynamic(
+  () => import('@/components/admin/AddGameModal').then((mod) => mod.GameFormModal),
+  { ssr: false }
+);
+
+const GameLiveDrawer = dynamic(
+  () => import('@/components/admin/GameLiveDrawer').then((mod) => mod.GameLiveDrawer),
+  { ssr: false }
+);
+
+const GameFeedbackDrawer = dynamic(
+  () => import('@/components/admin/GameFeedbackDrawer').then((mod) => mod.GameFeedbackDrawer),
+  { ssr: false }
+);
+
+const AssignToTableModal = dynamic(
+  () => import('@/components/admin/AssignToTableModal').then((mod) => mod.AssignToTableModal),
+  { ssr: false }
+);
 
 /**
  * FetchCoverButton - Inline button to fetch cover image from BGG

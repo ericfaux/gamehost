@@ -5,8 +5,11 @@
  * Features:
  * - Navigates to Game Details page for viewing and checkout
  * - Preserves wizard params in URL for analytics
+ *
+ * Memoized to prevent unnecessary re-renders when parent updates.
  */
 
+import { memo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Game } from '@/lib/db/types';
@@ -21,7 +24,7 @@ interface GameCardProps {
   queryString?: string;
 }
 
-export function GameCard({ game, venueSlug, tableId, queryString }: GameCardProps) {
+export const GameCard = memo(function GameCard({ game, venueSlug, tableId, queryString }: GameCardProps) {
   const detailsUrl = `/v/${venueSlug}/t/${tableId}/games/${game.id}${queryString ? `?${queryString}` : ''}`;
 
   return (
@@ -131,4 +134,4 @@ export function GameCard({ game, venueSlug, tableId, queryString }: GameCardProp
       </div>
     </div>
   );
-}
+});

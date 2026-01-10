@@ -26,6 +26,32 @@ import {
   endAllActiveSessionsForTable,
 } from '@/lib/data/sessions';
 
+// =============================================================================
+// COLUMN SELECTIONS - Explicit column lists for query optimization
+// =============================================================================
+
+/**
+ * All columns for the Booking type.
+ */
+const BOOKING_COLUMNS = `
+  id, venue_id, table_id, session_id, status, source,
+  booking_date, start_time, end_time, party_size,
+  guest_name, guest_email, guest_phone, notes, internal_notes,
+  game_id, confirmation_code, confirmed_at, arrived_at, seated_at,
+  completed_at, cancelled_at, cancellation_reason, no_show_at,
+  created_at, updated_at, created_by
+` as const;
+
+/**
+ * All columns for the Session type.
+ */
+const SESSION_COLUMNS = `
+  id, venue_id, table_id, game_id, started_at, wizard_params, created_at,
+  ended_at, feedback_rating, feedback_complexity, feedback_replay,
+  feedback_comment, feedback_submitted_at, feedback_venue_rating,
+  feedback_venue_comment, feedback_skipped, feedback_source
+` as const;
+
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
@@ -926,7 +952,7 @@ export async function confirmBooking(
       confirmed_at: now,
     })
     .eq('id', bookingId)
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .single();
 
   if (error) {
@@ -1013,7 +1039,7 @@ export async function cancelBooking(
       cancellation_reason: reason ?? null,
     })
     .eq('id', bookingId)
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .single();
 
   if (error) {
@@ -1079,7 +1105,7 @@ export async function markArrived(
       arrived_at: now,
     })
     .eq('id', bookingId)
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .single();
 
   if (error) {
@@ -1189,7 +1215,7 @@ export async function markNoShow(
       no_show_at: now.toISOString(),
     })
     .eq('id', bookingId)
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .single();
 
   if (error) {
@@ -1443,7 +1469,7 @@ export async function updateBooking(
     .from('bookings')
     .update(dbUpdates)
     .eq('id', bookingId)
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .single();
 
   if (error) {
@@ -1676,7 +1702,7 @@ export async function seatParty(
       table_id: booking.table_id,
       game_id: booking.game_id ?? null,
     })
-    .select('*')
+    .select(SESSION_COLUMNS)
     .single();
 
   if (sessionError || !session) {
@@ -1704,7 +1730,7 @@ export async function seatParty(
     .from('bookings')
     .update(updatePayload)
     .eq('id', bookingId)
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .single();
 
   if (updateError || !updatedBooking) {
@@ -1800,7 +1826,7 @@ export async function completeBooking(
       completed_at: nowStr,
     })
     .eq('id', bookingId)
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .single();
 
   if (error) {
@@ -1859,7 +1885,7 @@ export async function endSessionAndCompleteBooking(
     .update({ ended_at: now })
     .eq('id', sessionId)
     .is('ended_at', null) // Only update if not already ended
-    .select('*')
+    .select(SESSION_COLUMNS)
     .single();
 
   if (sessionError) {
@@ -1897,7 +1923,7 @@ export async function endSessionAndCompleteBooking(
   // --- Step 2: Find booking associated with this session ---
   const { data: bookings, error: bookingQueryError } = await supabase
     .from('bookings')
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .eq('session_id', sessionId)
     .limit(1);
 
@@ -1927,7 +1953,7 @@ export async function endSessionAndCompleteBooking(
           completed_at: now,
         })
         .eq('id', booking.id)
-        .select('*')
+        .select(BOOKING_COLUMNS)
         .single();
 
       if (completeError) {

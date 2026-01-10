@@ -1,6 +1,20 @@
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Venue, VenueTable } from '@/lib/db/types';
 
+// =============================================================================
+// COLUMN SELECTIONS - Explicit column lists for query optimization
+// =============================================================================
+
+/**
+ * All columns for the Venue type.
+ */
+const VENUE_COLUMNS = 'id, owner_id, name, slug, logo_url, created_at' as const;
+
+/**
+ * All columns for the VenueTable type.
+ */
+const VENUE_TABLE_COLUMNS = 'id, venue_id, label, description, capacity, is_active, created_at' as const;
+
 // Constants for logo upload
 const LOGO_BUCKET = 'venue-logos';
 const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
@@ -14,7 +28,7 @@ const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+x
 export async function getVenueByOwnerId(ownerId: string): Promise<Venue | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('venues')
-    .select('*')
+    .select(VENUE_COLUMNS)
     .eq('owner_id', ownerId)
     .single();
 
@@ -36,7 +50,7 @@ export async function getVenueByOwnerId(ownerId: string): Promise<Venue | null> 
 export async function getVenueBySlug(slug: string): Promise<Venue | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('venues')
-    .select('*')
+    .select(VENUE_COLUMNS)
     .eq('slug', slug)
     .single();
 
@@ -72,7 +86,7 @@ export async function getVenueAndTableBySlugAndTableId(
   // Then, get the table and verify it belongs to this venue
   const { data: tableData, error: tableError } = await getSupabaseAdmin()
     .from('venue_tables')
-    .select('*')
+    .select(VENUE_TABLE_COLUMNS)
     .eq('id', tableId)
     .eq('venue_id', venue.id)
     .single();
@@ -179,7 +193,7 @@ export async function updateVenueLogo(
     .from('venues')
     .update({ logo_url: logoUrl })
     .eq('id', venueId)
-    .select('*')
+    .select(VENUE_COLUMNS)
     .single();
 
   if (error) {

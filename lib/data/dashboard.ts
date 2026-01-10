@@ -17,6 +17,22 @@ import { getBggHotGames } from '@/lib/bgg';
 import { normalizeTitle } from '@/lib/utils/strings';
 
 // =============================================================================
+// COLUMN SELECTIONS - Explicit column lists for query optimization
+// =============================================================================
+
+/**
+ * All columns for the Game type.
+ * Used when returning full Game objects.
+ */
+const GAME_COLUMNS = `
+  id, venue_id, bgg_id, title, min_players, max_players,
+  min_time_minutes, max_time_minutes, complexity, vibes,
+  status, condition, shelf_location, pitch, setup_steps,
+  rules_bullets, cover_image_url, bgg_rank, bgg_rating,
+  copies_in_rotation, is_staff_pick, created_at
+` as const;
+
+// =============================================================================
 // Constants
 // =============================================================================
 
@@ -554,7 +570,7 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
     // All games for the venue
     supabase
       .from('games')
-      .select('*')
+      .select(GAME_COLUMNS)
       .eq('venue_id', venueId)
       .then(({ data }) => (data ?? []) as Game[]),
 
@@ -848,7 +864,7 @@ export async function getAlerts(venueId: string): Promise<Alert[]> {
     // All games for the venue
     supabase
       .from('games')
-      .select('*')
+      .select(GAME_COLUMNS)
       .eq('venue_id', venueId)
       .then(({ data }) => (data ?? []) as Game[]),
 
@@ -928,7 +944,7 @@ export async function getBottleneckedGames(venueId: string): Promise<Bottlenecke
     getCopiesInUseByGame(venueId),
     supabase
       .from('games')
-      .select('*')
+      .select(GAME_COLUMNS)
       .eq('venue_id', venueId)
       .then(({ data }) => (data ?? []) as Game[]),
   ]);
