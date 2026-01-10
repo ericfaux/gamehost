@@ -73,7 +73,7 @@ export default function LandingPage() {
               Booked. Picked. Played.
             </h1>
             <p className="text-lg md:text-xl text-ink-secondary max-w-2xl leading-relaxed">
-              More revenue per table. Less staff running around. Guests who come back. GameLedger makes it happen with bookings, fast QR discovery, and smart inventory control.
+              Maximize revenue per table with the first OS built for board game cafés. From <strong>smart bookings</strong> to <strong>instant game discovery</strong> and <strong>automated inventory tracking</strong>, GameLedger turns operational chaos into a seamless guest experience.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
               <Link
@@ -141,7 +141,7 @@ export default function LandingPage() {
                   <div className="p-5 rounded-2xl border border-stroke bg-surface shadow-card transition-all duration-500">
                     <div className="flex justify-between items-center mb-4">
                       <p className="text-sm font-semibold text-ink-primary">Quick Wizard</p>
-                      <span className="text-xs font-mono text-ink-secondary">Scan to Play</span>
+                      <span className="text-[10px] font-mono text-teal bg-teal/10 px-2 py-1 rounded border border-teal/20">Linked to Booking #402</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm font-medium text-ink-primary">
                       <label className="flex flex-col gap-1">
@@ -152,10 +152,10 @@ export default function LandingPage() {
                         <span className="text-xs uppercase tracking-[0.2em] text-ink-secondary">Time</span>
                         <div className="rounded-xl border border-stroke px-3 py-2 bg-card shadow-inner shadow-stroke/20">45-60m</div>
                       </label>
-                      <label className="flex flex-col gap-1 col-span-2">
-                        <span className="text-xs uppercase tracking-[0.2em] text-ink-secondary">Mood</span>
-                        <div className="rounded-xl border border-stroke px-3 py-2 bg-card shadow-inner shadow-stroke/20">Cozy · Competitive · Beginner friendly</div>
-                      </label>
+                      <div className="col-span-2 mt-1 p-2 rounded-xl border border-accent/30 bg-accent/5 flex items-center gap-3">
+                        <Crown className="w-4 h-4 text-accent" />
+                        <span className="text-xs text-ink-primary font-semibold">"Scythe" Reserved — Skipped the line</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -210,7 +210,7 @@ export default function LandingPage() {
           <div className="relative h-full">
             <div className="absolute inset-0 blur-3xl bg-accent/10 -z-10"></div>
             <div className="relative flex flex-col gap-4">
-              {["Missing Pieces?", "What do we play?", "Box Torn"].map((title, idx) => (
+              {["The 20-Min Teach", "The Missing Piece", "The 'Ghost' Table"].map((title, idx) => (
                 <div
                   key={title}
                   className="relative p-5 bg-card border border-stroke rounded-2xl shadow-card rotate-[-1deg]"
@@ -219,7 +219,11 @@ export default function LandingPage() {
                   <div className="absolute inset-0 rounded-2xl border border-ink-primary/5 pointer-events-none"></div>
                   <p className="text-sm uppercase tracking-[0.25em] text-ink-secondary">Chaos Card</p>
                   <p className="mt-2 text-xl font-serif text-ink-primary">{title}</p>
-                  <p className="text-sm text-ink-secondary mt-1">Before GameLedger</p>
+                  <p className="text-sm text-ink-secondary mt-1">
+                    {title === "The 20-Min Teach" && "Staff stuck explaining rules instead of selling drinks."}
+                    {title === "The Missing Piece" && "Guest finds a broken game 30 mins into the session."}
+                    {title === "The 'Ghost' Table" && "Table 4 booked for 7pm, but Table 4 is still playing Catan."}
+                  </p>
                 </div>
               ))}
             </div>
@@ -404,32 +408,32 @@ export default function LandingPage() {
           <div className="grid grid-cols-3 text-xs uppercase tracking-[0.18em] text-ink-secondary bg-surface border-b border-stroke font-mono">
             <div className="px-4 py-3 border-r border-stroke">Feature</div>
             <div className="px-4 py-3 border-r border-stroke">GameLedger</div>
-            <div className="px-4 py-3">Spreadsheets</div>
+            <div className="px-4 py-3">Generic Tools</div>
           </div>
           {[{
             feature: "Guest Discovery",
             gameledger: "BGG-linked Wizard: Faster turns & happier guests",
-            spreadsheets: "Wall browsing & confusion",
+            genericTools: "Wall browsing & confusion",
           },
           {
-            feature: "Live Availability",
-            gameledger: "Real-time Bookings: Zero double-booking errors",
-            spreadsheets: "Manual refresh & phone tag",
+            feature: "Staff Efficiency",
+            gameledger: "Automated Rules & Setup: Staff focus on F&B",
+            genericTools: "Repetitive teaching loops",
           },
           {
             feature: "Library Condition",
             gameledger: "Issue Tracking: Stop losing money on broken games",
-            spreadsheets: "Lost between shifts",
+            genericTools: "Lost between shifts",
           },
           {
-            feature: "Feedback Loop",
-            gameledger: "Auto-prompts: Catch bad experiences privately",
-            spreadsheets: "Ad-hoc notes (or nothing)",
+            feature: "Reservations",
+            gameledger: "Inventory-Aware: Books tables AND specific games",
+            genericTools: "Time-slots only",
           },
           {
             feature: "Analytics",
             gameledger: "Usage Data: Know exactly what to buy/sell",
-            spreadsheets: "Guesswork",
+            genericTools: "Guesswork",
           }].map((row, idx) => (
             <div
               key={row.feature}
@@ -437,7 +441,7 @@ export default function LandingPage() {
             >
               <div className="px-4 py-4 border-r border-stroke font-serif">{row.feature}</div>
               <div className="px-4 py-4 border-r border-stroke font-mono text-teal col-highlight-success">{row.gameledger}</div>
-              <div className="px-4 py-4 font-mono text-ink-secondary">{row.spreadsheets}</div>
+              <div className="px-4 py-4 font-mono text-ink-secondary">{row.genericTools}</div>
             </div>
           ))}
         </div>
