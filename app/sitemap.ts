@@ -1,5 +1,5 @@
 import { MetadataRoute } from "next";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
 const BASE_URL = "https://gameledger.io";
 
@@ -29,7 +29,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let venuePages: MetadataRoute.Sitemap = [];
 
   try {
-    const supabase = await createClient();
+    // Use anonymous client for public data - no cookies needed for static generation
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     const { data: venues } = await supabase
       .from("venues")
       .select("slug, updated_at")
