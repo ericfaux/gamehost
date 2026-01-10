@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { Coins, Hourglass, Crown } from "@/components/icons/lucide-react";
 import { EarlyAccessForm } from "@/components/public/EarlyAccessForm";
+import { LandingFAQ } from "@/components/public/LandingFAQ";
 
 const simulatorSteps = [
   {
@@ -55,6 +56,9 @@ export default function LandingPage() {
             </Link>
             <Link className="hover:text-ink-primary transition-colors" href="#comparison">
               Stat Sheet
+            </Link>
+            <Link className="hover:text-ink-primary transition-colors" href="#faq">
+              FAQ
             </Link>
             <Link className="hover:text-accent transition-colors font-semibold text-accent" href="#early-access">
               Early Access
@@ -330,6 +334,18 @@ export default function LandingPage() {
               ),
             )}
           </div>
+        </div>
+      </section>
+
+      <section id="faq" className="max-w-4xl mx-auto px-6 pb-20 md:pb-24">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-stroke"></div>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chapter V</span>
+          <div className="h-px flex-1 bg-stroke"></div>
+        </div>
+        <h2 className="text-3xl font-serif text-ink-primary mb-8">Frequently Asked Questions</h2>
+        <div className="bg-card rounded-2xl border border-stroke shadow-card p-6 md:p-8">
+          <LandingFAQ />
         </div>
       </section>
 
