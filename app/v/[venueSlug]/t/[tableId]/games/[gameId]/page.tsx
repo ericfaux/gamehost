@@ -219,6 +219,33 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
           </section>
         )}
 
+        {/* Tutorial Video */}
+        {game.instructional_video_url && (
+          <section className="panel-surface p-4 space-y-3">
+            <h3 className="text-lg font-semibold text-[color:var(--color-ink-primary)]">
+              Learn How to Play
+            </h3>
+            <a
+              href={game.instructional_video_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors w-full justify-center"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+              </svg>
+              Watch Video Tutorial
+            </a>
+            <p className="text-xs text-center text-[color:var(--color-ink-secondary)]">
+              Opens in YouTube
+            </p>
+          </section>
+        )}
+
         {/* Setup steps */}
         {setupSteps.length > 0 && (
           <section className="space-y-3">

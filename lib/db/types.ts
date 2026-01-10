@@ -94,6 +94,7 @@ export interface Game {
   bgg_rating: number | null;
   copies_in_rotation: number;
   is_staff_pick: boolean;
+  instructional_video_url: string | null;
   created_at: string;
 }
 

@@ -32,6 +32,7 @@ const gameBase = {
   bgg_rank: null,
   bgg_rating: null,
   is_staff_pick: false,
+  instructional_video_url: null,
 };
 
 export const mockGames: Game[] = [
@@ -48,6 +49,7 @@ export const mockGames: Game[] = [
     status: "in_rotation",
     condition: "good",
     shelf_location: "Wall A / 3",
+    instructional_video_url: "https://www.youtube.com/watch?v=csJL-78NEPQ",
     created_at: now,
   },
   {
