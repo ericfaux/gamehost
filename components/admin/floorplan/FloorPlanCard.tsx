@@ -234,6 +234,7 @@ export function FloorPlanCard({
           background_image_url: null,
           canvas_width: 1200,
           canvas_height: 800,
+          is_active: true,
           created_at: new Date().toISOString(),
         },
       ]);
