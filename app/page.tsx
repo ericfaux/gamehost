@@ -112,7 +112,7 @@ export default function LandingPage() {
                 <div className="p-4 rounded-2xl border border-stroke bg-surface shadow-card transition-all duration-500">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-mono text-ink-secondary">Step {turnStage + 1} / 3</span>
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-teal/10 text-teal border border-teal/30">
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-brandTeal/10 text-brandTeal border border-brandTeal/30">
                       {currentStep.title}
                     </span>
                   </div>
@@ -141,7 +141,7 @@ export default function LandingPage() {
                   <div className="p-5 rounded-2xl border border-stroke bg-surface shadow-card transition-all duration-500">
                     <div className="flex justify-between items-center mb-4">
                       <p className="text-sm font-semibold text-ink-primary">Quick Wizard</p>
-                      <span className="text-[10px] font-mono text-teal bg-teal/10 px-2 py-1 rounded border border-teal/20">Linked to Booking #402</span>
+                      <span className="text-[10px] font-mono text-brandTeal bg-brandTeal/10 px-2 py-1 rounded border border-brandTeal/20">Linked to Booking #402</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm font-medium text-ink-primary">
                       <label className="flex flex-col gap-1">
@@ -164,9 +164,9 @@ export default function LandingPage() {
                 )}
 
                 {turnStage === 2 && (
-                  <div className="p-5 rounded-2xl border-2 border-teal/50 bg-card shadow-floating transition-all duration-500">
+                  <div className="p-5 rounded-2xl border-2 border-brandTeal/50 bg-card shadow-floating transition-all duration-500">
                     <div className="flex items-center gap-3">
-                      <div className="h-14 w-14 rounded-2xl bg-teal text-card flex items-center justify-center font-serif text-2xl shadow-token">
+                      <div className="h-14 w-14 rounded-2xl bg-brandTeal text-card flex items-center justify-center font-serif text-2xl shadow-token">
                         ●
                       </div>
                       <div className="space-y-1">
@@ -251,7 +251,7 @@ export default function LandingPage() {
           <div className="relative bg-card rounded-3xl border border-stroke shadow-floating p-6">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Live Tables</p>
-              <span className="px-3 py-1 rounded-full bg-teal/15 text-teal text-xs font-semibold border border-teal/30">
+              <span className="px-3 py-1 rounded-full bg-brandTeal/15 text-brandTeal text-xs font-semibold border border-brandTeal/30">
                 IN PLAY
               </span>
             </div>
@@ -269,7 +269,7 @@ export default function LandingPage() {
                   Copy #2
                 </div>
                 <div>
-                  <span className="px-2 py-1 rounded-lg bg-teal/10 text-teal border border-teal/30 text-[11px] font-semibold">
+                  <span className="px-2 py-1 rounded-lg bg-brandTeal/10 text-brandTeal border border-brandTeal/30 text-[11px] font-semibold">
                     IN PLAY
                   </span>
                 </div>
@@ -313,8 +313,8 @@ export default function LandingPage() {
                   style={{ borderTopWidth: "4px", borderTopColor: stat.color === "accent" ? "var(--color-accent)" : stat.color === "teal" ? "var(--color-teal)" : "var(--color-success)" }}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <stat.icon className={`h-4 w-4 ${stat.color === "accent" ? "text-accent" : stat.color === "teal" ? "text-teal" : "text-success"}`} />
-                    <span className={`text-[10px] uppercase tracking-[0.2em] font-semibold ${stat.color === "accent" ? "text-accent" : stat.color === "teal" ? "text-teal" : "text-success"}`}>{stat.pillar}</span>
+                    <stat.icon className={`h-4 w-4 ${stat.color === "accent" ? "text-accent" : stat.color === "teal" ? "text-brandTeal" : "text-success"}`} />
+                    <span className={`text-[10px] uppercase tracking-[0.2em] font-semibold ${stat.color === "accent" ? "text-accent" : stat.color === "teal" ? "text-brandTeal" : "text-success"}`}>{stat.pillar}</span>
                   </div>
                   <p className="text-xs uppercase tracking-[0.2em] text-ink-secondary">{stat.label}</p>
                   <p className="mt-3 text-3xl font-serif text-ink-primary">{stat.value}</p>
@@ -408,15 +408,15 @@ export default function LandingPage() {
             </p>
             <ul className="space-y-2 text-ink-primary text-sm">
               <li className="flex items-start gap-2">
-                <span className="mt-1 h-2 w-2 rounded-full bg-teal"></span>
+                <span className="mt-1 h-2 w-2 rounded-full bg-brandTeal"></span>
                 Priority access to new features
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-1 h-2 w-2 rounded-full bg-teal"></span>
+                <span className="mt-1 h-2 w-2 rounded-full bg-brandTeal"></span>
                 Dedicated onboarding support
               </li>
               <li className="flex items-start gap-2">
-                <span className="mt-1 h-2 w-2 rounded-full bg-teal"></span>
+                <span className="mt-1 h-2 w-2 rounded-full bg-brandTeal"></span>
                 Founding member pricing
               </li>
             </ul>
@@ -481,7 +481,7 @@ export default function LandingPage() {
               className={`grid grid-cols-3 text-sm font-medium text-ink-primary bg-card ${idx !== 4 ? "border-b border-stroke" : ""}`}
             >
               <div className="px-4 py-4 border-r border-stroke font-serif">{row.feature}</div>
-              <div className="px-4 py-4 border-r border-stroke font-mono text-teal col-highlight-success">{row.gameledger}</div>
+              <div className="px-4 py-4 border-r border-stroke font-mono text-brandTeal col-highlight-success">{row.gameledger}</div>
               <div className="px-4 py-4 font-mono text-ink-secondary">{row.genericTools}</div>
             </div>
           ))}
