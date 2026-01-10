@@ -2,10 +2,11 @@
 
 /**
  * TableInspector - Panel for editing table properties in edit mode.
- * Allows rotation, shape, and zone assignment.
+ * Allows rotation, shape, zone assignment, and active status toggle.
  */
 
-import { RotateCw, Square, Circle } from '@/components/icons';
+import { useState } from 'react';
+import { RotateCw, Square, Circle, Power } from '@/components/icons';
 import type { VenueZone, VenueTableWithLayout, TableShape } from '@/lib/db/types';
 
 interface TableInspectorProps {
@@ -14,6 +15,7 @@ interface TableInspectorProps {
   onRotationChange: (tableId: string, rotation: number) => void;
   onShapeChange: (tableId: string, shape: TableShape) => void;
   onZoneChange: (tableId: string, zoneId: string) => void;
+  onToggleActive?: (tableId: string, isActive: boolean) => Promise<{ needsConfirmation?: boolean; futureBookingCount?: number; error?: string }>;
 }
 
 const SHAPE_OPTIONS: { value: TableShape; label: string; icon: typeof Square }[] = [
@@ -28,7 +30,11 @@ export function TableInspector({
   onRotationChange,
   onShapeChange,
   onZoneChange,
+  onToggleActive,
 }: TableInspectorProps) {
+  const [isToggling, setIsToggling] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ tableId: string; bookingCount: number } | null>(null);
+
   if (!table) {
     return (
       <div className="panel-surface p-3">
@@ -39,11 +45,105 @@ export function TableInspector({
     );
   }
 
+  const handleToggleActive = async (forceDeactivate = false) => {
+    if (!onToggleActive || isToggling) return;
+
+    setIsToggling(true);
+    try {
+      const result = await onToggleActive(table.id, !table.is_active);
+
+      if (result.needsConfirmation && !forceDeactivate) {
+        setConfirmDeactivate({
+          tableId: table.id,
+          bookingCount: result.futureBookingCount ?? 0,
+        });
+      } else {
+        setConfirmDeactivate(null);
+      }
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  const handleConfirmDeactivate = async () => {
+    if (!onToggleActive || !confirmDeactivate) return;
+
+    setIsToggling(true);
+    try {
+      await onToggleActive(confirmDeactivate.tableId, false);
+      setConfirmDeactivate(null);
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   return (
     <div className="panel-surface p-3 space-y-4">
       <h4 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--color-ink-secondary)]">
         Edit: {table.label}
       </h4>
+
+      {/* Active status toggle */}
+      {onToggleActive && (
+        <div>
+          <label className="block text-xs font-medium text-[color:var(--color-ink-secondary)] mb-2">
+            Status
+          </label>
+          {confirmDeactivate ? (
+            <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs">
+              <p className="text-amber-800 dark:text-amber-200 mb-2">
+                This table has {confirmDeactivate.bookingCount} upcoming booking{confirmDeactivate.bookingCount === 1 ? '' : 's'}.
+                Deactivating will not cancel them.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeactivate(null)}
+                  className="flex-1 px-2 py-1 text-xs font-medium rounded border border-[color:var(--color-structure)] hover:bg-[color:var(--color-muted)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeactivate}
+                  disabled={isToggling}
+                  className="flex-1 px-2 py-1 text-xs font-medium rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                >
+                  {isToggling ? 'Deactivating...' : 'Deactivate'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleToggleActive()}
+              disabled={isToggling}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors ${
+                table.is_active
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+              } ${isToggling ? 'opacity-50 cursor-wait' : 'hover:opacity-80 cursor-pointer'}`}
+            >
+              <span className="flex items-center gap-2">
+                <Power className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {table.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </span>
+              <span className={`w-8 h-5 rounded-full relative transition-colors ${
+                table.is_active ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+              }`}>
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                  table.is_active ? 'translate-x-3.5' : 'translate-x-0.5'
+                }`} />
+              </span>
+            </button>
+          )}
+          <p className="mt-1 text-[10px] text-[color:var(--color-ink-secondary)]">
+            Inactive tables are hidden from booking options.
+          </p>
+        </div>
+      )}
 
       {/* Zone assignment */}
       <div>

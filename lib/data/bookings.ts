@@ -931,16 +931,42 @@ async function getAvailableTablesManual(
   const supabase = getSupabaseAdmin();
   const excludeStatuses: BookingStatus[] = ['cancelled_by_guest', 'cancelled_by_venue', 'no_show'];
 
+  // First, get all active zone IDs for this venue
+  const { data: activeZones, error: zonesError } = await supabase
+    .from('venue_zones')
+    .select('id')
+    .eq('venue_id', venueId)
+    .eq('is_active', true);
+
+  if (zonesError) {
+    console.error('Error fetching active zones:', zonesError);
+    return [];
+  }
+
+  const activeZoneIds = (activeZones ?? []).map((z) => z.id);
+
   // Get all active tables for the venue that can fit the party
-  const { data: tables, error: tablesError } = await supabase
+  // Tables must be in an active zone (or unassigned)
+  const tablesQuery = supabase
     .from('venue_tables')
-    .select('id, label, capacity')
+    .select('id, label, capacity, zone_id')
     .eq('venue_id', venueId)
     .eq('is_active', true)
     .gte('capacity', partySize);
 
-  if (tablesError || !tables) {
+  const { data: allTables, error: tablesError } = await tablesQuery;
+
+  if (tablesError || !allTables) {
     console.error('Error fetching venue tables:', tablesError);
+    return [];
+  }
+
+  // Filter tables to only include those in active zones or unassigned
+  const tables = allTables.filter(
+    (t) => t.zone_id === null || activeZoneIds.includes(t.zone_id)
+  );
+
+  if (tables.length === 0) {
     return [];
   }
 
@@ -949,6 +975,7 @@ async function getAvailableTablesManual(
     id: string;
     label: string;
     capacity: number | null;
+    zone_id: string | null;
   }
 
   // Type for booking rows
@@ -1018,6 +1045,7 @@ function sortTablesByFit(
 /**
  * Gets the total number of active tables that can accommodate a party size.
  * Used to calculate availability status (e.g., "limited" when only 1-2 tables remain).
+ * Only counts tables that are in active zones (or unassigned).
  *
  * @param venueId - The venue ID
  * @param partySize - Minimum capacity required
@@ -1029,9 +1057,24 @@ export async function getTotalTablesForPartySize(
 ): Promise<number> {
   const supabase = getSupabaseAdmin();
 
-  const { count, error } = await supabase
+  // First, get all active zone IDs for this venue
+  const { data: activeZones, error: zonesError } = await supabase
+    .from('venue_zones')
+    .select('id')
+    .eq('venue_id', venueId)
+    .eq('is_active', true);
+
+  if (zonesError) {
+    console.error('Error fetching active zones:', zonesError);
+    return 0;
+  }
+
+  const activeZoneIds = (activeZones ?? []).map((z) => z.id);
+
+  // Get all active tables and filter by active zones
+  const { data: tables, error } = await supabase
     .from('venue_tables')
-    .select('*', { count: 'exact', head: true })
+    .select('id, zone_id')
     .eq('venue_id', venueId)
     .eq('is_active', true)
     .gte('capacity', partySize);
@@ -1041,7 +1084,12 @@ export async function getTotalTablesForPartySize(
     return 0;
   }
 
-  return count ?? 0;
+  // Filter to only tables in active zones or unassigned
+  const filteredTables = (tables ?? []).filter(
+    (t) => t.zone_id === null || activeZoneIds.includes(t.zone_id)
+  );
+
+  return filteredTables.length;
 }
 
 /**

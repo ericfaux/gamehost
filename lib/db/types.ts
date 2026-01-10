@@ -243,6 +243,7 @@ export interface VenueZone {
   background_image_url: string | null;
   canvas_width: number;
   canvas_height: number;
+  is_active: boolean;
   created_at: string;
 }
 

@@ -113,6 +113,7 @@ export function TableNode({
   const status = session?.status ?? 'available';
   const styles = getStatusStyles(status);
   const shapeStyles = getShapeStyles(table.layout_shape);
+  const isInactive = !table.is_active;
 
   // Calculate pixel dimensions from normalized layout values
   const style = useMemo(() => {
@@ -143,9 +144,10 @@ export function TableNode({
         ${shapeStyles.borderRadius}
         ${shapeStyles.padding}
         relative
-        bg-white dark:bg-slate-800
-        border-2 border-slate-300 dark:border-slate-600
-        shadow-md
+        ${isInactive
+          ? 'bg-slate-100 dark:bg-slate-900 border-dashed border-slate-300 dark:border-slate-700 opacity-60'
+          : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 shadow-md'}
+        border-2
         transition-all duration-150 ease-out
         hover:scale-105 hover:shadow-lg
         ${isEditMode ? 'cursor-move' : 'cursor-pointer'}
@@ -157,7 +159,7 @@ export function TableNode({
       onClick={onClick}
       role="button"
       tabIndex={0}
-      aria-label={`Table ${table.label}, ${status}`}
+      aria-label={`Table ${table.label}, ${isInactive ? 'inactive' : status}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -229,10 +231,14 @@ export function TableNode({
         </div>
       )}
 
-      {/* Available state - minimal */}
+      {/* Available/Inactive state - minimal */}
       {!session && !isCompact && (
-        <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 text-[9px] font-semibold text-slate-800 dark:text-slate-100 shadow-sm z-10">
-          <span>Available</span>
+        <div className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold shadow-sm z-10 ${
+          isInactive
+            ? 'border-slate-300 dark:border-slate-700 bg-slate-200/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400'
+            : 'border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 text-slate-800 dark:text-slate-100'
+        }`}>
+          <span>{isInactive ? 'Inactive' : 'Available'}</span>
         </div>
       )}
 

@@ -2,7 +2,7 @@
 
 /**
  * ZoneManagerModal - Modal for managing venue zones.
- * Create, rename, reorder, delete zones, and set background images.
+ * Create, rename, reorder, delete zones, set background images, and toggle active status.
  */
 
 import { useState } from 'react';
@@ -15,6 +15,7 @@ import {
   ImageIcon,
   Upload,
   Loader2,
+  Power,
 } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ interface ZoneManagerModalProps {
   onUpdateZone: (zoneId: string, updates: { name?: string; sort_order?: number; background_image_url?: string | null }) => void;
   onDeleteZone: (zoneId: string) => Promise<void>;
   onUploadBackground: (zoneId: string, file: File) => Promise<void>;
+  onToggleActive?: (zoneId: string, isActive: boolean, force?: boolean) => Promise<{ needsConfirmation?: boolean; futureBookingCount?: number; error?: string }>;
 }
 
 export function ZoneManagerModal({
@@ -41,14 +43,49 @@ export function ZoneManagerModal({
   onUpdateZone,
   onDeleteZone,
   onUploadBackground,
+  onToggleActive,
 }: ZoneManagerModalProps) {
   const [newZoneName, setNewZoneName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [deletingZoneId, setDeletingZoneId] = useState<string | null>(null);
   const [uploadingZoneId, setUploadingZoneId] = useState<string | null>(null);
   const [bgUrlInput, setBgUrlInput] = useState<{ zoneId: string; url: string } | null>(null);
+  const [togglingZoneId, setTogglingZoneId] = useState<string | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<{ zoneId: string; bookingCount: number } | null>(null);
 
   if (!isOpen) return null;
+
+  const handleToggleActive = async (zone: VenueZone, force = false) => {
+    if (!onToggleActive || togglingZoneId) return;
+
+    setTogglingZoneId(zone.id);
+    try {
+      const result = await onToggleActive(zone.id, !zone.is_active, force);
+
+      if (result.needsConfirmation && !force) {
+        setConfirmDeactivate({
+          zoneId: zone.id,
+          bookingCount: result.futureBookingCount ?? 0,
+        });
+      } else {
+        setConfirmDeactivate(null);
+      }
+    } finally {
+      setTogglingZoneId(null);
+    }
+  };
+
+  const handleConfirmDeactivate = async () => {
+    if (!onToggleActive || !confirmDeactivate) return;
+
+    setTogglingZoneId(confirmDeactivate.zoneId);
+    try {
+      await onToggleActive(confirmDeactivate.zoneId, false, true);
+      setConfirmDeactivate(null);
+    } finally {
+      setTogglingZoneId(null);
+    }
+  };
 
   const handleCreateZone = async () => {
     if (!newZoneName.trim() || isCreating) return;
@@ -179,6 +216,27 @@ export function ZoneManagerModal({
                     {tablesInZone.length} table{tablesInZone.length !== 1 ? 's' : ''}
                   </span>
 
+                  {/* Active toggle */}
+                  {onToggleActive && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActive(zone)}
+                      disabled={togglingZoneId === zone.id}
+                      className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                        zone.is_active
+                          ? 'text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/20'
+                          : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                      title={zone.is_active ? 'Deactivate zone' : 'Activate zone'}
+                    >
+                      {togglingZoneId === zone.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Power className="h-4 w-4" />
+                      )}
+                    </button>
+                  )}
+
                   {/* Delete button */}
                   <button
                     type="button"
@@ -194,6 +252,41 @@ export function ZoneManagerModal({
                     )}
                   </button>
                 </div>
+
+                {/* Deactivation confirmation */}
+                {confirmDeactivate?.zoneId === zone.id && (
+                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs">
+                    <p className="text-amber-800 dark:text-amber-200 mb-2">
+                      Tables in this zone have {confirmDeactivate.bookingCount} upcoming booking{confirmDeactivate.bookingCount === 1 ? '' : 's'}.
+                      Deactivating will not cancel them.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeactivate(null)}
+                        className="flex-1 px-2 py-1 text-xs font-medium rounded border border-[color:var(--color-structure)] hover:bg-[color:var(--color-muted)]"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmDeactivate}
+                        disabled={togglingZoneId === zone.id}
+                        className="flex-1 px-2 py-1 text-xs font-medium rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                      >
+                        {togglingZoneId === zone.id ? 'Deactivating...' : 'Deactivate'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Inactive badge */}
+                {!zone.is_active && (
+                  <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                    <span>Inactive - tables hidden from booking</span>
+                  </div>
+                )}
 
                 {/* Background image section */}
                 <div className="flex items-center gap-2 text-xs">

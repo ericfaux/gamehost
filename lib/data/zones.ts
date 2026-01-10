@@ -15,7 +15,7 @@ import type { VenueZone, VenueTableWithLayout, TableShape } from '@/lib/db/types
 /**
  * All columns for the VenueZone type.
  */
-const ZONE_COLUMNS = 'id, venue_id, name, sort_order, background_image_url, canvas_width, canvas_height, created_at' as const;
+const ZONE_COLUMNS = 'id, venue_id, name, sort_order, background_image_url, canvas_width, canvas_height, is_active, created_at' as const;
 
 /**
  * All columns for VenueTableWithLayout (VenueTable + layout fields).
@@ -88,6 +88,7 @@ export async function createZone(
       sort_order: sortOrder,
       canvas_width: 1200,
       canvas_height: 800,
+      is_active: true,
     })
     .select(ZONE_COLUMNS)
     .single();
@@ -108,7 +109,7 @@ export async function createZone(
  */
 export async function updateZone(
   zoneId: string,
-  updates: Partial<Pick<VenueZone, 'name' | 'sort_order' | 'background_image_url' | 'canvas_width' | 'canvas_height'>>
+  updates: Partial<Pick<VenueZone, 'name' | 'sort_order' | 'background_image_url' | 'canvas_width' | 'canvas_height' | 'is_active'>>
 ): Promise<VenueZone> {
   const { data, error } = await getSupabaseAdmin()
     .from('venue_zones')
