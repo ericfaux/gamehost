@@ -31,6 +31,48 @@ import type {
   BookingConflictRPC,
 } from '@/lib/db/types';
 
+// =============================================================================
+// COLUMN SELECTIONS - Explicit column lists for query optimization
+// =============================================================================
+
+/**
+ * All columns for the Booking type.
+ */
+const BOOKING_COLUMNS = `
+  id, venue_id, table_id, session_id, status, source,
+  booking_date, start_time, end_time, party_size,
+  guest_name, guest_email, guest_phone, notes, internal_notes,
+  game_id, confirmation_code, confirmed_at, arrived_at, seated_at,
+  completed_at, cancelled_at, cancellation_reason, no_show_at,
+  created_at, updated_at, created_by
+` as const;
+
+/**
+ * All columns for the VenueBookingSettings type.
+ */
+const BOOKING_SETTINGS_COLUMNS = `
+  id, venue_id, bookings_enabled, buffer_minutes, default_duration_minutes,
+  min_advance_hours, max_advance_days, no_show_grace_minutes,
+  deposit_required, deposit_amount_cents, send_confirmation_email,
+  send_reminder_sms, reminder_hours_before, booking_page_message, timezone,
+  venue_address_street, venue_address_city, venue_address_state,
+  venue_address_postal_code, venue_address_country, created_at, updated_at
+` as const;
+
+/**
+ * All columns for the VenueOperatingHours type.
+ */
+const OPERATING_HOURS_COLUMNS = 'id, venue_id, day_of_week, is_closed, open_time, close_time, created_at, updated_at' as const;
+
+/**
+ * All columns for the BookingWaitlistEntry type.
+ */
+const WAITLIST_COLUMNS = `
+  id, venue_id, guest_name, guest_email, guest_phone, party_size,
+  requested_date, preferred_time_start, preferred_time_end, flexibility_minutes,
+  notes, status, notified_at, converted_booking_id, created_at, updated_at
+` as const;
+
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
@@ -261,7 +303,7 @@ export async function getBookingsByTable(
 
   const { data, error } = await getSupabaseAdmin()
     .from('bookings')
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .eq('table_id', tableId)
     .eq('booking_date', date)
     .not('status', 'in', `(${excludeStatuses.join(',')})`)
@@ -437,7 +479,7 @@ export async function getVenueBookingSettings(
 ): Promise<VenueBookingSettings | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('venue_booking_settings')
-    .select('*')
+    .select(BOOKING_SETTINGS_COLUMNS)
     .eq('venue_id', venueId)
     .maybeSingle();
 
@@ -468,7 +510,7 @@ export async function createVenueBookingSettings(
       venue_id: venueId,
       ...overrides,
     })
-    .select('*')
+    .select(BOOKING_SETTINGS_COLUMNS)
     .single();
 
   if (error) {
@@ -495,7 +537,7 @@ export async function updateVenueBookingSettings(
     .from('venue_booking_settings')
     .update(updates)
     .eq('venue_id', venueId)
-    .select('*')
+    .select(BOOKING_SETTINGS_COLUMNS)
     .maybeSingle();
 
   if (error) {
@@ -1865,7 +1907,7 @@ export async function updateBookingStatus(
     .from('bookings')
     .update(updatePayload)
     .eq('id', bookingId)
-    .select('*')
+    .select(BOOKING_COLUMNS)
     .single();
 
   if (error) {
@@ -2456,7 +2498,7 @@ export async function getVenueOperatingHours(
 ): Promise<VenueOperatingHours[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('venue_operating_hours')
-    .select('*')
+    .select(OPERATING_HOURS_COLUMNS)
     .eq('venue_id', venueId)
     .order('day_of_week', { ascending: true });
 
@@ -2515,7 +2557,7 @@ export async function upsertVenueOperatingHours(
   const { data, error: insertError } = await supabase
     .from('venue_operating_hours')
     .insert(insertData)
-    .select('*')
+    .select(OPERATING_HOURS_COLUMNS)
     .order('day_of_week', { ascending: true });
 
   if (insertError) {
@@ -2590,7 +2632,7 @@ export async function upsertVenueBookingSettings(
       },
       { onConflict: 'venue_id' }
     )
-    .select('*')
+    .select(BOOKING_SETTINGS_COLUMNS)
     .single();
 
   if (error) {
@@ -2680,7 +2722,7 @@ export async function getPendingWaitlistEntries(
 ): Promise<BookingWaitlistEntry[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('booking_waitlist')
-    .select('*')
+    .select(WAITLIST_COLUMNS)
     .eq('venue_id', venueId)
     .eq('requested_date', date)
     .eq('status', 'pending')
@@ -2724,7 +2766,7 @@ export async function updateWaitlistStatus(
     .from('booking_waitlist')
     .update(updatePayload)
     .eq('id', entryId)
-    .select('*')
+    .select(WAITLIST_COLUMNS)
     .single();
 
   if (error) {

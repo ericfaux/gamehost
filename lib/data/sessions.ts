@@ -99,6 +99,27 @@ import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type { Session, FeedbackComplexity, FeedbackReplay, FeedbackSource } from '@/lib/db/types';
 import { getVenueBySlug } from './venues';
 
+// =============================================================================
+// COLUMN SELECTIONS - Explicit column lists for query optimization
+// =============================================================================
+
+/**
+ * All columns for the Session type.
+ * Used when returning full Session objects.
+ */
+const SESSION_COLUMNS = `
+  id, venue_id, table_id, game_id, started_at, wizard_params, created_at,
+  ended_at, feedback_rating, feedback_complexity, feedback_replay,
+  feedback_comment, feedback_submitted_at, feedback_venue_rating,
+  feedback_venue_comment, feedback_skipped, feedback_source
+` as const;
+
+/**
+ * Minimal columns for session validation.
+ * Used when only checking session existence and state.
+ */
+const SESSION_VALIDATION_COLUMNS = 'id, ended_at, table_id, game_id' as const;
+
 export interface CreateSessionParams {
   venueSlug: string;
   tableId: string;
@@ -157,7 +178,7 @@ export async function createSession(params: CreateSessionParams): Promise<Sessio
       game_id: gameId ?? null,
       wizard_params: wizardParams ?? null,
     })
-    .select('*')
+    .select(SESSION_COLUMNS)
     .single();
 
   if (insertError) {
@@ -213,7 +234,7 @@ export async function updateSessionGame(sessionId: string, gameId: string): Prom
       started_at: new Date().toISOString(),
     })
     .eq('id', sessionId)
-    .select('*')
+    .select(SESSION_COLUMNS)
     .single();
 
   if (updateError) {
@@ -257,7 +278,7 @@ export async function getActiveSessionId(tableId: string): Promise<string | null
 export async function getActiveSession(tableId: string): Promise<Session | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('sessions')
-    .select('*')
+    .select(SESSION_COLUMNS)
     .eq('table_id', tableId)
     .is('ended_at', null)
     .order('created_at', { ascending: false })
@@ -281,7 +302,7 @@ export async function getActiveSession(tableId: string): Promise<Session | null>
 export async function getSessionById(sessionId: string): Promise<Session | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('sessions')
-    .select('*')
+    .select(SESSION_COLUMNS)
     .eq('id', sessionId)
     .maybeSingle();
 
@@ -333,7 +354,7 @@ export async function sanitizeActiveSessionsForTable(tableId: string): Promise<S
   // Get ALL active sessions for this table
   const { data: activeSessions, error } = await supabase
     .from('sessions')
-    .select('*')
+    .select(SESSION_COLUMNS)
     .eq('table_id', tableId)
     .is('ended_at', null);
 
@@ -492,7 +513,7 @@ export async function endSession(sessionId: string): Promise<Session> {
       ended_at: new Date().toISOString(),
     })
     .eq('id', sessionId)
-    .select('*')
+    .select(SESSION_COLUMNS)
     .single();
 
   if (error) {
@@ -547,7 +568,7 @@ export async function submitFeedbackAndEndSession(params: SubmitFeedbackParams):
   // Verify session exists, is active, and belongs to the table
   const { data: existingSession, error: fetchError } = await supabase
     .from('sessions')
-    .select('*')
+    .select(SESSION_VALIDATION_COLUMNS)
     .eq('id', sessionId)
     .single();
 
@@ -602,7 +623,7 @@ export async function submitFeedbackAndEndSession(params: SubmitFeedbackParams):
     .from('sessions')
     .update(updatePayload)
     .eq('id', sessionId)
-    .select('*')
+    .select(SESSION_COLUMNS)
     .single();
 
   if (updateError) {
@@ -1038,7 +1059,7 @@ export async function getEndedSessionsForVenue(
   // Build the base query
   let query = supabase
     .from('sessions')
-    .select('*, games(title), venue_tables(label)')
+    .select(`${SESSION_COLUMNS}, games(title), venue_tables(label)`)
     .eq('venue_id', venueId)
     .not('ended_at', 'is', null);
 
@@ -1093,7 +1114,17 @@ export async function getEndedSessionsForVenue(
     return { sessions: [], nextCursor: null };
   }
 
-  const sessions = (data ?? []) as EndedSession[];
+  // Transform joined data (Supabase returns arrays for many-to-one relations)
+  const sessions = (data ?? []).map((row: Record<string, unknown>) => {
+    const gamesArray = row.games as Array<{ title: string }> | null;
+    const venueTablesArray = row.venue_tables as Array<{ label: string }> | null;
+
+    return {
+      ...row,
+      games: Array.isArray(gamesArray) && gamesArray.length > 0 ? gamesArray[0] : null,
+      venue_tables: Array.isArray(venueTablesArray) && venueTablesArray.length > 0 ? venueTablesArray[0] : null,
+    };
+  }) as EndedSession[];
 
   // Filter by search term (done client-side since we need to match joined data)
   // This is efficient for small result sets; for very large sets, consider SQL functions

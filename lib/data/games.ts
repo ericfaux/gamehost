@@ -4,6 +4,22 @@ import { getCopiesInUseByGame } from './sessions';
 import { getBggHotGames } from '@/lib/bgg';
 import { normalizeTitle } from '@/lib/utils/strings';
 
+// =============================================================================
+// COLUMN SELECTIONS - Explicit column lists for query optimization
+// =============================================================================
+
+/**
+ * All columns for the Game type.
+ * Used when returning full Game objects.
+ */
+const GAME_COLUMNS = `
+  id, venue_id, bgg_id, title, min_players, max_players,
+  min_time_minutes, max_time_minutes, complexity, vibes,
+  status, condition, shelf_location, pitch, setup_steps,
+  rules_bullets, cover_image_url, bgg_rank, bgg_rating,
+  copies_in_rotation, is_staff_pick, created_at
+` as const;
+
 /**
  * Fetches a single game by its ID.
  * @param gameId - The game's UUID
@@ -12,7 +28,7 @@ import { normalizeTitle } from '@/lib/utils/strings';
 export async function getGameById(gameId: string): Promise<Game | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('games')
-    .select('*')
+    .select(GAME_COLUMNS)
     .eq('id', gameId)
     .single();
 
@@ -34,7 +50,7 @@ export async function getGameById(gameId: string): Promise<Game | null> {
 export async function getGamesForVenue(venueId: string): Promise<Game[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('games')
-    .select('*')
+    .select(GAME_COLUMNS)
     .eq('venue_id', venueId)
     .order('title', { ascending: true });
 
@@ -195,7 +211,7 @@ async function queryGames(options: QueryGamesOptions): Promise<Game[]> {
 
   let query = getSupabaseAdmin()
     .from('games')
-    .select('*')
+    .select(GAME_COLUMNS)
     .eq('venue_id', venueId)
     .eq('status', 'in_rotation')
     .neq('condition', 'problematic')
@@ -257,7 +273,7 @@ export async function getQuickPickGames(venueId: string, limit: number = 6): Pro
   // Query for in-rotation games with good condition
   const { data, error } = await getSupabaseAdmin()
     .from('games')
-    .select('*')
+    .select(GAME_COLUMNS)
     .eq('venue_id', venueId)
     .eq('status', 'in_rotation')
     .neq('condition', 'problematic')
@@ -308,7 +324,7 @@ export async function getStaffPickGames(venueId: string, limit: number = 4): Pro
   // Query for in-rotation games with good condition, ordered alphabetically
   const { data, error } = await getSupabaseAdmin()
     .from('games')
-    .select('*')
+    .select(GAME_COLUMNS)
     .eq('venue_id', venueId)
     .eq('status', 'in_rotation')
     .neq('condition', 'problematic')
@@ -362,7 +378,7 @@ export async function getTrendingGamesForVenue(venueId: string): Promise<Game[]>
   // 2. Fetch venue's in_rotation games with relevant fields
   const { data: localGames, error } = await getSupabaseAdmin()
     .from('games')
-    .select('*')
+    .select(GAME_COLUMNS)
     .eq('venue_id', venueId)
     .eq('status', 'in_rotation');
 

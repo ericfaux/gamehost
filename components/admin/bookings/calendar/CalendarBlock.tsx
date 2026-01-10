@@ -136,7 +136,7 @@ interface StatusBadgeProps {
   status: string;
 }
 
-function StatusBadge({ status }: StatusBadgeProps) {
+const StatusBadge = React.memo(function StatusBadge({ status }: StatusBadgeProps) {
   const config: Record<string, { label: string; className: string }> = {
     pending: { label: 'Pending', className: 'bg-stone-200 text-stone-700' },
     confirmed: { label: 'Confirmed', className: 'bg-white/80 text-stone-700' },
@@ -154,7 +154,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
       {label}
     </span>
   );
-}
+});
 
 // =============================================================================
 // BlockContent Component
@@ -167,7 +167,7 @@ interface BlockContentProps {
   status: string;
 }
 
-function BlockContent({ block, tableColor, sizeVariant, status }: BlockContentProps) {
+const BlockContent = React.memo(function BlockContent({ block, tableColor, sizeVariant, status }: BlockContentProps) {
   const tableName = block.table_label;
   const guestName = block.type === 'booking' ? block.guest_name : null;
   const partySize = block.party_size;
@@ -228,7 +228,7 @@ function BlockContent({ block, tableColor, sizeVariant, status }: BlockContentPr
       )}
     </div>
   );
-}
+});
 
 // =============================================================================
 // BlockTooltip Component
@@ -239,7 +239,7 @@ interface BlockTooltipProps {
   status: string;
 }
 
-function BlockTooltip({ block, status }: BlockTooltipProps) {
+const BlockTooltip = React.memo(function BlockTooltip({ block, status }: BlockTooltipProps) {
   const label = block.type === 'booking' ? block.guest_name : (block.game_title || 'Active Session');
 
   return (
@@ -279,7 +279,7 @@ function BlockTooltip({ block, status }: BlockTooltipProps) {
       </div>
     </div>
   );
-}
+});
 
 // =============================================================================
 // BlockQuickActions Component
@@ -290,7 +290,7 @@ interface BlockQuickActionsProps {
   onAction: (action: BlockAction) => void;
 }
 
-function BlockQuickActions({ block, onAction }: BlockQuickActionsProps) {
+const BlockQuickActions = React.memo(function BlockQuickActions({ block, onAction }: BlockQuickActionsProps) {
   const actions = getQuickActions(block);
 
   if (actions.length === 0) return null;
@@ -316,7 +316,7 @@ function BlockQuickActions({ block, onAction }: BlockQuickActionsProps) {
       ))}
     </div>
   );
-}
+});
 
 // =============================================================================
 // BlockContextMenu Component
@@ -423,8 +423,10 @@ function BlockContextMenu({ block, children, onAction }: BlockContextMenuProps) 
  * - Hover tooltip with details
  * - Quick actions and context menu
  * - Selection and conflict states
+ *
+ * Memoized to prevent unnecessary re-renders when parent updates.
  */
-export function CalendarBlock({
+export const CalendarBlock = React.memo(function CalendarBlock({
   positionedBlock,
   tableColor,
   onClick,
@@ -546,7 +548,7 @@ export function CalendarBlock({
       )}
     </>
   );
-}
+});
 
 // =============================================================================
 // Exports

@@ -4,10 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
+import dynamic from 'next/dynamic';
 import { Calendar } from './calendar';
-import { BookingDetailDrawer } from './BookingDetailDrawer';
-import { CreateBookingModal } from './CreateBookingModal';
-import { EditBookingModal } from './EditBookingModal';
 import { BookingsList } from './BookingsList';
 import { Button } from '@/components/ui/button';
 import { Plus, Calendar as CalendarIcon, List, LayoutGrid, Check, Copy, ExternalLink, Settings } from '@/components/icons';
@@ -15,6 +13,25 @@ import { seatParty, markArrived, cancelBooking } from '@/app/actions/bookings';
 import { cn } from '@/lib/utils';
 import type { TimelineBlock, BookingWithDetails, VenueTable } from '@/lib/db/types';
 import type { TimelineViewMode } from '@/lib/data/timeline';
+
+// =============================================================================
+// Dynamic Imports for Modals/Drawers - Reduces initial bundle size
+// =============================================================================
+
+const BookingDetailDrawer = dynamic(
+  () => import('./BookingDetailDrawer').then((mod) => mod.BookingDetailDrawer),
+  { ssr: false }
+);
+
+const CreateBookingModal = dynamic(
+  () => import('./CreateBookingModal').then((mod) => mod.CreateBookingModal),
+  { ssr: false }
+);
+
+const EditBookingModal = dynamic(
+  () => import('./EditBookingModal').then((mod) => mod.EditBookingModal),
+  { ssr: false }
+);
 
 // =============================================================================
 // Types
