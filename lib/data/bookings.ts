@@ -947,7 +947,7 @@ async function getAvailableTablesManual(
 
   // Get all active tables for the venue that can fit the party
   // Tables must be in an active zone (or unassigned)
-  let tablesQuery = supabase
+  const tablesQuery = supabase
     .from('venue_tables')
     .select('id, label, capacity, zone_id')
     .eq('venue_id', venueId)
