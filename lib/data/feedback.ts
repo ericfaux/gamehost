@@ -84,17 +84,6 @@ function sentimentToRating(sentiment: 'positive' | 'neutral' | 'negative'): numb
   }
 }
 
-/**
- * Escapes special characters in a string for use in Supabase ilike patterns.
- *
- * @param str - String to escape
- * @returns Escaped string safe for ilike
- */
-function escapeIlike(str: string): string {
-  // Escape %, _, and \ which have special meaning in LIKE patterns
-  return str.replace(/[%_\\]/g, '\\$&');
-}
-
 // -----------------------------------------------------------------------------
 // Raw Query Result Type
 // -----------------------------------------------------------------------------

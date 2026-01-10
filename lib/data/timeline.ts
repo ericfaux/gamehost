@@ -19,7 +19,6 @@
 
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import type {
-  VenueTable,
   BookingWithDetails,
   BookingStatus,
   Session,
@@ -254,7 +253,7 @@ interface SessionWithDetails extends Session {
  */
 export function sessionToTimelineBlock(
   session: SessionWithDetails,
-  date: string
+  _date: string
 ): TimelineBlock {
   const now = new Date();
 
@@ -917,6 +916,7 @@ export async function getMonthlyTimelineData(
   venueId: string,
   year: number,
   month: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _options: TimelineOptions = {}
 ): Promise<MonthlyTimelineData> {
   const supabase = getSupabaseAdmin();
