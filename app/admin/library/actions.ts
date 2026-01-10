@@ -485,7 +485,7 @@ type InlineUpdateField = 'status' | 'condition' | 'shelf_location' | 'copies_in_
 export async function updateGameField(
   gameId: string,
   field: InlineUpdateField,
-  value: string | number
+  value: string | number | boolean
 ): Promise<InlineUpdateResult> {
   // Get current user
   const supabase = await createClient();
