@@ -538,6 +538,19 @@ export async function toggleZoneActive(
     return { success: false, error: "Failed to update zone. Please try again." };
   }
 
+  // If deactivating zone, also deactivate all tables in the zone
+  if (!setActive) {
+    const { error: tablesUpdateError } = await getSupabaseAdmin()
+      .from("venue_tables")
+      .update({ is_active: false })
+      .eq("zone_id", zoneId);
+
+    if (tablesUpdateError) {
+      console.error("Failed to deactivate tables in zone:", tablesUpdateError);
+      // Zone was already deactivated, so just log the error but don't fail
+    }
+  }
+
   revalidatePath("/admin/settings");
   revalidatePath("/admin/sessions");
   revalidatePath("/admin/floorplan");
