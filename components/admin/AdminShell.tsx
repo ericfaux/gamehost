@@ -34,6 +34,7 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
   const [venueId, setVenueId] = useState(userVenues[0]?.id ?? '');
   const pathname = usePathname();
   const isSettingsPage = pathname.startsWith('/admin/settings');
+  const isLibraryPage = pathname === '/admin/library';
 
   return (
     <div className="min-h-screen grid lg:grid-cols-[260px_1fr] bg-noise">
@@ -128,7 +129,7 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
           <div
             className={cn(
               'mx-auto space-y-4 w-full',
-              isSettingsPage ? 'max-w-none' : 'max-w-6xl'
+              isSettingsPage || isLibraryPage ? 'max-w-none' : 'max-w-6xl'
             )}
             data-density={density}
           >

@@ -458,6 +458,70 @@ export function LocationInput({
 }
 
 /**
+ * Inline Staff Pick Toggle - Checkbox for staff pick status
+ */
+export function StaffPickToggle({
+  gameId,
+  currentValue,
+  onUpdate
+}: InlineEditorProps & { currentValue: boolean }) {
+  const { push } = useToast();
+  const [isPending, startTransition] = useTransition();
+  const [localValue, setLocalValue] = useState(currentValue);
+
+  // Sync with prop changes
+  useEffect(() => {
+    setLocalValue(currentValue);
+  }, [currentValue]);
+
+  const handleToggle = () => {
+    const newValue = !localValue;
+
+    // Optimistic update
+    const previousValue = localValue;
+    setLocalValue(newValue);
+
+    startTransition(async () => {
+      const result = await updateGameField(gameId, 'is_staff_pick', newValue);
+      if (result.success) {
+        push({ title: newValue ? 'Marked as Staff Pick' : 'Removed Staff Pick', tone: 'success' });
+        onUpdate?.();
+      } else {
+        // Revert on failure
+        setLocalValue(previousValue);
+        push({ title: 'Failed to update', description: result.error, tone: 'danger' });
+      }
+    });
+  };
+
+  return (
+    <button
+      onClick={handleToggle}
+      disabled={isPending}
+      className={`
+        flex items-center justify-center w-8 h-8 rounded-lg
+        transition-all cursor-pointer
+        ${isPending ? 'opacity-50' : ''}
+        ${localValue
+          ? 'bg-[color:var(--color-accent-soft)] text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/20'
+          : 'text-[color:var(--color-ink-secondary)] hover:bg-[color:var(--color-muted)]'
+        }
+      `}
+      title={localValue ? 'Remove Staff Pick' : 'Mark as Staff Pick'}
+      aria-label={localValue ? 'Remove Staff Pick' : 'Mark as Staff Pick'}
+    >
+      {isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : localValue ? (
+        <Check className="h-4 w-4" />
+      ) : (
+        <span className="text-lg leading-none">—</span>
+      )}
+    </button>
+  );
+}
+
+/**
  * Full Chip - Displayed when all copies of a game are in use (bottlenecked)
  * Shows a hint about how to resolve the bottleneck
  */

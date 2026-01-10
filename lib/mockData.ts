@@ -31,6 +31,7 @@ const gameBase = {
   bgg_id: null,
   bgg_rank: null,
   bgg_rating: null,
+  is_staff_pick: false,
 };
 
 export const mockGames: Game[] = [
