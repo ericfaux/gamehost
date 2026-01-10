@@ -21,6 +21,7 @@ import {
   CopiesStepper,
   LocationInput,
   FullChip,
+  StaffPickToggle,
 } from '@/components/admin/InlineEditors';
 import { Game } from '@/lib/db/types';
 import type { LibraryAggregatedData, SessionWithTable } from '@/app/admin/library/page';
@@ -383,6 +384,17 @@ export function LibraryClient({
         <ConditionSelect
           gameId={row.id}
           currentValue={row.condition}
+        />
+      ),
+    },
+    {
+      key: 'staff_pick',
+      header: 'Staff Pick',
+      minWidth: 80,
+      render: (row) => (
+        <StaffPickToggle
+          gameId={row.id}
+          currentValue={row.is_staff_pick}
         />
       ),
     },

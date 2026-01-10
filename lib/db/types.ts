@@ -93,6 +93,7 @@ export interface Game {
   bgg_rank: number | null;
   bgg_rating: number | null;
   copies_in_rotation: number;
+  is_staff_pick: boolean;
   created_at: string;
 }
 

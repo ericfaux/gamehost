@@ -36,6 +36,7 @@ interface FormState {
   setupSteps: string;
   rulesBullets: string;
   bggId: string;
+  isStaffPick: boolean;
 }
 
 const initialFormState: FormState = {
@@ -57,6 +58,7 @@ const initialFormState: FormState = {
   setupSteps: '',
   rulesBullets: '',
   bggId: '',
+  isStaffPick: false,
 };
 
 function mapGameToFormState(game: Game): FormState {
@@ -79,6 +81,7 @@ function mapGameToFormState(game: Game): FormState {
     setupSteps: game.setup_steps || '',
     rulesBullets: game.rules_bullets || '',
     bggId: game.bgg_id || '',
+    isStaffPick: game.is_staff_pick ?? false,
   };
 }
 
@@ -277,6 +280,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
       formData.set('setupSteps', formState.setupSteps);
       formData.set('rulesBullets', formState.rulesBullets);
       formData.set('bggId', formState.bggId);
+      formData.set('isStaffPick', String(formState.isStaffPick));
 
       if (initialData) {
         formData.append('id', initialData.id);
@@ -302,6 +306,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
           vibes: formState.vibes,
           setup_steps: formState.setupSteps || null,
           rules_bullets: formState.rulesBullets || null,
+          is_staff_pick: formState.isStaffPick,
         };
         formRef.current?.reset();
         setFormState(initialFormState);
@@ -623,6 +628,23 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Staff Pick */}
+          <div className="flex items-center gap-3">
+            <label htmlFor="isStaffPick" className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                id="isStaffPick"
+                checked={formState.isStaffPick}
+                onChange={(e) => updateFormField('isStaffPick', e.target.checked)}
+                className="h-4 w-4 rounded border-[color:var(--color-structure)] text-[color:var(--color-accent)] focus:ring-[color:var(--color-accent)]"
+              />
+              <span className="text-sm font-medium text-ink-primary">Staff Pick</span>
+            </label>
+            <span className="text-xs text-[color:var(--color-ink-secondary)]">
+              Highlight this game in the recommendation wizard
+            </span>
           </div>
 
           {/* Vibes / Tags */}

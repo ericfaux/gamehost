@@ -190,6 +190,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
   const copiesInRotationStr = formData.get('copiesInRotation') as string | null;
   const bggId = formData.get('bggId') as string | null;
   const imageUrl = formData.get('imageUrl') as string | null;
+  const isStaffPickStr = formData.get('isStaffPick') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -262,6 +263,9 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
     }
   }
 
+  // Parse staff pick (default to false)
+  const isStaffPick = isStaffPickStr === 'true';
+
   // Insert the new game
   const { error: insertError } = await getSupabaseAdmin()
     .from('games')
@@ -280,6 +284,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
       bgg_rating: bggRating,
       copies_in_rotation: copiesInRotation,
       cover_image_url: imageUrl?.trim() || null,
+      is_staff_pick: isStaffPick,
       status: 'in_rotation',
       condition: 'good',
       vibes: [],
@@ -335,6 +340,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
   const rulesBullets = formData.get('rulesBullets') as string | null;
   const bggId = formData.get('bggId') as string | null;
   const imageUrl = formData.get('imageUrl') as string | null;
+  const isStaffPickStr = formData.get('isStaffPick') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -426,6 +432,9 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
     }
   }
 
+  // Parse staff pick (default to false)
+  const isStaffPick = isStaffPickStr === 'true';
+
   const { error: updateError } = await getSupabaseAdmin()
     .from('games')
     .update({
@@ -443,6 +452,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
       bgg_rating: bggRating,
       copies_in_rotation: copiesInRotation,
       cover_image_url: imageUrl?.trim() || null,
+      is_staff_pick: isStaffPick,
       status,
       condition,
       vibes,
@@ -470,7 +480,7 @@ export interface InlineUpdateResult {
   error?: string;
 }
 
-type InlineUpdateField = 'status' | 'condition' | 'shelf_location' | 'copies_in_rotation';
+type InlineUpdateField = 'status' | 'condition' | 'shelf_location' | 'copies_in_rotation' | 'is_staff_pick';
 
 export async function updateGameField(
   gameId: string,
@@ -534,6 +544,11 @@ export async function updateGameField(
         return { success: false, error: 'Copies must be 0 or greater' };
       }
       updateData = { copies_in_rotation: copies };
+      break;
+
+    case 'is_staff_pick':
+      const isStaffPick = value === true || value === 'true';
+      updateData = { is_staff_pick: isStaffPick };
       break;
 
     default:
