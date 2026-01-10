@@ -18,8 +18,8 @@ const config: Config = {
         warn: "var(--color-warn)",
         danger: "var(--color-danger)",
         muted: "var(--color-muted)",
-        teal: "var(--color-teal)",
-        tealSoft: "var(--color-teal-soft)",
+        brandTeal: "var(--color-teal)",
+        brandTealSoft: "var(--color-teal-soft)",
       },
       boxShadow: {
         card: "var(--shadow-card)",
