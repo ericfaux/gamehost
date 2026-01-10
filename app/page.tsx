@@ -154,7 +154,7 @@ export default function LandingPage() {
                       </label>
                       <div className="col-span-2 mt-1 p-2 rounded-xl border border-accent/30 bg-accent/5 flex items-center gap-3">
                         <Crown className="w-4 h-4 text-accent" />
-                        <span className="text-xs text-ink-primary font-semibold">"Scythe" Reserved — Skipped the line</span>
+                        <span className="text-xs text-ink-primary font-semibold">&ldquo;Scythe&rdquo; Reserved — Skipped the line</span>
                       </div>
                     </div>
                   </div>
