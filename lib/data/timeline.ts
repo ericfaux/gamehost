@@ -248,12 +248,10 @@ interface SessionWithDetails extends Session {
  * Calculates estimated end time based on game duration or default.
  *
  * @param session - The session with game and table details
- * @param date - The date string in 'YYYY-MM-DD' format (for consistency)
  * @returns TimelineBlock representing the session
  */
 export function sessionToTimelineBlock(
-  session: SessionWithDetails,
-  _date: string
+  session: SessionWithDetails
 ): TimelineBlock {
   const now = new Date();
 
@@ -571,7 +569,7 @@ export async function getTimelineData(
   // Transform sessions (only if includeSessions is true)
   const sessionBlocks: TimelineBlock[] = includeSessions
     ? sessionsResult.map((session: RawSessionRow) =>
-        sessionToTimelineBlock(session as unknown as SessionWithDetails, date)
+        sessionToTimelineBlock(session as unknown as SessionWithDetails)
       )
     : [];
 
