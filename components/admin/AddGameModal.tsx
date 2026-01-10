@@ -37,6 +37,7 @@ interface FormState {
   rulesBullets: string;
   bggId: string;
   isStaffPick: boolean;
+  instructionalVideoUrl: string;
 }
 
 const initialFormState: FormState = {
@@ -59,6 +60,7 @@ const initialFormState: FormState = {
   rulesBullets: '',
   bggId: '',
   isStaffPick: false,
+  instructionalVideoUrl: '',
 };
 
 function mapGameToFormState(game: Game): FormState {
@@ -82,6 +84,7 @@ function mapGameToFormState(game: Game): FormState {
     rulesBullets: game.rules_bullets || '',
     bggId: game.bgg_id || '',
     isStaffPick: game.is_staff_pick ?? false,
+    instructionalVideoUrl: game.instructional_video_url || '',
   };
 }
 
@@ -230,6 +233,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
         bggRating: details.bgg_rating ? String(details.bgg_rating) : '',
         imageUrl: details.cover_image_url || '',
         vibes: details.vibes ?? [],
+        instructionalVideoUrl: details.instructional_video_url || '',
       }));
       setShowResults(false);
       setSearchResults([]);
@@ -281,6 +285,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
       formData.set('rulesBullets', formState.rulesBullets);
       formData.set('bggId', formState.bggId);
       formData.set('isStaffPick', String(formState.isStaffPick));
+      formData.set('instructionalVideoUrl', formState.instructionalVideoUrl);
 
       if (initialData) {
         formData.append('id', initialData.id);
@@ -307,6 +312,7 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
           setup_steps: formState.setupSteps || null,
           rules_bullets: formState.rulesBullets || null,
           is_staff_pick: formState.isStaffPick,
+          instructional_video_url: formState.instructionalVideoUrl || null,
         };
         formRef.current?.reset();
         setFormState(initialFormState);
@@ -780,6 +786,24 @@ export function GameFormModal({ isOpen, onClose, initialData, onSave }: GameForm
               className="w-full rounded-token border border-[color:var(--color-structure)] bg-[color:var(--color-elevated)] px-3 py-2 text-sm text-ink-primary shadow-card focus-ring placeholder:text-ink-secondary resize-none"
               placeholder="Key rules to teach guests..."
             />
+          </div>
+
+          {/* Tutorial Video */}
+          <div>
+            <label htmlFor="instructionalVideoUrl" className="block text-sm font-medium text-ink-primary mb-1">
+              Tutorial Video
+            </label>
+            <Input
+              type="url"
+              id="instructionalVideoUrl"
+              name="instructionalVideoUrl"
+              value={formState.instructionalVideoUrl}
+              onChange={(e) => updateFormField('instructionalVideoUrl', e.target.value)}
+              placeholder="https://youtube.com/watch?v=..."
+            />
+            <p className="text-xs text-ink-secondary mt-1">
+              YouTube URL for how-to-play tutorial. Use the auto-fetch button in the library to find videos from BGG.
+            </p>
           </div>
 
           {/* BGG Fields */}

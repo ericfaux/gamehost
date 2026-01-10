@@ -22,7 +22,7 @@ import {
 } from '@/components/admin/InlineEditors';
 import { Game } from '@/lib/db/types';
 import type { LibraryAggregatedData, SessionWithTable } from '@/app/admin/library/page';
-import { fetchCoverFromBgg } from '@/app/admin/library/actions';
+import { fetchCoverFromBgg, fetchVideoFromBgg } from '@/app/admin/library/actions';
 
 // =============================================================================
 // Dynamic Imports for Modals/Drawers - Reduces initial bundle size
@@ -84,6 +84,50 @@ function FetchCoverButton({ gameId, title }: { gameId: string; title: string }) 
       ) : (
         <Download className="h-4 w-4 text-[color:var(--color-ink-secondary)]" />
       )}
+    </button>
+  );
+}
+
+/**
+ * FetchVideoButton - Inline button to fetch instructional video from BGG
+ */
+function FetchVideoButton({ gameId, title, hasVideo }: { gameId: string; title: string; hasVideo: boolean }) {
+  const { push } = useToast();
+  const [isPending, startTransition] = useTransition();
+
+  const handleFetch = () => {
+    startTransition(async () => {
+      const result = await fetchVideoFromBgg(gameId, title);
+      if (result.success) {
+        push({ title: 'Video found', description: `Found tutorial video for "${title}"`, tone: 'success' });
+      } else {
+        push({ title: 'Could not fetch video', description: result.error, tone: 'danger' });
+      }
+    });
+  };
+
+  return (
+    <button
+      onClick={handleFetch}
+      disabled={isPending}
+      className={`
+        h-8 px-2 rounded text-xs font-medium
+        flex items-center gap-1
+        transition-all cursor-pointer
+        disabled:cursor-not-allowed disabled:opacity-50
+        ${hasVideo
+          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+          : 'bg-[color:var(--color-muted)] text-[color:var(--color-ink-secondary)] hover:bg-[color:var(--color-structure)]'
+        }
+      `}
+      title={hasVideo ? 'Re-fetch video from BoardGameGeek' : 'Auto-fetch video from BoardGameGeek'}
+    >
+      {isPending ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <Play className="h-3 w-3" />
+      )}
+      {hasVideo ? 'Video' : 'Fetch'}
     </button>
   );
 }
@@ -443,14 +487,15 @@ export function LibraryClient({
     },
     {
       key: 'edit',
-      header: 'Edit',
-      minWidth: 100,
+      header: 'Actions',
+      minWidth: 140,
       render: (row) => {
         const copies = row.copies_in_rotation ?? 1;
         const inUse = copiesInUse[row.id] ?? 0;
         const available = copies - inUse;
         const hasAvailableCopies = available > 0;
         const hasBrowsingSessions = browsingSessions.length > 0;
+        const hasVideo = !!row.instructional_video_url;
 
         return (
           <div className="flex items-center gap-1">
@@ -464,6 +509,13 @@ export function LibraryClient({
             >
               <Pencil className="h-4 w-4" />
             </Button>
+
+            {/* Fetch Video button */}
+            <FetchVideoButton
+              gameId={row.id}
+              title={row.title}
+              hasVideo={hasVideo}
+            />
 
             {/* Assign button - only if copies available and browsing sessions exist */}
             {hasAvailableCopies && hasBrowsingSessions && (

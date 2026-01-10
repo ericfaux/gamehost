@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { normalizeTitle } from '@/lib/utils/strings';
-import { getBggHotGames, searchBggGames, getBggGameDetails, rankSearchResults } from '@/lib/bgg';
+import { getBggHotGames, searchBggGames, getBggGameDetails, rankSearchResults, getBggBestInstructionalVideo } from '@/lib/bgg';
 import type { GameComplexity, GameStatus, GameCondition } from '@/lib/db/types';
 
 // Valid enum values for validation
@@ -191,6 +191,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
   const bggId = formData.get('bggId') as string | null;
   const imageUrl = formData.get('imageUrl') as string | null;
   const isStaffPickStr = formData.get('isStaffPick') as string | null;
+  const instructionalVideoUrl = formData.get('instructionalVideoUrl') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -285,6 +286,7 @@ export async function addGame(formData: FormData): Promise<AddGameResult> {
       copies_in_rotation: copiesInRotation,
       cover_image_url: imageUrl?.trim() || null,
       is_staff_pick: isStaffPick,
+      instructional_video_url: instructionalVideoUrl?.trim() || null,
       status: 'in_rotation',
       condition: 'good',
       vibes: [],
@@ -341,6 +343,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
   const bggId = formData.get('bggId') as string | null;
   const imageUrl = formData.get('imageUrl') as string | null;
   const isStaffPickStr = formData.get('isStaffPick') as string | null;
+  const instructionalVideoUrl = formData.get('instructionalVideoUrl') as string | null;
 
   // Validate required fields
   if (!title || title.trim() === '') {
@@ -453,6 +456,7 @@ export async function updateGame(formData: FormData): Promise<AddGameResult> {
       copies_in_rotation: copiesInRotation,
       cover_image_url: imageUrl?.trim() || null,
       is_staff_pick: isStaffPick,
+      instructional_video_url: instructionalVideoUrl?.trim() || null,
       status,
       condition,
       vibes,
@@ -701,4 +705,100 @@ export async function fetchCoverFromBgg(
   revalidatePath('/admin/library');
 
   return { success: true, imageUrl: details.cover_image_url };
+}
+
+/**
+ * Fetches an instructional video URL from BoardGameGeek for a game.
+ * Searches BGG by title (or uses existing bgg_id), finds the best instructional video,
+ * and saves it to the database.
+ */
+export interface FetchVideoResult {
+  success: boolean;
+  videoUrl?: string;
+  error?: string;
+}
+
+export async function fetchVideoFromBgg(
+  gameId: string,
+  title: string
+): Promise<FetchVideoResult> {
+  // Get current user
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: 'You must be logged in' };
+  }
+
+  // Get user's venue
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    return { success: false, error: 'No venue found for your account' };
+  }
+
+  // Validate the game exists and belongs to this venue
+  const { data: existingGame, error: fetchError } = await getSupabaseAdmin()
+    .from('games')
+    .select('id, venue_id, bgg_id')
+    .eq('id', gameId)
+    .single();
+
+  if (fetchError || !existingGame) {
+    return { success: false, error: 'Game not found' };
+  }
+
+  if (existingGame.venue_id !== venue.id) {
+    return { success: false, error: 'Game does not belong to your venue' };
+  }
+
+  let bggId = existingGame.bgg_id;
+
+  // If no BGG ID, search for the game first
+  if (!bggId) {
+    const searchResults = await searchBggGames(title);
+    if (searchResults.length === 0) {
+      return { success: false, error: 'No match found on BGG' };
+    }
+
+    // Rank results by fuzzy match score and pick the best match
+    const rankedResults = rankSearchResults(title, searchResults);
+    const bestMatch = rankedResults[0];
+
+    // Reject if score is too low to avoid wrong matches
+    const MIN_SCORE_THRESHOLD = 0.3;
+    if ((bestMatch.matchScore ?? 0) < MIN_SCORE_THRESHOLD) {
+      return {
+        success: false,
+        error: `Best match "${bestMatch.title}" scored too low (${((bestMatch.matchScore ?? 0) * 100).toFixed(0)}%)`,
+      };
+    }
+
+    bggId = bestMatch.id;
+  }
+
+  // Fetch the best instructional video
+  const videoUrl = await getBggBestInstructionalVideo(bggId);
+  if (!videoUrl) {
+    return { success: false, error: 'No instructional videos found on BGG for this game' };
+  }
+
+  // Update the game with the video URL (and bgg_id if we didn't have it)
+  const updateData: Record<string, unknown> = { instructional_video_url: videoUrl };
+  if (!existingGame.bgg_id) {
+    updateData.bgg_id = bggId;
+  }
+
+  const { error: updateError } = await getSupabaseAdmin()
+    .from('games')
+    .update(updateData)
+    .eq('id', gameId);
+
+  if (updateError) {
+    console.error('Failed to update game video:', updateError);
+    return { success: false, error: 'Failed to save video URL' };
+  }
+
+  revalidatePath('/admin/library');
+
+  return { success: true, videoUrl };
 }
