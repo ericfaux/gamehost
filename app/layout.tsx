@@ -23,12 +23,74 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+const BASE_URL = "https://gameledger.io";
+
 export const metadata: Metadata = {
-  title: "GameHost",
-  description: "GameHost – The operating system for board game cafés.",
+  metadataBase: new URL(BASE_URL),
+  title: {
+    default: "GameLedger | The Operating System for Board Game Cafés",
+    template: "%s | GameLedger",
+  },
+  description:
+    "Streamline reservations, game check-outs, and guest feedback. GameLedger helps board game cafés run smoother Friday nights and boost return visits by 18%.",
+  keywords: [
+    "board game café",
+    "board game cafe",
+    "café management",
+    "cafe management software",
+    "board game café software",
+    "table reservations",
+    "game library management",
+    "hospitality software",
+    "QR check-in",
+    "board game inventory",
+    "café booking system",
+    "game café POS",
+  ],
+  authors: [{ name: "GameLedger" }],
+  creator: "GameLedger",
+  publisher: "GameLedger",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: BASE_URL,
+    siteName: "GameLedger",
+    title: "GameLedger | The Operating System for Board Game Cafés",
+    description:
+      "Streamline reservations, game check-outs, and guest feedback. GameLedger helps board game cafés run smoother Friday nights and boost return visits by 18%.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "GameLedger - Board Game Café Management",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GameLedger | The Operating System for Board Game Cafés",
+    description:
+      "Streamline reservations, game check-outs, and guest feedback. Boost return visits by 18%.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: BASE_URL,
   },
 };
 
