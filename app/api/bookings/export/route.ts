@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBookingsForExport } from '@/lib/data/bookings';
+import { verifyVenueAccess } from '@/lib/apiAuth';
 import type { BookingStatus, BookingWithDetails } from '@/lib/db/types';
 
 /**
@@ -7,6 +8,9 @@ import type { BookingStatus, BookingWithDetails } from '@/lib/db/types';
  *
  * Exports bookings as a CSV file with the same filtering as the list view.
  * Returns all matching bookings (no pagination).
+ *
+ * SECURITY: Requires authentication. User must own the requested venue.
+ * This endpoint exports sensitive guest PII and must be protected.
  *
  * Query parameters: Same as /api/bookings
  */
@@ -19,6 +23,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'venueId is required' },
       { status: 400 }
+    );
+  }
+
+  // Verify authentication and venue ownership
+  // Critical: This endpoint exports PII, must be protected
+  const auth = await verifyVenueAccess(venueId);
+  if (!auth.authenticated) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
     );
   }
 

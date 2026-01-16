@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBookingsWithFilters, type BookingListFilters } from '@/lib/data/bookings';
+import { verifyVenueAccess } from '@/lib/apiAuth';
 import type { BookingStatus } from '@/lib/db/types';
 
 /**
@@ -7,6 +8,8 @@ import type { BookingStatus } from '@/lib/db/types';
  *
  * Fetches bookings with filtering, sorting, and cursor-based pagination.
  * Used by the BookingsList component for the list view.
+ *
+ * SECURITY: Requires authentication. User must own the requested venue.
  *
  * Query parameters:
  * - venueId (required): Venue UUID
@@ -37,6 +40,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'venueId is required' },
       { status: 400 }
+    );
+  }
+
+  // Verify authentication and venue ownership
+  const auth = await verifyVenueAccess(venueId);
+  if (!auth.authenticated) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
     );
   }
 
