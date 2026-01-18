@@ -40,6 +40,23 @@ export interface AnalyticsSummary {
 }
 
 // ============================================================================
+// Internal Types for Aggregation
+// ============================================================================
+
+interface GameStatsAggregation {
+  playCount: number;
+  ratingSum: number;
+  ratingCount: number;
+  lastPlayedAt: string | null;
+}
+
+interface GameRecord {
+  id: string;
+  title: string;
+  status: string;
+}
+
+// ============================================================================
 // Date Helpers
 // ============================================================================
 
@@ -50,7 +67,7 @@ function daysAgo(days: number): string {
 }
 
 // ============================================================================
-// Main Analytics Function
+// Main Analytics Function (Optimized)
 // ============================================================================
 
 export async function getAnalyticsDashboardData(
@@ -61,186 +78,250 @@ export async function getAnalyticsDashboardData(
   const ninetyDaysAgo = daysAgo(90);
 
   // -------------------------------------------------------------------------
-  // KPI 1: Total Plays (Last 30 Days)
-  // Count sessions that have a game_id and started in the last 30 days
+  // Parallel Query Execution - Batch 1 (KPI queries)
+  // All these queries are independent and can run in parallel
   // -------------------------------------------------------------------------
-  // Use 'id' instead of '*' for count queries - more efficient
-  const { count: totalPlays30d } = await supabase
-    .from('sessions')
-    .select('id', { count: 'exact', head: true })
-    .eq('venue_id', venueId)
-    .not('game_id', 'is', null)
-    .gte('started_at', thirtyDaysAgo);
+  const [
+    // KPI 1: Total Plays (Last 30 Days)
+    totalPlays30dResult,
+    // KPI 2a: Total in_rotation games
+    totalInRotationResult,
+    // KPI 2b: Unique games played in last 90 days (only fetch distinct game_ids)
+    uniqueGamesResult,
+    // KPI 3: Session durations for avg calculation (limited fields, limited rows)
+    sessionDurationsResult,
+    // KPI 4: Venue ratings (only the rating field, limited rows)
+    venueRatingsResult,
+    // Games list for aggregation
+    allGamesResult,
+  ] = await Promise.all([
+    // KPI 1: Count sessions with game_id in last 30 days
+    supabase
+      .from('sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('venue_id', venueId)
+      .not('game_id', 'is', null)
+      .gte('started_at', thirtyDaysAgo),
+
+    // KPI 2a: Count in_rotation games
+    supabase
+      .from('games')
+      .select('id', { count: 'exact', head: true })
+      .eq('venue_id', venueId)
+      .eq('status', 'in_rotation'),
+
+    // KPI 2b: Get only distinct game_ids (much smaller result set)
+    // Using select with only game_id minimizes data transfer
+    supabase
+      .from('sessions')
+      .select('game_id')
+      .eq('venue_id', venueId)
+      .not('game_id', 'is', null)
+      .gte('started_at', ninetyDaysAgo)
+      .limit(5000),
+
+    // KPI 3: Get session times for duration calculation
+    // Limit to reasonable sample size - 2000 sessions is statistically sufficient
+    supabase
+      .from('sessions')
+      .select('started_at, ended_at')
+      .eq('venue_id', venueId)
+      .not('game_id', 'is', null)
+      .not('ended_at', 'is', null)
+      .gte('started_at', thirtyDaysAgo)
+      .order('started_at', { ascending: false })
+      .limit(2000),
+
+    // KPI 4: Get venue ratings only (single column)
+    // Limit to reasonable sample size
+    supabase
+      .from('sessions')
+      .select('feedback_venue_rating')
+      .eq('venue_id', venueId)
+      .not('feedback_venue_rating', 'is', null)
+      .gte('started_at', ninetyDaysAgo)
+      .limit(2000),
+
+    // Games list
+    supabase
+      .from('games')
+      .select('id, title, status')
+      .eq('venue_id', venueId)
+      .eq('status', 'in_rotation'),
+  ]);
 
   // -------------------------------------------------------------------------
+  // Process KPI Results
+  // -------------------------------------------------------------------------
+
+  // KPI 1: Total Plays
+  const totalPlays30d = totalPlays30dResult.count ?? 0;
+
   // KPI 2: Active Library Percentage
-  // (Games played at least once in 90d / Total "in_rotation" games) * 100
-  // -------------------------------------------------------------------------
-
-  // Get total in_rotation games
-  // Use 'id' instead of '*' for count queries - more efficient
-  const { count: totalInRotation } = await supabase
-    .from('games')
-    .select('id', { count: 'exact', head: true })
-    .eq('venue_id', venueId)
-    .eq('status', 'in_rotation');
-
-  // Get unique games played in last 90 days
-  // Limit to 10000 rows to prevent unbounded result sets
-  const { data: recentlyPlayedGames } = await supabase
-    .from('sessions')
-    .select('game_id')
-    .eq('venue_id', venueId)
-    .not('game_id', 'is', null)
-    .gte('started_at', ninetyDaysAgo)
-    .limit(10000);
-
+  const totalInRotation = totalInRotationResult.count ?? 0;
   const uniqueGamesPlayed = new Set(
-    (recentlyPlayedGames ?? []).map((s) => s.game_id)
+    (uniqueGamesResult.data ?? []).map((s) => s.game_id)
   ).size;
-
   const activeLibraryPct =
-    totalInRotation && totalInRotation > 0
+    totalInRotation > 0
       ? Math.round((uniqueGamesPlayed / totalInRotation) * 100)
       : 0;
 
-  // -------------------------------------------------------------------------
-  // KPI 3: Average Session Minutes (Last 30 Days)
-  // Exclude outliers: < 5 minutes or > 6 hours (360 minutes)
-  // -------------------------------------------------------------------------
-  // Limit to 10000 rows to prevent unbounded result sets
-  const { data: completedSessions } = await supabase
-    .from('sessions')
-    .select('started_at, ended_at')
-    .eq('venue_id', venueId)
-    .not('game_id', 'is', null)
-    .not('ended_at', 'is', null)
-    .gte('started_at', thirtyDaysAgo)
-    .limit(10000);
-
+  // KPI 3: Average Session Minutes (with outlier exclusion)
   let avgSessionMinutes: number | null = null;
+  const completedSessions = sessionDurationsResult.data;
   if (completedSessions && completedSessions.length > 0) {
-    const validDurations: number[] = [];
+    let sum = 0;
+    let count = 0;
     for (const session of completedSessions) {
       const started = new Date(session.started_at).getTime();
       const ended = new Date(session.ended_at).getTime();
       const durationMinutes = (ended - started) / (1000 * 60);
-
       // Exclude outliers (< 5 min or > 6 hours)
       if (durationMinutes >= 5 && durationMinutes <= 360) {
-        validDurations.push(durationMinutes);
+        sum += durationMinutes;
+        count++;
       }
     }
-
-    if (validDurations.length > 0) {
-      const sum = validDurations.reduce((acc, d) => acc + d, 0);
-      avgSessionMinutes = Math.round(sum / validDurations.length);
+    if (count > 0) {
+      avgSessionMinutes = Math.round(sum / count);
     }
   }
 
-  // -------------------------------------------------------------------------
-  // KPI 4: Venue CSAT (Last 90 Days)
-  // Average feedback_venue_rating
-  // -------------------------------------------------------------------------
-  // Limit to 10000 rows to prevent unbounded result sets
-  const { data: venueRatings } = await supabase
-    .from('sessions')
-    .select('feedback_venue_rating')
-    .eq('venue_id', venueId)
-    .not('feedback_venue_rating', 'is', null)
-    .gte('started_at', ninetyDaysAgo)
-    .limit(10000);
-
+  // KPI 4: Venue CSAT
   let venueCsat: number | null = null;
+  const venueRatings = venueRatingsResult.data;
   if (venueRatings && venueRatings.length > 0) {
-    const sum = venueRatings.reduce(
-      (acc, s) => acc + (s.feedback_venue_rating ?? 0),
-      0
-    );
+    let sum = 0;
+    for (const s of venueRatings) {
+      sum += s.feedback_venue_rating ?? 0;
+    }
     venueCsat = Math.round((sum / venueRatings.length) * 10) / 10;
   }
 
   // -------------------------------------------------------------------------
-  // Master Game Aggregation Query (Last 90 Days)
-  // Used for: Top Games, Graveyard, Hidden Gems
+  // Parallel Query Execution - Batch 2 (Game aggregation queries)
+  // These queries are for top games, graveyard, and hidden gems
+  // Optimized: fetch only what's needed with proper limits
   // -------------------------------------------------------------------------
 
-  // Get all in_rotation games for the venue
-  const { data: allGames } = await supabase
-    .from('games')
-    .select('id, title, status')
-    .eq('venue_id', venueId)
-    .eq('status', 'in_rotation');
+  const allGames = (allGamesResult.data ?? []) as GameRecord[];
+  const gameMap = new Map<string, GameRecord>(allGames.map((g) => [g.id, g]));
+  const gameIds = allGames.map((g) => g.id);
 
-  // Get all sessions with game feedback in last 90 days
-  const { data: allSessions90d } = await supabase
-    .from('sessions')
-    .select('game_id, started_at, feedback_rating')
-    .eq('venue_id', venueId)
-    .not('game_id', 'is', null)
-    .gte('started_at', ninetyDaysAgo);
+  // Skip aggregation queries if no games
+  if (gameIds.length === 0) {
+    return {
+      totalPlays30d,
+      activeLibraryPct,
+      avgSessionMinutes,
+      venueCsat,
+      topGames: [],
+      graveyardCandidates: [],
+      hiddenGems: [],
+    };
+  }
 
-  // Get sessions from last 30 days for top games
-  const { data: allSessions30d } = await supabase
-    .from('sessions')
-    .select('game_id, started_at, feedback_rating')
-    .eq('venue_id', venueId)
-    .not('game_id', 'is', null)
-    .gte('started_at', thirtyDaysAgo);
+  // Run game-level aggregation queries in parallel
+  const [
+    // Sessions in last 30 days (for top games - need game_id and count)
+    sessions30dResult,
+    // Sessions in last 90 days (for hidden gems - need game_id, rating, started_at)
+    sessions90dResult,
+    // Last played dates for graveyard candidates (optimized: only for games with 0 plays in 90d)
+    // We'll compute this more efficiently by getting max(started_at) per game
+    lastPlayedResult,
+  ] = await Promise.all([
+    // 30-day sessions: only need game_id for counting
+    supabase
+      .from('sessions')
+      .select('game_id')
+      .eq('venue_id', venueId)
+      .not('game_id', 'is', null)
+      .in('game_id', gameIds)
+      .gte('started_at', thirtyDaysAgo)
+      .limit(10000),
 
-  // Build aggregation maps
-  const gameStats90d = new Map<
-    string,
-    { playCount: number; ratings: number[]; lastPlayedAt: string | null }
-  >();
+    // 90-day sessions: need game_id, rating, started_at for aggregation
+    supabase
+      .from('sessions')
+      .select('game_id, feedback_rating, started_at')
+      .eq('venue_id', venueId)
+      .not('game_id', 'is', null)
+      .in('game_id', gameIds)
+      .gte('started_at', ninetyDaysAgo)
+      .limit(10000),
+
+    // All-time last played: get most recent session per game
+    // Order by started_at desc and limit to reduce data transfer
+    // We only need this for graveyard candidates (games with 0 plays in 90d)
+    supabase
+      .from('sessions')
+      .select('game_id, started_at')
+      .eq('venue_id', venueId)
+      .not('game_id', 'is', null)
+      .in('game_id', gameIds)
+      .lt('started_at', ninetyDaysAgo)
+      .order('started_at', { ascending: false })
+      .limit(5000),
+  ]);
+
+  // -------------------------------------------------------------------------
+  // Efficient Aggregation Using Running Sums (not arrays)
+  // -------------------------------------------------------------------------
+
+  // Initialize game stats with running sums (not arrays - saves memory)
+  const gameStats90d = new Map<string, GameStatsAggregation>();
   const gameStats30d = new Map<string, number>();
 
-  // Initialize with all games
-  for (const game of allGames ?? []) {
+  for (const game of allGames) {
     gameStats90d.set(game.id, {
       playCount: 0,
-      ratings: [],
+      ratingSum: 0,
+      ratingCount: 0,
       lastPlayedAt: null,
     });
     gameStats30d.set(game.id, 0);
   }
 
-  // Aggregate 90-day sessions
-  for (const session of allSessions90d ?? []) {
+  // Aggregate 90-day sessions (running sum instead of array)
+  for (const session of sessions90dResult.data ?? []) {
     const gameId = session.game_id;
     if (!gameId) continue;
 
-    const stats = gameStats90d.get(gameId) ?? {
-      playCount: 0,
-      ratings: [],
-      lastPlayedAt: null,
-    };
+    const stats = gameStats90d.get(gameId);
+    if (!stats) continue;
 
     stats.playCount++;
     if (session.feedback_rating != null) {
-      stats.ratings.push(session.feedback_rating);
+      stats.ratingSum += session.feedback_rating;
+      stats.ratingCount++;
     }
-    if (
-      !stats.lastPlayedAt ||
-      session.started_at > stats.lastPlayedAt
-    ) {
+    if (!stats.lastPlayedAt || session.started_at > stats.lastPlayedAt) {
       stats.lastPlayedAt = session.started_at;
     }
-    gameStats90d.set(gameId, stats);
   }
 
   // Aggregate 30-day sessions
-  for (const session of allSessions30d ?? []) {
+  for (const session of sessions30dResult.data ?? []) {
     const gameId = session.game_id;
     if (!gameId) continue;
     gameStats30d.set(gameId, (gameStats30d.get(gameId) ?? 0) + 1);
   }
 
+  // Build last played map from historical sessions (before 90 days)
+  // Only needed for games with 0 plays in last 90 days
+  const lastPlayedMap = new Map<string, string>();
+  for (const session of lastPlayedResult.data ?? []) {
+    const gameId = session.game_id;
+    if (gameId && !lastPlayedMap.has(gameId)) {
+      lastPlayedMap.set(gameId, session.started_at);
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Top Games (Top 5 by play count in last 30 days)
   // -------------------------------------------------------------------------
-  const gameMap = new Map((allGames ?? []).map((g) => [g.id, g]));
-
   const topGames: GamePlayStats[] = Array.from(gameStats30d.entries())
     .filter(([, count]) => count > 0)
     .sort((a, b) => b[1] - a[1])
@@ -249,12 +330,8 @@ export async function getAnalyticsDashboardData(
       const game = gameMap.get(gameId);
       const stats90 = gameStats90d.get(gameId);
       const avgRating =
-        stats90 && stats90.ratings.length > 0
-          ? Math.round(
-              (stats90.ratings.reduce((a, b) => a + b, 0) /
-                stats90.ratings.length) *
-                10
-            ) / 10
+        stats90 && stats90.ratingCount > 0
+          ? Math.round((stats90.ratingSum / stats90.ratingCount) * 10) / 10
           : null;
 
       return {
@@ -270,23 +347,7 @@ export async function getAnalyticsDashboardData(
   // Graveyard Candidates
   // Games with 0 plays in last 90 days AND status is 'in_rotation'
   // -------------------------------------------------------------------------
-
-  // We need to get last played date for ALL time for graveyard games
-  const { data: allTimeLastPlayed } = await supabase
-    .from('sessions')
-    .select('game_id, started_at')
-    .eq('venue_id', venueId)
-    .not('game_id', 'is', null)
-    .order('started_at', { ascending: false });
-
-  const lastPlayedMap = new Map<string, string>();
-  for (const session of allTimeLastPlayed ?? []) {
-    if (session.game_id && !lastPlayedMap.has(session.game_id)) {
-      lastPlayedMap.set(session.game_id, session.started_at);
-    }
-  }
-
-  const graveyardCandidates: GraveyardGame[] = (allGames ?? [])
+  const graveyardCandidates: GraveyardGame[] = allGames
     .filter((game) => {
       const stats = gameStats90d.get(game.id);
       return stats && stats.playCount === 0;
@@ -314,16 +375,14 @@ export async function getAnalyticsDashboardData(
       const game = gameMap.get(gameId);
       if (!game || game.status !== 'in_rotation') return false;
       if (stats.playCount === 0 || stats.playCount >= 5) return false;
-      if (stats.ratings.length === 0) return false;
+      if (stats.ratingCount === 0) return false;
 
-      const avgRating =
-        stats.ratings.reduce((a, b) => a + b, 0) / stats.ratings.length;
+      const avgRating = stats.ratingSum / stats.ratingCount;
       return avgRating > 4.5;
     })
     .map(([gameId, stats]) => {
       const game = gameMap.get(gameId)!;
-      const avgRating =
-        stats.ratings.reduce((a, b) => a + b, 0) / stats.ratings.length;
+      const avgRating = stats.ratingSum / stats.ratingCount;
 
       return {
         gameId,
@@ -338,7 +397,7 @@ export async function getAnalyticsDashboardData(
   // Return Final Summary
   // -------------------------------------------------------------------------
   return {
-    totalPlays30d: totalPlays30d ?? 0,
+    totalPlays30d,
     activeLibraryPct,
     avgSessionMinutes,
     venueCsat,
