@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { formatInTimeZone } from 'date-fns-tz';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { getVenueBookingSettings, BOOKING_SETTINGS_DEFAULTS } from '@/lib/data/bookings';
+import { verifyVenueAccess } from '@/lib/apiAuth';
 import type { BookingWithDetails, BookingStatus } from '@/lib/db/types';
 
 /**
@@ -11,6 +12,8 @@ import type { BookingWithDetails, BookingStatus } from '@/lib/db/types';
  * Includes:
  * - Late arrivals (bookings from past 30 minutes that haven't been seated)
  * - Upcoming arrivals (bookings in the next N minutes)
+ *
+ * SECURITY: Requires authentication. User must own the requested venue.
  *
  * Query params:
  * - minutesAhead: How far ahead to look (default: 60)
@@ -28,6 +31,15 @@ export async function GET(
     return NextResponse.json(
       { error: 'Venue ID is required' },
       { status: 400 }
+    );
+  }
+
+  // Verify authentication and venue ownership
+  const auth = await verifyVenueAccess(venueId);
+  if (!auth.authenticated) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
     );
   }
 

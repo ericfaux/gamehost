@@ -343,9 +343,10 @@ export async function getUpcomingBookingsCount(
   // Only include confirmed or arrived bookings
   const validStatuses: BookingStatus[] = ['confirmed', 'arrived'];
 
+  // Use 'id' instead of '*' for count queries - more efficient
   const { count, error } = await getSupabaseAdmin()
     .from('bookings')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('venue_id', venueId)
     .eq('booking_date', today)
     .in('status', validStatuses)
@@ -413,6 +414,8 @@ export async function getUpcomingBookings(
  * @returns Array of bookings with table info, ordered by date DESC
  */
 export async function getBookingsByGuestEmail(email: string): Promise<BookingWithTable[]> {
+  // Limit to 100 results to prevent unbounded queries
+  // Most guests won't have more than 100 historical bookings
   const { data, error } = await getSupabaseAdmin()
     .from('bookings')
     .select(`
@@ -421,7 +424,8 @@ export async function getBookingsByGuestEmail(email: string): Promise<BookingWit
     `)
     .eq('guest_email', email)
     .order('booking_date', { ascending: false })
-    .order('start_time', { ascending: false });
+    .order('start_time', { ascending: false })
+    .limit(100);
 
   if (error) {
     console.error('Error fetching bookings by guest email:', error);

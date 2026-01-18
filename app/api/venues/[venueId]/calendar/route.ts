@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
+import { verifyVenueAccess } from '@/lib/apiAuth';
 import type { BookingStatus, TimelineBlock } from '@/lib/db/types';
 
 // =============================================================================
@@ -275,6 +276,8 @@ function detectConflicts(blocks: TimelineBlock[]): TimelineConflict[] {
  *
  * Fetches calendar data for the booking calendar views.
  *
+ * SECURITY: Requires authentication. User must own the requested venue.
+ *
  * Query params:
  * - view: 'day' | 'week' | 'month'
  * - date: YYYY-MM-DD (for day and week views)
@@ -291,6 +294,15 @@ export async function GET(
     return NextResponse.json(
       { error: 'Venue ID is required' },
       { status: 400 }
+    );
+  }
+
+  // Verify authentication and venue ownership
+  const auth = await verifyVenueAccess(venueId);
+  if (!auth.authenticated) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
     );
   }
 

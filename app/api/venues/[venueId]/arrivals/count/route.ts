@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getUpcomingBookingsCount, getVenueBookingSettings, BOOKING_SETTINGS_DEFAULTS } from '@/lib/data/bookings';
+import { verifyVenueAccess } from '@/lib/apiAuth';
 
 /**
  * GET /api/venues/[venueId]/arrivals/count
  *
  * Returns the count of upcoming arrivals for the sidebar badge.
+ *
+ * SECURITY: Requires authentication. User must own the requested venue.
  *
  * Query params:
  * - minutesAhead: How far ahead to look (default: 60)
@@ -22,6 +25,15 @@ export async function GET(
     return NextResponse.json(
       { error: 'Venue ID is required' },
       { status: 400 }
+    );
+  }
+
+  // Verify authentication and venue ownership
+  const auth = await verifyVenueAccess(venueId);
+  if (!auth.authenticated) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
     );
   }
 

@@ -2703,13 +2703,38 @@ export interface LookupReservationResult {
 const lookupAttempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_LOOKUP_ATTEMPTS = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // Cleanup every 5 minutes
+const MAX_ENTRIES = 10000; // Maximum entries before forced cleanup
+
+let lastCleanupTime = Date.now();
+
+/**
+ * Cleans up expired entries from the rate limit map to prevent memory leaks.
+ * Called periodically and when map size exceeds threshold.
+ */
+function cleanupExpiredEntries(): void {
+  const now = Date.now();
+  for (const [key, record] of lookupAttempts) {
+    if (now > record.resetAt) {
+      lookupAttempts.delete(key);
+    }
+  }
+  lastCleanupTime = now;
+}
 
 /**
  * Checks and updates rate limit for lookup attempts.
  * Returns true if the request should be rate limited.
+ * Includes automatic cleanup of expired entries to prevent memory leaks.
  */
 function isRateLimited(key: string): boolean {
   const now = Date.now();
+
+  // Periodic cleanup to prevent memory leak
+  if (now - lastCleanupTime > CLEANUP_INTERVAL_MS || lookupAttempts.size > MAX_ENTRIES) {
+    cleanupExpiredEntries();
+  }
+
   const record = lookupAttempts.get(key);
 
   if (!record || now > record.resetAt) {

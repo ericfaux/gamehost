@@ -64,9 +64,10 @@ export async function getAnalyticsDashboardData(
   // KPI 1: Total Plays (Last 30 Days)
   // Count sessions that have a game_id and started in the last 30 days
   // -------------------------------------------------------------------------
+  // Use 'id' instead of '*' for count queries - more efficient
   const { count: totalPlays30d } = await supabase
     .from('sessions')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('venue_id', venueId)
     .not('game_id', 'is', null)
     .gte('started_at', thirtyDaysAgo);
@@ -77,19 +78,22 @@ export async function getAnalyticsDashboardData(
   // -------------------------------------------------------------------------
 
   // Get total in_rotation games
+  // Use 'id' instead of '*' for count queries - more efficient
   const { count: totalInRotation } = await supabase
     .from('games')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('venue_id', venueId)
     .eq('status', 'in_rotation');
 
   // Get unique games played in last 90 days
+  // Limit to 10000 rows to prevent unbounded result sets
   const { data: recentlyPlayedGames } = await supabase
     .from('sessions')
     .select('game_id')
     .eq('venue_id', venueId)
     .not('game_id', 'is', null)
-    .gte('started_at', ninetyDaysAgo);
+    .gte('started_at', ninetyDaysAgo)
+    .limit(10000);
 
   const uniqueGamesPlayed = new Set(
     (recentlyPlayedGames ?? []).map((s) => s.game_id)
@@ -104,13 +108,15 @@ export async function getAnalyticsDashboardData(
   // KPI 3: Average Session Minutes (Last 30 Days)
   // Exclude outliers: < 5 minutes or > 6 hours (360 minutes)
   // -------------------------------------------------------------------------
+  // Limit to 10000 rows to prevent unbounded result sets
   const { data: completedSessions } = await supabase
     .from('sessions')
     .select('started_at, ended_at')
     .eq('venue_id', venueId)
     .not('game_id', 'is', null)
     .not('ended_at', 'is', null)
-    .gte('started_at', thirtyDaysAgo);
+    .gte('started_at', thirtyDaysAgo)
+    .limit(10000);
 
   let avgSessionMinutes: number | null = null;
   if (completedSessions && completedSessions.length > 0) {
@@ -136,12 +142,14 @@ export async function getAnalyticsDashboardData(
   // KPI 4: Venue CSAT (Last 90 Days)
   // Average feedback_venue_rating
   // -------------------------------------------------------------------------
+  // Limit to 10000 rows to prevent unbounded result sets
   const { data: venueRatings } = await supabase
     .from('sessions')
     .select('feedback_venue_rating')
     .eq('venue_id', venueId)
     .not('feedback_venue_rating', 'is', null)
-    .gte('started_at', ninetyDaysAgo);
+    .gte('started_at', ninetyDaysAgo)
+    .limit(10000);
 
   let venueCsat: number | null = null;
   if (venueRatings && venueRatings.length > 0) {
