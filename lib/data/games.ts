@@ -62,6 +62,40 @@ export async function getGamesForVenue(venueId: string): Promise<Game[]> {
 }
 
 /**
+ * Searches games in a venue's library by title.
+ * Uses case-insensitive partial matching.
+ *
+ * @param venueId - The venue's UUID
+ * @param query - Search query string
+ * @param limit - Maximum number of results (default 10)
+ * @returns Array of matching games
+ */
+export async function searchGamesInVenue(
+  venueId: string,
+  query: string,
+  limit: number = 10
+): Promise<Game[]> {
+  if (!query || query.trim().length < 2) {
+    return [];
+  }
+
+  const { data, error } = await getSupabaseAdmin()
+    .from('games')
+    .select(GAME_COLUMNS)
+    .eq('venue_id', venueId)
+    .ilike('title', `%${query.trim()}%`)
+    .order('title', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error searching games:', error);
+    return [];
+  }
+
+  return (data ?? []) as Game[];
+}
+
+/**
  * Maps a time bucket to min/max minute ranges.
  */
 function getTimeRange(bucket: TimeBucket): { min: number; max: number } {

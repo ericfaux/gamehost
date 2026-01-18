@@ -915,9 +915,10 @@ export async function getAvailableTables(
   }
 
   // Map RPC result to our interface with fit indicators
-  return (data ?? []).map((table: { table_id: string; table_label: string; capacity: number | null }) => ({
+  // Handle both 'table_label' and 'label' field names from the RPC
+  return (data ?? []).map((table: { table_id: string; table_label?: string; label?: string; capacity: number | null }) => ({
     table_id: table.table_id,
-    table_label: table.table_label,
+    table_label: table.table_label || table.label || `Table ${table.table_id.slice(0, 5)}`,
     capacity: table.capacity,
     is_exact_fit: table.capacity === partySize,
     is_tight_fit: table.capacity === partySize + 1,

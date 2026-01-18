@@ -99,6 +99,44 @@ function stripHtml(text: string): string {
   return text.replace(/<[^>]*>/g, '');
 }
 
+/**
+ * Decodes HTML entities in text.
+ * Handles common entities like &nbsp;, &amp;, &quot;, etc.
+ */
+function decodeHtmlEntities(text: string): string {
+  if (!text) return '';
+
+  return text
+    // Named entities
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&hellip;/g, '...')
+    .replace(/&rsquo;/g, "'")
+    .replace(/&lsquo;/g, "'")
+    .replace(/&rdquo;/g, '"')
+    .replace(/&ldquo;/g, '"')
+    .replace(/&copy;/g, '©')
+    .replace(/&reg;/g, '®')
+    .replace(/&trade;/g, '™')
+    // Numeric decimal entities (e.g., &#39; for apostrophe)
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+    // Numeric hex entities (e.g., &#x27; for apostrophe)
+    .replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+/**
+ * Cleans text from BGG: strips HTML tags and decodes HTML entities.
+ */
+function cleanBggText(text: string): string {
+  return decodeHtmlEntities(stripHtml(text)).trim();
+}
+
 function truncate(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit)}...` : text;
 }
@@ -250,7 +288,7 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
     const complexity = weight !== null ? mapWeightToComplexity(weight) : 'medium';
 
     const descriptionRaw = typeof item.description === 'string' ? item.description : '';
-    const cleanedDescription = truncate(stripHtml(descriptionRaw), 200);
+    const cleanedDescription = truncate(cleanBggText(descriptionRaw), 200);
 
     const linkEntries = normalizeArray(item.link as unknown[]);
     const vibes = linkEntries
