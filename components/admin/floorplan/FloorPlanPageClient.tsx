@@ -31,6 +31,7 @@ import { ZoneManagerModal } from '@/components/admin/floorplan/ZoneManagerModal'
 import { FloatingToolbar } from '@/components/admin/floorplan/FloatingToolbar';
 import { getDefaultLayoutForCapacity } from '@/components/admin/floorplan/TableNode';
 import { CreateBookingModal } from '@/components/admin/bookings/CreateBookingModal';
+import { BulkQRPrintModal } from '@/components/admin/BulkQRPrintModal';
 import type { TableSessionInfo } from '@/components/admin/floorplan/TableNode';
 import {
   saveTableLayoutsAction,
@@ -42,7 +43,7 @@ import {
 } from '@/app/admin/sessions/floor-plan-actions';
 import { toggleTableActive, toggleZoneActive } from '@/app/admin/settings/actions';
 import type { VenueZone, VenueTableWithLayout, VenueTable, TableShape } from '@/lib/db/types';
-import { AlertTriangle, List, Map as MapIcon } from '@/components/icons';
+import { AlertTriangle, List, Map as MapIcon, Printer } from '@/components/icons';
 
 // =============================================================================
 // TYPES
@@ -130,6 +131,7 @@ export function FloorPlanPageClient({
   const [drawerTableId, setDrawerTableId] = useState<string | null>(null);
   const [showZoneManager, setShowZoneManager] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showBulkQRPrint, setShowBulkQRPrint] = useState(false);
   const [bookingPreselectedTableId, setBookingPreselectedTableId] = useState<string | null>(null);
 
   // Persistence state
@@ -631,13 +633,23 @@ export function FloorPlanPageClient({
               Table List
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowZoneManager(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-structure bg-surface px-3 py-2 text-sm font-medium text-ink-primary shadow-card transition-colors hover:bg-muted/60"
-          >
-            Manage zones
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowBulkQRPrint(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-structure bg-surface px-3 py-2 text-sm font-medium text-ink-primary shadow-card transition-colors hover:bg-muted/60"
+            >
+              <Printer className="h-4 w-4" />
+              Print QR Codes
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowZoneManager(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-structure bg-surface px-3 py-2 text-sm font-medium text-ink-primary shadow-card transition-colors hover:bg-muted/60"
+            >
+              Manage zones
+            </button>
+          </div>
         </div>
 
         <div
@@ -685,6 +697,16 @@ export function FloorPlanPageClient({
             />
           )}
         </div>
+
+        {/* Bulk QR print modal (zero state) */}
+        <BulkQRPrintModal
+          isOpen={showBulkQRPrint}
+          onClose={() => setShowBulkQRPrint(false)}
+          tables={initialTablesWithLayout}
+          zones={initialZones}
+          venueName={venueName}
+          venueSlug={venueSlug}
+        />
       </>
     );
   }
@@ -722,13 +744,23 @@ export function FloorPlanPageClient({
             Table List
           </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowZoneManager(true)}
-          className="inline-flex items-center gap-2 rounded-lg border border-structure bg-surface px-3 py-2 text-sm font-medium text-ink-primary shadow-card transition-colors hover:bg-muted/60"
-        >
-          Manage zones
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowBulkQRPrint(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-structure bg-surface px-3 py-2 text-sm font-medium text-ink-primary shadow-card transition-colors hover:bg-muted/60"
+          >
+            <Printer className="h-4 w-4" />
+            Print QR Codes
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowZoneManager(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-structure bg-surface px-3 py-2 text-sm font-medium text-ink-primary shadow-card transition-colors hover:bg-muted/60"
+          >
+            Manage zones
+          </button>
+        </div>
       </div>
 
       {/* Tab content with smooth transition */}
@@ -891,6 +923,16 @@ export function FloorPlanPageClient({
         venueId={venueId}
         preselectedTable={bookingPreselectedTableId ?? undefined}
         preselectedDate={format(new Date(), 'yyyy-MM-dd')}
+      />
+
+      {/* Bulk QR print modal */}
+      <BulkQRPrintModal
+        isOpen={showBulkQRPrint}
+        onClose={() => setShowBulkQRPrint(false)}
+        tables={layoutState}
+        zones={zones}
+        venueName={venueName}
+        venueSlug={venueSlug}
       />
     </>
   );
