@@ -1,9 +1,9 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
 
-export async function login(formData: FormData): Promise<{ error: string } | void> {
+export async function login(formData: FormData): Promise<{ error: string } | { success: true }> {
   const supabase = await createClient();
 
   const email = formData.get('email') as string;
@@ -22,7 +22,7 @@ export async function login(formData: FormData): Promise<{ error: string } | voi
     return { error: error.message };
   }
 
-  redirect('/admin');
+  return { success: true };
 }
 
 export async function signOut(): Promise<void> {
