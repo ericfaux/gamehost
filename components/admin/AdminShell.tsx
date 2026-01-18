@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import Image from 'next/image';
 import { Menu, Search, Bell, Sparkle, ChevronDown, Loader2 } from '@/components/icons';
 import { useDensity } from '@/components/providers/DensityProvider';
 import { UserMenu } from './UserMenu';
@@ -90,6 +91,17 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Handle selecting a game from dropdown
+  const handleSelectGame = useCallback(
+    (gameId: string) => {
+      router.push(`/admin/library?highlight=${gameId}`);
+      setIsDropdownOpen(false);
+      setSearchTerm('');
+      setSearchResults([]);
+    },
+    [router]
+  );
+
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -123,18 +135,7 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
           break;
       }
     },
-    [isDropdownOpen, searchResults, selectedIndex, searchTerm, router]
-  );
-
-  // Handle selecting a game from dropdown
-  const handleSelectGame = useCallback(
-    (gameId: string) => {
-      router.push(`/admin/library?highlight=${gameId}`);
-      setIsDropdownOpen(false);
-      setSearchTerm('');
-      setSearchResults([]);
-    },
-    [router]
+    [isDropdownOpen, searchResults, selectedIndex, searchTerm, router, handleSelectGame]
   );
 
   // Format player count display
@@ -254,7 +255,7 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
                     </div>
                   ) : searchResults.length === 0 ? (
                     <div className="px-4 py-3 text-sm text-[color:var(--color-ink-secondary)]">
-                      No games found for "{searchTerm}"
+                      No games found for &ldquo;{searchTerm}&rdquo;
                     </div>
                   ) : (
                     <>
@@ -272,12 +273,14 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
                             onMouseEnter={() => setSelectedIndex(index)}
                           >
                             {/* Game Cover Image */}
-                            <div className="w-10 h-10 rounded bg-stone-100 flex-shrink-0 overflow-hidden">
+                            <div className="w-10 h-10 rounded bg-stone-100 flex-shrink-0 overflow-hidden relative">
                               {game.cover_image_url ? (
-                                <img
+                                <Image
                                   src={game.cover_image_url}
                                   alt=""
-                                  className="w-full h-full object-cover"
+                                  fill
+                                  sizes="40px"
+                                  className="object-cover"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center text-stone-400 text-xs">
