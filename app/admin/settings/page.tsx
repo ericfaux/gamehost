@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { getVenueByOwnerId } from "@/lib/data/venues";
@@ -37,13 +38,53 @@ export default async function AdminSettingsPage() {
   ]);
 
   return (
-    <UnifiedSettingsClient
-      venueId={venue.id}
-      venueName={venue.name}
-      venueSlug={venue.slug}
-      venueLogo={venue.logo_url}
-      settings={settings}
-      operatingHours={operatingHours}
-    />
+    <Suspense fallback={<SettingsLoadingSkeleton />}>
+      <UnifiedSettingsClient
+        venueId={venue.id}
+        venueName={venue.name}
+        venueSlug={venue.slug}
+        venueLogo={venue.logo_url}
+        settings={settings}
+        operatingHours={operatingHours}
+      />
+    </Suspense>
+  );
+}
+
+function SettingsLoadingSkeleton() {
+  return (
+    <div className="-mx-4 md:-mx-6 -my-6 min-h-[calc(100vh-80px)] flex">
+      {/* Left Navigation Sidebar */}
+      <nav className="w-48 flex-shrink-0 border-r border-[color:var(--color-structure)] bg-stone-50/50 p-3">
+        <div className="mb-4">
+          <div className="h-6 w-24 bg-stone-200 rounded animate-pulse" />
+        </div>
+        <div className="space-y-1">
+          {[...Array(7)].map((_, i) => (
+            <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+              <div className="w-4 h-4 bg-stone-200 rounded animate-pulse" />
+              <div className="h-4 w-20 bg-stone-200 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </nav>
+
+      {/* Main Content Area */}
+      <main className="flex-1 overflow-y-auto bg-white">
+        <div className="max-w-2xl px-6 py-6 space-y-6">
+          <div className="space-y-2">
+            <div className="h-6 w-32 bg-stone-200 rounded animate-pulse" />
+            <div className="h-4 w-64 bg-stone-100 rounded animate-pulse" />
+          </div>
+          <div className="rounded-lg border border-[color:var(--color-structure)] p-6 space-y-4">
+            <div className="h-5 w-24 bg-stone-200 rounded animate-pulse" />
+            <div className="space-y-3">
+              <div className="h-10 bg-stone-100 rounded animate-pulse" />
+              <div className="h-10 bg-stone-100 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

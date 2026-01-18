@@ -653,8 +653,8 @@ export function TablesManager({
                               )}
                             </div>
 
-                            {/* Actions - visible on hover */}
-                            <div className="w-32 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* Actions */}
+                            <div className="w-32 flex gap-1">
                               <button
                                 type="button"
                                 onClick={(e) => {
