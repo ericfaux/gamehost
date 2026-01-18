@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { login } from './actions';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -11,20 +12,19 @@ import { Label } from '@/components/ui/label';
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(formData: FormData) {
     setError(null);
     setIsLoading(true);
 
-    try {
-      const result = await login(formData);
-      if (result?.error) {
-        setError(result.error);
-      }
-    } catch {
-      setError('An unexpected error occurred');
-    } finally {
+    const result = await login(formData);
+
+    if ('error' in result) {
+      setError(result.error);
       setIsLoading(false);
+    } else {
+      router.push('/admin');
     }
   }
 
