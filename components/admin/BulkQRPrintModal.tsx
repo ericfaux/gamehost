@@ -153,35 +153,33 @@ export function BulkQRPrintModal({
       return;
     }
 
-    // Generate QR code page HTML for each table
+    // Generate QR code page HTML for each table (use img tags for data URLs)
     const qrPages = selectedTables.map((table) => {
       return `
         <div class="qr-page">
           <div class="qr-container">
             <div class="venue-name">${venueName}</div>
             <div class="table-label">${table.label}</div>
-            <div class="qr-code" id="qr-${table.id}"></div>
+            <div class="qr-code">
+              <img id="qr-${table.id}" alt="QR Code for ${table.label}" />
+            </div>
             <div class="scan-instruction">Scan to start your session</div>
           </div>
         </div>
       `;
     }).join("");
 
-    // Script to generate QR codes using react-qr-code's SVG output pattern
-    const qrScript = selectedTables.map((table) => {
-      const tableUrl = `${window.location.origin}/v/${venueSlug}/t/${table.id}`;
-      // We'll use a simple QR code library or generate inline
-      return `
-        generateQR("qr-${table.id}", "${tableUrl}");
-      `;
-    }).join("");
+    // Build the table data as JSON for the script
+    const tableData = selectedTables.map((table) => ({
+      id: table.id,
+      url: `${window.location.origin}/v/${venueSlug}/t/${table.id}`,
+    }));
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <title>QR Codes - ${venueName}</title>
-          <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>
           <style>
             * {
               margin: 0;
@@ -229,9 +227,10 @@ export function BulkQRPrintModal({
               justify-content: center;
             }
 
-            .qr-code canvas {
-              width: 100% !important;
-              height: 100% !important;
+            .qr-code img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
             }
 
             .venue-name {
@@ -269,33 +268,50 @@ export function BulkQRPrintModal({
         <body>
           ${qrPages}
           <script>
-            function generateQR(elementId, url) {
-              const container = document.getElementById(elementId);
-              if (container && typeof QRCode !== 'undefined') {
-                QRCode.toCanvas(url, {
-                  width: 400,
-                  margin: 0,
-                  color: {
-                    dark: '#1a1a1a',
-                    light: '#ffffff'
-                  },
-                  errorCorrectionLevel: 'H'
-                }, function(err, canvas) {
-                  if (!err && canvas) {
-                    container.appendChild(canvas);
-                  }
-                });
+            var tableData = ${JSON.stringify(tableData)};
+            var totalQRs = tableData.length;
+            var loadedQRs = 0;
+
+            function onQRLoaded() {
+              loadedQRs++;
+              if (loadedQRs === totalQRs) {
+                setTimeout(function() {
+                  window.print();
+                }, 100);
               }
             }
 
-            window.onload = function() {
-              ${qrScript}
-              // Wait for QR codes to render, then print
-              setTimeout(function() {
-                window.print();
-              }, 500);
-            };
+            function generateAllQRs() {
+              if (typeof QRCode === 'undefined') {
+                console.error('QRCode library not loaded');
+                return;
+              }
+
+              tableData.forEach(function(table) {
+                var img = document.getElementById('qr-' + table.id);
+                if (img) {
+                  QRCode.toDataURL(table.url, {
+                    width: 400,
+                    margin: 0,
+                    color: {
+                      dark: '#1a1a1a',
+                      light: '#ffffff'
+                    },
+                    errorCorrectionLevel: 'H'
+                  }, function(err, dataUrl) {
+                    if (!err && dataUrl) {
+                      img.src = dataUrl;
+                      img.onload = onQRLoaded;
+                    } else {
+                      console.error('Error generating QR for', table.id, err);
+                      onQRLoaded();
+                    }
+                  });
+                }
+              });
+            }
           <\/script>
+          <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" onload="generateAllQRs()"><\/script>
         </body>
       </html>
     `);
