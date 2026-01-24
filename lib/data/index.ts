@@ -37,6 +37,7 @@ export {
 export {
   getGameById,
   getGamesForVenue,
+  searchGamesInVenue,
   getRecommendedGames,
   getQuickPickGames,
   getStaffPickGames,

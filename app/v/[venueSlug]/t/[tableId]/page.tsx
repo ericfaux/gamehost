@@ -17,8 +17,8 @@ import {
   getSessionById,
   getGameById,
   getActiveSession,
-  getQuickPickGames,
   getStaffPickGames,
+  getTrendingGamesForVenue,
 } from '@/lib/data';
 import { StartSessionButton } from './StartSessionButton';
 import { EndSessionButton } from './EndSessionButton';
@@ -138,12 +138,12 @@ export default async function TableLandingPage({ params }: PageProps) {
   const isPlaying = hasValidSession && currentGame !== null;
 
   // Fetch trending and staff picks for browsing state
-  let trendingGames: Awaited<ReturnType<typeof getQuickPickGames>> = [];
+  let trendingGames: Awaited<ReturnType<typeof getTrendingGamesForVenue>> = [];
   let staffPicks: Awaited<ReturnType<typeof getStaffPickGames>> = [];
 
   if (hasValidSession && !isPlaying) {
     [trendingGames, staffPicks] = await Promise.all([
-      getQuickPickGames(venue.id, 4),
+      getTrendingGamesForVenue(venue.id),
       getStaffPickGames(venue.id, 4),
     ]);
   }
@@ -351,31 +351,6 @@ export default async function TableLandingPage({ params }: PageProps) {
               <div className="flex-1 h-px bg-[color:var(--color-structure)]" />
             </div>
 
-            {/* Trending Games Section */}
-            {trendingGames.length > 0 && (
-              <div className="space-y-3 text-left">
-                <div>
-                  <h2 className="text-base font-bold text-[color:var(--color-ink-primary)] flex items-center gap-2">
-                    <svg className="w-5 h-5 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13 3.23 12.17 3.75 11.46 4.32C8.87 6.4 7.85 10.07 9.07 13.22C9.11 13.32 9.15 13.42 9.15 13.55C9.15 13.77 9 13.97 8.8 14.05C8.57 14.15 8.33 14.09 8.14 13.93C8.08 13.88 8.04 13.83 8 13.76C6.87 12.33 6.69 10.28 7.45 8.64C5.78 10 4.87 12.3 5 14.47C5.06 14.97 5.12 15.47 5.29 15.97C5.43 16.57 5.7 17.17 6 17.7C7.08 19.43 8.95 20.67 10.96 20.92C13.1 21.19 15.39 20.8 17.03 19.32C18.86 17.66 19.5 15 18.56 12.72L18.43 12.46C18.22 12 17.66 11.2 17.66 11.2Z"/>
-                    </svg>
-                    Trending
-                  </h2>
-                  <p className="text-xs text-[color:var(--color-ink-secondary)]">Popular games right now</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {trendingGames.map((game) => (
-                    <QuickPickCard
-                      key={game.id}
-                      game={game}
-                      venueSlug={venueSlug}
-                      tableId={tableId}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Staff Picks Section */}
             {staffPicks.length > 0 && (
               <div className="space-y-3 text-left">
@@ -390,6 +365,31 @@ export default async function TableLandingPage({ params }: PageProps) {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {staffPicks.map((game) => (
+                    <QuickPickCard
+                      key={game.id}
+                      game={game}
+                      venueSlug={venueSlug}
+                      tableId={tableId}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Trending on BoardGameGeek Section */}
+            {trendingGames.length > 0 && (
+              <div className="space-y-3 text-left">
+                <div>
+                  <h2 className="text-base font-bold text-[color:var(--color-ink-primary)] flex items-center gap-2">
+                    <svg className="w-5 h-5 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13 3.23 12.17 3.75 11.46 4.32C8.87 6.4 7.85 10.07 9.07 13.22C9.11 13.32 9.15 13.42 9.15 13.55C9.15 13.77 9 13.97 8.8 14.05C8.57 14.15 8.33 14.09 8.14 13.93C8.08 13.88 8.04 13.83 8 13.76C6.87 12.33 6.69 10.28 7.45 8.64C5.78 10 4.87 12.3 5 14.47C5.06 14.97 5.12 15.47 5.29 15.97C5.43 16.57 5.7 17.17 6 17.7C7.08 19.43 8.95 20.67 10.96 20.92C13.1 21.19 15.39 20.8 17.03 19.32C18.86 17.66 19.5 15 18.56 12.72L18.43 12.46C18.22 12 17.66 11.2 17.66 11.2Z"/>
+                    </svg>
+                    Trending on BoardGameGeek
+                  </h2>
+                  <p className="text-xs text-[color:var(--color-ink-secondary)]">Hot on BGG right now</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {trendingGames.slice(0, 4).map((game) => (
                     <QuickPickCard
                       key={game.id}
                       game={game}
