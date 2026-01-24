@@ -277,7 +277,7 @@ export function AdminShell({ children, userVenues = [], user }: AdminShellProps)
                               {game.cover_image_url ? (
                                 <Image
                                   src={game.cover_image_url}
-                                  alt=""
+                                  alt={`${game.title} board game cover`}
                                   fill
                                   sizes="40px"
                                   className="object-cover"

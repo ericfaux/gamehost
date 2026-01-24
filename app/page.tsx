@@ -37,7 +37,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-3">
             <Image
               src="/logo.png"
-              alt="GameLedger logo"
+              alt="GameLedger - Board game café management software logo"
               width={40}
               height={40}
               className="rounded-lg shadow-token"
@@ -293,7 +293,7 @@ export default function LandingPage() {
           <p className="text-sm uppercase tracking-[0.3em] text-ink-secondary">Why It Matters</p>
           <Image
             src="/meeple-group.svg"
-            alt="Board game meeples representing Revenue, Time, and Brand"
+            alt="Board game café metrics: 15% revenue lift, 12 minutes saved per table, 18% higher return bookings"
             width={120}
             height={72}
             className="opacity-75"
@@ -435,7 +435,7 @@ export default function LandingPage() {
         <div className="flex flex-col items-center gap-2 mb-8">
           <Image
             src="/medieval-flourish.svg"
-            alt=""
+            alt="Decorative medieval flourish divider for board game café software comparison"
             width={200}
             height={24}
             className="opacity-70"
@@ -491,7 +491,7 @@ export default function LandingPage() {
       <section className="max-w-4xl mx-auto px-6 pb-16 md:pb-24 text-center bg-cta-warm py-12 rounded-3xl relative overflow-hidden">
         <Image
           src="/dice-pair.svg"
-          alt=""
+          alt="Board game dice illustration representing GameLedger café management tools"
           width={80}
           height={60}
           className="absolute top-6 right-8 opacity-60 hidden md:block"
