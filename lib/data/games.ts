@@ -17,7 +17,7 @@ const GAME_COLUMNS = `
   min_time_minutes, max_time_minutes, complexity, vibes,
   status, condition, shelf_location, pitch, setup_steps,
   rules_bullets, cover_image_url, bgg_rank, bgg_rating,
-  copies_in_rotation, is_staff_pick, created_at
+  copies_in_rotation, is_staff_pick, instructional_video_url, created_at
 ` as const;
 
 /**
