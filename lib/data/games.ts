@@ -334,37 +334,27 @@ export async function getQuickPickGames(venueId: string, limit: number = 6): Pro
 
 /**
  * Fetches staff pick games for the guest landing page.
- * Returns a different set of games than trending to provide variety.
- *
- * Current strategy: Returns games sorted alphabetically by title,
- * excluding games that would appear in trending (top BGG rated).
- * This ensures guests see different options in each section.
- *
- * Future enhancement: Add `is_staff_pick` boolean to games table
- * and filter by that field.
+ * Filters by is_staff_pick = true from the games table.
+ * Staff can mark games as staff picks via the Admin Library UI.
  *
  * @param venueId - The venue's UUID
  * @param limit - Maximum number of games to return (default 4)
  * @returns Array of staff pick games
  */
 export async function getStaffPickGames(venueId: string, limit: number = 4): Promise<Game[]> {
-  // Get trending games to exclude them from staff picks
-  const trendingGames = await getQuickPickGames(venueId, 10);
-  const trendingIds = new Set(trendingGames.map((game) => game.id));
-
   // Fetch copies in use for availability filtering
   const copiesInUse = await getCopiesInUseByGame(venueId);
 
-  // Query for in-rotation games with good condition, ordered alphabetically
+  // Query for staff pick games only
   const { data, error } = await getSupabaseAdmin()
     .from('games')
     .select(GAME_COLUMNS)
     .eq('venue_id', venueId)
     .eq('status', 'in_rotation')
+    .eq('is_staff_pick', true)
     .neq('condition', 'problematic')
     .gt('copies_in_rotation', 0)
-    .order('title', { ascending: true })
-    .order('created_at', { ascending: false });
+    .order('title', { ascending: true });
 
   if (error) {
     console.error('Error fetching staff pick games:', error);
@@ -373,12 +363,8 @@ export async function getStaffPickGames(venueId: string, limit: number = 4): Pro
 
   const games = (data ?? []) as Game[];
 
-  // Filter out trending games and check availability
+  // Filter by availability
   const available = games.filter((game) => {
-    // Exclude games that appear in trending
-    if (trendingIds.has(game.id)) return false;
-
-    // Check availability
     const copies = game.copies_in_rotation ?? 1;
     const inUse = copiesInUse[game.id] ?? 0;
     return copies - inUse > 0;
