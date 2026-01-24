@@ -13,6 +13,15 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Protect /onboarding route - redirect to login if not authenticated
+  if (request.nextUrl.pathname.startsWith('/onboarding')) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
+  }
+
   return supabaseResponse;
 }
 

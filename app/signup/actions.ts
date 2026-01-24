@@ -25,8 +25,8 @@ export async function signup(formData: FormData): Promise<{ error?: string; mess
   // Check if email confirmation is required
   // If the user session exists immediately, email confirmation is disabled
   if (data.session) {
-    // Email confirmation is disabled, redirect to admin
-    redirect('/admin');
+    // Email confirmation is disabled, redirect to onboarding
+    redirect('/onboarding');
   } else {
     // Email confirmation is enabled, show message
     return { 
