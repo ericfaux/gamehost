@@ -60,6 +60,9 @@ export default function LandingPage() {
             <Link className="hover:text-ink-primary transition-colors" href="#faq">
               FAQ
             </Link>
+            <Link className="hover:text-ink-primary transition-colors" href="/blog">
+              Blog
+            </Link>
             <Link className="hover:text-accent transition-colors font-semibold text-accent" href="#early-access">
               Early Access
             </Link>
@@ -488,6 +491,54 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="max-w-5xl mx-auto px-6 pb-20 md:pb-24">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="h-px flex-1 bg-stroke"></div>
+          <span className="text-xs uppercase tracking-[0.25em] text-ink-secondary">Chaos Cards</span>
+          <div className="h-px flex-1 bg-stroke"></div>
+        </div>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-3xl font-serif text-ink-primary">Latest from the Blog</h2>
+          <Link
+            href="/blog"
+            className="text-sm font-medium text-accent hover:text-accent/80 transition-colors"
+          >
+            View all articles →
+          </Link>
+        </div>
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            {
+              title: "The 20-Min Teach",
+              description: "The hidden revenue cost of rule explanations",
+              slug: "cost-of-board-game-teaches",
+            },
+            {
+              title: "Ghost Tables",
+              description: "Why your reservation system is losing you money",
+              slug: "stop-board-game-cafe-ghost-tables",
+            },
+            {
+              title: "The Missing Piece",
+              description: "How inventory chaos kills customer retention",
+              slug: "board-game-inventory-management-tips",
+            },
+          ].map((post, idx) => (
+            <Link
+              key={post.slug}
+              href={`/blog/${post.slug}`}
+              className="group relative p-5 bg-card border border-stroke rounded-2xl shadow-card hover:shadow-floating transition-all duration-300"
+              style={{ transform: `rotate(${idx === 1 ? 1 : idx === 0 ? -0.5 : 0.5}deg)` }}
+            >
+              <div className="absolute inset-0 rounded-2xl border border-ink-primary/5 pointer-events-none"></div>
+              <p className="text-xs uppercase tracking-[0.25em] text-accent font-semibold">Chaos Card</p>
+              <p className="mt-2 text-lg font-serif text-ink-primary group-hover:text-accent transition-colors">{post.title}</p>
+              <p className="text-sm text-ink-secondary mt-1">{post.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section className="max-w-4xl mx-auto px-6 pb-16 md:pb-24 text-center bg-cta-warm py-12 rounded-3xl relative overflow-hidden">
         <Image
           src="/dice-pair.svg"
@@ -525,6 +576,9 @@ export default function LandingPage() {
           </Link>
           <Link className="hover:text-ink-primary transition-colors" href="/pricing">
             Pricing
+          </Link>
+          <Link className="hover:text-ink-primary transition-colors" href="/blog">
+            Blog
           </Link>
           <Link className="hover:text-ink-primary transition-colors" href="/about">
             About
