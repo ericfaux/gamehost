@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import Script from "next/script";
 import { notFound } from "next/navigation";
 import { getPostBySlug, getAllPosts } from "@/lib/data/blogData";
 import {
@@ -11,6 +12,7 @@ import {
 } from "@/components/icons/lucide-react";
 
 const BASE_URL = "https://gameledger.io";
+const DEFAULT_BLOG_OG_IMAGE = `${BASE_URL}/blog-og-image.png`;
 
 interface BlogPostPageProps {
   params: Promise<{
@@ -39,11 +41,20 @@ export async function generateMetadata({
       type: "article",
       publishedTime: post.date,
       authors: ["GameLedger"],
+      images: [
+        {
+          url: DEFAULT_BLOG_OG_IMAGE,
+          width: 1200,
+          height: 630,
+          alt: `${post.title} - GameLedger Blog`,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: post.title,
       description: post.excerpt,
+      images: [DEFAULT_BLOG_OG_IMAGE],
     },
     alternates: {
       canonical: `${BASE_URL}/blog/${slug}`,
@@ -69,8 +80,45 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const allPosts = getAllPosts();
   const relatedPosts = allPosts.filter((p) => p.id !== post.id).slice(0, 2);
 
+  // BlogPosting structured data for SEO
+  const blogPostingSchema = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.excerpt,
+    image: DEFAULT_BLOG_OG_IMAGE,
+    datePublished: post.date,
+    dateModified: post.date,
+    author: {
+      "@type": "Organization",
+      name: "GameLedger",
+      url: BASE_URL,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "GameLedger",
+      logo: {
+        "@type": "ImageObject",
+        url: `${BASE_URL}/logo.png`,
+      },
+    },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": `${BASE_URL}/blog/${slug}`,
+    },
+  };
+
   return (
-    <main className="flex-1">
+    <>
+      <Script
+        id="blog-posting-schema"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(blogPostingSchema),
+        }}
+      />
+      <main className="flex-1">
       {/* Header Navigation */}
       <header className="max-w-6xl mx-auto px-6 pt-8 pb-6">
         <div className="flex items-center justify-between border-b border-stroke pb-6">
@@ -329,5 +377,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         </div>
       </footer>
     </main>
+    </>
   );
 }

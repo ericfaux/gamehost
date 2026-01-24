@@ -9,11 +9,11 @@ const BASE_URL = "https://gameledger.io";
 export const metadata: Metadata = {
   title: "Insights for Board Game Cafe Operators",
   description:
-    "Practical strategies to boost revenue, reduce operational chaos, and create memorable guest experiences at your board game cafe. From inventory management to reservation optimization.",
+    "Practical guides for board game café owners: reduce operational chaos, increase F&B revenue, and boost customer return visits. Tips from GameLedger.",
   openGraph: {
     title: "Insights for Board Game Cafe Operators | GameLedger Blog",
     description:
-      "Practical strategies to boost revenue, reduce operational chaos, and create memorable guest experiences at your board game cafe.",
+      "Practical guides for board game café owners: reduce operational chaos, increase F&B revenue, and boost customer return visits. Tips from GameLedger.",
     type: "website",
   },
   alternates: {
