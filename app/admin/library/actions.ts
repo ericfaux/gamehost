@@ -13,28 +13,99 @@ const VALID_STATUSES: GameStatus[] = ['in_rotation', 'out_for_repair', 'retired'
 const VALID_CONDITIONS: GameCondition[] = ['new', 'good', 'worn', 'problematic'];
 
 interface CSVGameImport {
+  // Title (required)
   Title?: string | number;
   title?: string | number;
-  Complexity?: string;
-  complexity?: string;
+  // Player counts
   MinPlayers?: string | number;
   minPlayers?: string | number;
   min_players?: string | number;
   MaxPlayers?: string | number;
   maxPlayers?: string | number;
   max_players?: string | number;
+  // Playtime
   MinTime?: string | number;
   minTime?: string | number;
   min_time_minutes?: string | number;
   MaxTime?: string | number;
   maxTime?: string | number;
   max_time_minutes?: string | number;
+  // Complexity
+  Complexity?: string;
+  complexity?: string;
+  // Copies
   copies_in_rotation?: string | number;
   CopiesInRotation?: string | number;
   Copies?: string | number;
   copies?: string | number;
+  // Description/Pitch
+  Description?: string;
+  description?: string;
+  Pitch?: string;
+  pitch?: string;
+  // Shelf location
+  ShelfLocation?: string;
+  shelfLocation?: string;
+  shelf_location?: string;
+  // BGG Rank
+  BggRank?: string | number;
+  bggRank?: string | number;
+  bgg_rank?: string | number;
+  // BGG Rating
+  BggRating?: string | number;
+  bggRating?: string | number;
+  bgg_rating?: string | number;
+  // Image URL
+  ImageUrl?: string;
+  imageUrl?: string;
+  image_url?: string;
+  cover_image_url?: string;
+  CoverImageUrl?: string;
+  // Status
+  Status?: string;
+  status?: string;
+  // Condition
+  Condition?: string;
+  condition?: string;
+  // Vibes (can be JSON array or comma-separated string)
+  Vibes?: string;
+  vibes?: string;
+  // Setup steps
+  SetupSteps?: string;
+  setupSteps?: string;
+  setup_steps?: string;
+  // Rules bullets
+  RulesBullets?: string;
+  rulesBullets?: string;
+  rules_bullets?: string;
+  // BGG ID
+  BggId?: string | number;
+  bggId?: string | number;
+  bgg_id?: string | number;
+  // Staff pick
+  IsStaffPick?: string | boolean;
+  isStaffPick?: string | boolean;
+  is_staff_pick?: string | boolean;
+  StaffPick?: string | boolean;
+  staffPick?: string | boolean;
+  // Instructional video URL
+  InstructionalVideoUrl?: string;
+  instructionalVideoUrl?: string;
+  instructional_video_url?: string;
+  VideoUrl?: string;
+  videoUrl?: string;
   // Allow other columns to exist but ignore them
   [key: string]: unknown;
+}
+
+interface ImportOptions {
+  autofillFromBgg?: boolean;
+}
+
+interface ImportResult {
+  imported: number;
+  updated: number;
+  errors: string[];
 }
 
 interface AddGameResult {
@@ -44,7 +115,151 @@ interface AddGameResult {
 
 const VALID_COMPLEXITIES: GameComplexity[] = ['simple', 'medium', 'complex'];
 
-export async function importGames(games: CSVGameImport[]) {
+// Rate limiting delay for BGG API calls (500ms between requests)
+const BGG_DELAY_MS = 500;
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Fields that BGG API can populate automatically.
+ */
+const BGG_POPULATABLE_FIELDS = [
+  'cover_image_url',
+  'bgg_rank',
+  'bgg_rating',
+  'pitch',
+  'vibes',
+  'instructional_video_url',
+  'bgg_id',
+  'min_players',
+  'max_players',
+  'min_time_minutes',
+  'max_time_minutes',
+  'complexity',
+] as const;
+
+/**
+ * Checks if a game needs BGG enrichment (has missing fields that BGG can fill).
+ */
+function needsBggEnrichment(gameData: Record<string, unknown>): boolean {
+  for (const field of BGG_POPULATABLE_FIELDS) {
+    const value = gameData[field];
+    if (value === null || value === undefined || value === '' ||
+        (Array.isArray(value) && value.length === 0)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Enriches game data with information from BoardGameGeek.
+ * Only fills in fields that are missing (null/undefined/empty).
+ * User-provided data always takes precedence.
+ */
+async function enrichGameFromBgg(
+  title: string,
+  existingData: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  try {
+    // Search BGG by title
+    const searchResults = await searchBggGames(title);
+    if (searchResults.length === 0) {
+      return existingData;
+    }
+
+    // Rank results by fuzzy match score and pick the best match
+    const rankedResults = rankSearchResults(title, searchResults);
+    const bestMatch = rankedResults[0];
+
+    // Reject if score is too low to avoid wrong matches
+    const MIN_SCORE_THRESHOLD = 0.3;
+    if ((bestMatch.matchScore ?? 0) < MIN_SCORE_THRESHOLD) {
+      return existingData;
+    }
+
+    // Fetch full details from BGG
+    const details = await getBggGameDetails(bestMatch.id);
+    if (!details) {
+      return existingData;
+    }
+
+    // Create enriched data object, only filling missing fields
+    const enriched = { ...existingData };
+
+    // BGG ID
+    if (!enriched.bgg_id) {
+      enriched.bgg_id = bestMatch.id;
+    }
+
+    // Cover image
+    if (!enriched.cover_image_url && details.cover_image_url) {
+      enriched.cover_image_url = details.cover_image_url;
+    }
+
+    // BGG Rank
+    if (enriched.bgg_rank === null && details.bgg_rank !== null) {
+      enriched.bgg_rank = details.bgg_rank;
+    }
+
+    // BGG Rating
+    if (enriched.bgg_rating === null && details.bgg_rating !== null) {
+      enriched.bgg_rating = details.bgg_rating;
+    }
+
+    // Description/Pitch
+    if (!enriched.pitch && details.pitch) {
+      enriched.pitch = details.pitch;
+    }
+
+    // Vibes/Categories
+    const currentVibes = enriched.vibes as string[] | undefined;
+    if ((!currentVibes || currentVibes.length === 0) && details.vibes?.length) {
+      enriched.vibes = details.vibes;
+    }
+
+    // Instructional video
+    if (!enriched.instructional_video_url && details.instructional_video_url) {
+      enriched.instructional_video_url = details.instructional_video_url;
+    }
+
+    // Player counts (only if not provided)
+    if (enriched.min_players === null && details.min_players) {
+      enriched.min_players = details.min_players;
+    }
+    if (enriched.max_players === null && details.max_players) {
+      enriched.max_players = details.max_players;
+    }
+
+    // Playtime (only if not provided)
+    if (enriched.min_time_minutes === null && details.min_time_minutes) {
+      enriched.min_time_minutes = details.min_time_minutes;
+    }
+    if (enriched.max_time_minutes === null && details.max_time_minutes) {
+      enriched.max_time_minutes = details.max_time_minutes;
+    }
+
+    // Complexity (only if using default)
+    if (enriched.complexity === 'medium' && details.complexity) {
+      enriched.complexity = details.complexity;
+    }
+
+    return enriched;
+  } catch (error) {
+    console.error(`Failed to enrich game "${title}" from BGG:`, error);
+    return existingData;
+  }
+}
+
+export async function importGames(
+  games: CSVGameImport[],
+  options?: ImportOptions
+): Promise<ImportResult> {
+  const autofillFromBgg = options?.autofillFromBgg ?? false;
+  const result: ImportResult = { imported: 0, updated: 0, errors: [] };
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -58,14 +273,78 @@ export async function importGames(games: CSVGameImport[]) {
     throw new Error('No venue found for your account');
   }
 
-  function parseNumber(value: string | number | null | undefined) {
-    const parsed = parseInt(String(value || ''), 10);
+  function parseNumber(value: string | number | null | undefined): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = parseInt(String(value), 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  function parseFloat_(value: string | number | null | undefined): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = parseFloat(String(value));
     return Number.isNaN(parsed) ? null : parsed;
   }
 
   function parseCopies(value: string | number | null | undefined): number {
     const parsed = parseInt(String(value || ''), 10);
     return Number.isNaN(parsed) || parsed < 0 ? 1 : parsed;
+  }
+
+  function parseBoolean(value: string | boolean | null | undefined): boolean {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const lower = value.toLowerCase().trim();
+      return lower === 'true' || lower === '1' || lower === 'yes';
+    }
+    return false;
+  }
+
+  function parseVibes(value: string | null | undefined): string[] {
+    if (!value || typeof value !== 'string') return [];
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    // Try parsing as JSON array first
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((v): v is string => typeof v === 'string');
+        }
+      } catch {
+        // Fall through to comma-separated parsing
+      }
+    }
+
+    // Parse as comma-separated values
+    return trimmed
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  function parseStatus(value: string | null | undefined): GameStatus {
+    if (!value) return 'in_rotation';
+    const lower = value.toLowerCase().trim();
+    return VALID_STATUSES.includes(lower as GameStatus)
+      ? (lower as GameStatus)
+      : 'in_rotation';
+  }
+
+  function parseCondition(value: string | null | undefined): GameCondition {
+    if (!value) return 'good';
+    const lower = value.toLowerCase().trim();
+    return VALID_CONDITIONS.includes(lower as GameCondition)
+      ? (lower as GameCondition)
+      : 'good';
+  }
+
+  function parseComplexity(value: string | null | undefined): GameComplexity {
+    if (!value) return 'medium';
+    const lower = value.toLowerCase().trim();
+    return VALID_COMPLEXITIES.includes(lower as GameComplexity)
+      ? (lower as GameComplexity)
+      : 'medium';
   }
 
   // Fetch existing games for this venue to check for duplicates
@@ -85,80 +364,114 @@ export async function importGames(games: CSVGameImport[]) {
     });
   }
 
-  const newGames: Array<{
-    venue_id: string;
-    title: string;
-    min_players: number | null;
-    max_players: number | null;
-    min_time_minutes: number | null;
-    max_time_minutes: number | null;
-    complexity: GameComplexity;
-    copies_in_rotation: number;
-    status: string;
-    condition: string;
-    vibes: string[];
-  }> = [];
-
+  const newGames: Array<Record<string, unknown>> = [];
   const updates: Array<{ id: string; copies_in_rotation: number }> = [];
 
-  for (const game of games) {
-    const title = (game.Title || game.title || 'Untitled Game').toString().trim();
-    const normalizedTitle = normalizeTitle(title);
-    const complexity = (game.Complexity || game.complexity || '').toString().toLowerCase();
-    const normalizedComplexity: GameComplexity = VALID_COMPLEXITIES.includes(complexity as GameComplexity)
-      ? (complexity as GameComplexity)
-      : 'medium';
-    const copies = parseCopies(
-      game.copies_in_rotation || game.CopiesInRotation || game.Copies || game.copies
-    );
+  // Process each game from CSV
+  for (let i = 0; i < games.length; i++) {
+    const game = games[i];
 
-    const existing = existingGameMap.get(normalizedTitle);
-    if (existing) {
-      // Duplicate found: increment copies_in_rotation
-      const newCopiesCount = existing.copies_in_rotation + copies;
-      updates.push({ id: existing.id, copies_in_rotation: newCopiesCount });
-      // Update the map in case there are multiple rows for the same game in CSV
-      existing.copies_in_rotation = newCopiesCount;
-    } else {
-      // New game: add to insert list
-      newGames.push({
+    try {
+      const title = (game.Title || game.title || '').toString().trim();
+      if (!title) {
+        result.errors.push(`Row ${i + 2}: Missing title`);
+        continue;
+      }
+
+      const normalizedTitle = normalizeTitle(title);
+      const copies = parseCopies(
+        game.copies_in_rotation || game.CopiesInRotation || game.Copies || game.copies
+      );
+
+      const existing = existingGameMap.get(normalizedTitle);
+      if (existing) {
+        // Duplicate found: increment copies_in_rotation
+        const newCopiesCount = existing.copies_in_rotation + copies;
+        updates.push({ id: existing.id, copies_in_rotation: newCopiesCount });
+        // Update the map in case there are multiple rows for the same game in CSV
+        existing.copies_in_rotation = newCopiesCount;
+        continue;
+      }
+
+      // Parse all fields from CSV
+      let gameData: Record<string, unknown> = {
         venue_id: venue.id,
         title,
         min_players: parseNumber(game.MinPlayers || game.minPlayers || game.min_players),
         max_players: parseNumber(game.MaxPlayers || game.maxPlayers || game.max_players),
         min_time_minutes: parseNumber(game.MinTime || game.minTime || game.min_time_minutes),
         max_time_minutes: parseNumber(game.MaxTime || game.maxTime || game.max_time_minutes),
-        complexity: normalizedComplexity,
+        complexity: parseComplexity(game.Complexity || game.complexity),
         copies_in_rotation: copies,
-        status: 'in_rotation',
-        condition: 'good',
-        vibes: [],
-      });
+        status: parseStatus(game.Status || game.status),
+        condition: parseCondition(game.Condition || game.condition),
+        pitch: (game.Description || game.description || game.Pitch || game.pitch || '')?.toString().trim() || null,
+        shelf_location: (game.ShelfLocation || game.shelfLocation || game.shelf_location || '')?.toString().trim() || null,
+        bgg_rank: parseNumber(game.BggRank || game.bggRank || game.bgg_rank),
+        bgg_rating: parseFloat_(game.BggRating || game.bggRating || game.bgg_rating),
+        cover_image_url: (game.ImageUrl || game.imageUrl || game.image_url || game.cover_image_url || game.CoverImageUrl || '')?.toString().trim() || null,
+        vibes: parseVibes(game.Vibes || game.vibes),
+        setup_steps: (game.SetupSteps || game.setupSteps || game.setup_steps || '')?.toString().trim() || null,
+        rules_bullets: (game.RulesBullets || game.rulesBullets || game.rules_bullets || '')?.toString().trim() || null,
+        bgg_id: (game.BggId || game.bggId || game.bgg_id || '')?.toString().trim() || null,
+        is_staff_pick: parseBoolean(game.IsStaffPick || game.isStaffPick || game.is_staff_pick || game.StaffPick || game.staffPick),
+        instructional_video_url: (game.InstructionalVideoUrl || game.instructionalVideoUrl || game.instructional_video_url || game.VideoUrl || game.videoUrl || '')?.toString().trim() || null,
+      };
+
+      // Auto-populate from BGG if enabled and game has missing fields
+      if (autofillFromBgg && needsBggEnrichment(gameData)) {
+        gameData = await enrichGameFromBgg(title, gameData);
+
+        // Rate limiting - wait between BGG API calls
+        if (i < games.length - 1) {
+          await delay(BGG_DELAY_MS);
+        }
+      }
+
+      newGames.push(gameData);
+
       // Add to map to handle duplicates within the same CSV
       existingGameMap.set(normalizedTitle, {
-        id: '', // Will be set after insert, but not needed for duplicate detection
+        id: '',
         title,
         copies_in_rotation: copies,
       });
+    } catch (error) {
+      result.errors.push(`Row ${i + 2}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   // Perform batch insert for new games
   if (newGames.length > 0) {
-    await getSupabaseAdmin()
+    const { error: insertError } = await getSupabaseAdmin()
       .from('games')
       .insert(newGames);
+
+    if (insertError) {
+      console.error('Failed to insert games:', insertError);
+      result.errors.push(`Database error: ${insertError.message}`);
+    } else {
+      result.imported = newGames.length;
+    }
   }
 
   // Perform updates for existing games
   for (const update of updates) {
-    await getSupabaseAdmin()
+    const { error: updateError } = await getSupabaseAdmin()
       .from('games')
       .update({ copies_in_rotation: update.copies_in_rotation })
       .eq('id', update.id);
+
+    if (updateError) {
+      result.errors.push(`Failed to update game: ${updateError.message}`);
+    } else {
+      result.updated++;
+    }
   }
 
   revalidatePath('/admin/library');
+
+  return result;
 }
 
 export async function addGame(formData: FormData): Promise<AddGameResult> {
