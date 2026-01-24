@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
+import { JsonLdSchema } from "@/components/public/JsonLdSchema";
 
 const fraunces = Fraunces({
   variable: "--font-serif",
@@ -28,24 +29,25 @@ const BASE_URL = "https://gameledger.io";
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
   title: {
-    default: "GameLedger | The Operating System for Board Game Cafés",
+    default: "Board Game Café Software | GameLedger - Reservations, Inventory & Game Discovery",
     template: "%s | GameLedger",
   },
   description:
-    "Streamline reservations, game check-outs, and guest feedback. GameLedger helps board game cafés run smoother Friday nights and boost return visits by 18%.",
+    "The operating system built for board game cafés. Smart reservations, instant BGG-powered game discovery, and inventory tracking that delivers 15% higher F&B revenue and 18% more return visits.",
   keywords: [
-    "board game café",
-    "board game cafe",
-    "café management",
-    "cafe management software",
     "board game café software",
-    "table reservations",
+    "board game café reservation system",
+    "board game café management",
+    "board game café POS",
+    "board game inventory tracking",
+    "board game cafe software",
+    "board game cafe reservation system",
+    "board game cafe management",
+    "café management software",
     "game library management",
     "hospitality software",
     "QR check-in",
-    "board game inventory",
     "café booking system",
-    "game café POS",
   ],
   authors: [{ name: "GameLedger" }],
   creator: "GameLedger",
@@ -59,23 +61,23 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: BASE_URL,
     siteName: "GameLedger",
-    title: "GameLedger | The Operating System for Board Game Cafés",
+    title: "Board Game Café Software | GameLedger - Reservations, Inventory & Game Discovery",
     description:
-      "Streamline reservations, game check-outs, and guest feedback. GameLedger helps board game cafés run smoother Friday nights and boost return visits by 18%.",
+      "The operating system built for board game cafés. Smart reservations, instant BGG-powered game discovery, and inventory tracking that delivers 15% higher F&B revenue and 18% more return visits.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "GameLedger - Board Game Café Management",
+        alt: "GameLedger - Board game café management software dashboard showing reservations, game library, and analytics",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "GameLedger | The Operating System for Board Game Cafés",
+    title: "Board Game Café Software | GameLedger",
     description:
-      "Streamline reservations, game check-outs, and guest feedback. Boost return visits by 18%.",
+      "The operating system for board game cafés. Smart reservations, BGG-powered game discovery, and inventory tracking for 15% higher F&B revenue.",
     images: ["/og-image.png"],
   },
   robots: {
@@ -104,6 +106,7 @@ export default function RootLayout({
       <body
         className={`${instrumentSans.variable} ${fraunces.variable} ${plexMono.variable} bg-[color:var(--color-surface)] text-[color:var(--color-ink-primary)] antialiased min-h-screen`}
       >
+        <JsonLdSchema />
         {children}
       </body>
     </html>
