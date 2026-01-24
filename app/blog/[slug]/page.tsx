@@ -10,6 +10,8 @@ import {
   TrendingUp,
 } from "@/components/icons/lucide-react";
 
+const BASE_URL = "https://gameledger.io";
+
 interface BlogPostPageProps {
   params: Promise<{
     slug: string;
@@ -42,6 +44,9 @@ export async function generateMetadata({
       card: "summary_large_image",
       title: post.title,
       description: post.excerpt,
+    },
+    alternates: {
+      canonical: `${BASE_URL}/blog/${slug}`,
     },
   };
 }
