@@ -288,7 +288,7 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
     const complexity = weight !== null ? mapWeightToComplexity(weight) : 'medium';
 
     const descriptionRaw = typeof item.description === 'string' ? item.description : '';
-    const cleanedDescription = truncate(cleanBggText(descriptionRaw), 200);
+    const cleanedDescription = truncate(cleanBggText(descriptionRaw), 2000);
 
     const linkEntries = normalizeArray(item.link as unknown[]);
     const vibes = linkEntries
