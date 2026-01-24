@@ -456,7 +456,7 @@ export interface SessionWithDetails extends Session {
 export async function getActiveSessionsForVenue(venueId: string): Promise<SessionWithDetails[]> {
   const { data, error } = await getSupabaseAdmin()
     .from('sessions')
-    .select('*, games(title), venue_tables(label)')
+    .select('*, games!sessions_game_id_fkey(title), venue_tables!sessions_table_id_fkey(label)')
     .eq('venue_id', venueId)
     .is('ended_at', null)
     .order('started_at', { ascending: false });
@@ -1059,7 +1059,7 @@ export async function getEndedSessionsForVenue(
   // Build the base query
   let query = supabase
     .from('sessions')
-    .select(`${SESSION_COLUMNS}, games(title), venue_tables(label)`)
+    .select(`${SESSION_COLUMNS}, games!sessions_game_id_fkey(title), venue_tables!sessions_table_id_fkey(label)`)
     .eq('venue_id', venueId)
     .not('ended_at', 'is', null);
 

@@ -577,7 +577,7 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
     // Recent ended sessions (last 5)
     supabase
       .from('sessions')
-      .select('id, started_at, ended_at, feedback_rating, game_id, games(title), venue_tables(label)')
+      .select('id, started_at, ended_at, feedback_rating, game_id, games!sessions_game_id_fkey(title), venue_tables!sessions_table_id_fkey(label)')
       .eq('venue_id', venueId)
       .not('ended_at', 'is', null)
       .order('ended_at', { ascending: false })
@@ -588,7 +588,7 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
     supabase
       .from('sessions')
       .select(
-        'id, feedback_rating, feedback_venue_rating, feedback_comment, feedback_venue_comment, feedback_submitted_at, game_id, games(title), venue_tables(label)'
+        'id, feedback_rating, feedback_venue_rating, feedback_comment, feedback_venue_comment, feedback_submitted_at, game_id, games!sessions_game_id_fkey(title), venue_tables!sessions_table_id_fkey(label)'
       )
       .eq('venue_id', venueId)
       .not('feedback_submitted_at', 'is', null)
@@ -600,7 +600,7 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
     supabase
       .from('sessions')
       .select(
-        'id, game_id, feedback_rating, feedback_venue_rating, feedback_venue_comment, feedback_submitted_at, games(title), venue_tables(label)'
+        'id, game_id, feedback_rating, feedback_venue_rating, feedback_venue_comment, feedback_submitted_at, games!sessions_game_id_fkey(title), venue_tables!sessions_table_id_fkey(label)'
       )
       .eq('venue_id', venueId)
       .not('feedback_submitted_at', 'is', null)
@@ -872,7 +872,7 @@ export async function getAlerts(venueId: string): Promise<Alert[]> {
     supabase
       .from('sessions')
       .select(
-        'id, game_id, feedback_rating, feedback_venue_rating, feedback_venue_comment, feedback_submitted_at, games(title), venue_tables(label)'
+        'id, game_id, feedback_rating, feedback_venue_rating, feedback_venue_comment, feedback_submitted_at, games!sessions_game_id_fkey(title), venue_tables!sessions_table_id_fkey(label)'
       )
       .eq('venue_id', venueId)
       .not('feedback_submitted_at', 'is', null)
@@ -980,7 +980,7 @@ export async function getRecentActivity(venueId: string): Promise<{
     // Recent ended sessions (last 5)
     supabase
       .from('sessions')
-      .select('id, started_at, ended_at, feedback_rating, game_id, games(title), venue_tables(label)')
+      .select('id, started_at, ended_at, feedback_rating, game_id, games!sessions_game_id_fkey(title), venue_tables!sessions_table_id_fkey(label)')
       .eq('venue_id', venueId)
       .not('ended_at', 'is', null)
       .order('ended_at', { ascending: false })
@@ -991,7 +991,7 @@ export async function getRecentActivity(venueId: string): Promise<{
     supabase
       .from('sessions')
       .select(
-        'id, feedback_rating, feedback_venue_rating, feedback_comment, feedback_venue_comment, feedback_submitted_at, game_id, games(title), venue_tables(label)'
+        'id, feedback_rating, feedback_venue_rating, feedback_comment, feedback_venue_comment, feedback_submitted_at, game_id, games!sessions_game_id_fkey(title), venue_tables!sessions_table_id_fkey(label)'
       )
       .eq('venue_id', venueId)
       .not('feedback_submitted_at', 'is', null)
