@@ -1234,3 +1234,24 @@ export function PartyPopper(props: IconProps) {
     </IconBase>
   );
 }
+
+export function LayoutDashboard(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect width="7" height="9" x="3" y="3" rx="1" />
+      <rect width="7" height="5" x="14" y="3" rx="1" />
+      <rect width="7" height="9" x="14" y="12" rx="1" />
+      <rect width="7" height="5" x="3" y="16" rx="1" />
+    </IconBase>
+  );
+}
+
+export function ClipboardCheck(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="m9 14 2 2 4-4" />
+    </IconBase>
+  );
+}
