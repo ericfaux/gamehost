@@ -4,6 +4,8 @@ import Image from "next/image";
 import { getAllPosts } from "@/lib/data/blogData";
 import { Clock, ArrowRight } from "@/components/icons/lucide-react";
 
+const BASE_URL = "https://gameledger.io";
+
 export const metadata: Metadata = {
   title: "Insights for Board Game Cafe Operators",
   description:
@@ -13,6 +15,9 @@ export const metadata: Metadata = {
     description:
       "Practical strategies to boost revenue, reduce operational chaos, and create memorable guest experiences at your board game cafe.",
     type: "website",
+  },
+  alternates: {
+    canonical: `${BASE_URL}/blog`,
   },
 };
 
