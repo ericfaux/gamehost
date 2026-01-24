@@ -18,14 +18,8 @@ export default async function AdminDashboard() {
   const venue = await getVenueByOwnerId(user.id);
 
   if (!venue) {
-    return (
-      <div className="max-w-4xl">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">No Venue Found</h1>
-        <p className="text-slate-600">
-          You don&apos;t have a venue associated with your account yet.
-        </p>
-      </div>
-    );
+    // User hasn't completed onboarding - redirect them to set up their venue
+    redirect('/onboarding');
   }
 
   // Fetch all dashboard data in parallel

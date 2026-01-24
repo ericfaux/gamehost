@@ -8,7 +8,7 @@ import type { Venue, VenueTable } from '@/lib/db/types';
 /**
  * All columns for the Venue type.
  */
-const VENUE_COLUMNS = 'id, owner_id, name, slug, logo_url, created_at' as const;
+const VENUE_COLUMNS = 'id, owner_id, name, slug, logo_url, description, website_url, phone, email, social_instagram, social_facebook, cover_image_url, is_active, created_at' as const;
 
 /**
  * All columns for the VenueTable type.
@@ -230,4 +230,102 @@ export async function deleteVenueLogo(logoUrl: string): Promise<void> {
     console.error('Failed to delete logo file:', error.message);
     // Don't throw - we still want to update the database even if file deletion fails
   }
+}
+
+/**
+ * Checks if a venue slug is available.
+ * @param slug - The slug to check
+ * @returns True if the slug is available, false otherwise
+ */
+export async function isSlugAvailable(slug: string): Promise<boolean> {
+  const { data } = await getSupabaseAdmin()
+    .from('venues')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  return !data;
+}
+
+/**
+ * Generates a URL-friendly slug from a venue name.
+ * @param name - The venue name to slugify
+ * @returns A URL-friendly slug
+ */
+export function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .substring(0, 50);
+}
+
+/**
+ * Input for creating a new venue during onboarding.
+ */
+export interface CreateVenueInput {
+  ownerId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  websiteUrl?: string;
+  phone?: string;
+  email?: string;
+  socialInstagram?: string;
+  socialFacebook?: string;
+}
+
+/**
+ * Creates a new venue for an owner.
+ * @param input - The venue details
+ * @returns The created venue
+ */
+export async function createVenue(input: CreateVenueInput): Promise<Venue> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('venues')
+    .insert({
+      owner_id: input.ownerId,
+      name: input.name,
+      slug: input.slug,
+      description: input.description ?? null,
+      website_url: input.websiteUrl ?? null,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+      social_instagram: input.socialInstagram ?? null,
+      social_facebook: input.socialFacebook ?? null,
+    })
+    .select(VENUE_COLUMNS)
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to create venue: ${error.message}`);
+  }
+
+  return data as Venue;
+}
+
+/**
+ * Updates an existing venue's details.
+ * @param venueId - The venue ID to update
+ * @param updates - The fields to update
+ * @returns The updated venue
+ */
+export async function updateVenue(
+  venueId: string,
+  updates: Partial<Omit<Venue, 'id' | 'owner_id' | 'created_at'>>
+): Promise<Venue> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('venues')
+    .update(updates)
+    .eq('id', venueId)
+    .select(VENUE_COLUMNS)
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update venue: ${error.message}`);
+  }
+
+  return data as Venue;
 }

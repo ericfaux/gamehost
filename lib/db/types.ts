@@ -45,6 +45,20 @@ export type BookingModificationType =
 // -----------------------------------------------------------------------------
 
 /**
+ * Represents a row in the `profiles` table.
+ */
+export interface Profile {
+  id: string;
+  email: string | null;
+  name: string | null;
+  phone: string | null;
+  job_title: string | null;
+  avatar_url: string | null;
+  onboarding_completed_at: string | null;
+  created_at: string;
+}
+
+/**
  * Represents a row in the `venues` table.
  */
 export interface Venue {
@@ -53,6 +67,14 @@ export interface Venue {
   name: string;
   slug: string;
   logo_url: string | null;
+  description: string | null;
+  website_url: string | null;
+  phone: string | null;
+  email: string | null;
+  social_instagram: string | null;
+  social_facebook: string | null;
+  cover_image_url: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
