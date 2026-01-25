@@ -1,82 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import Script from "next/script";
 import { Calculator, ArrowRight, ChevronDown, DollarSign, Clock, Users } from "@/components/icons/lucide-react";
 
 const BASE_URL = "https://gameledger.io";
-
-// Industry sources for citations
-const industrySources = {
-  sevenRoomsNoShow: {
-    name: "SevenRooms",
-    url: "https://sevenrooms.com/blog/restaurant-reservation-process-leaky-bucket/",
-    description: "No-show benchmark data (~3.5% with integrated systems)",
-  },
-  sevenRoomsTurnTime: {
-    name: "SevenRooms",
-    url: "https://sevenrooms.com/blog/restaurant-revenue-management-strategies-to-maximize-every-shift/",
-    description: "Restaurant turn time benchmarks (~90 minutes)",
-  },
-  openTableNoShow: {
-    name: "OpenTable",
-    url: "https://www.opentable.com/restaurant-solutions/resources/no-show-diners-numbers/",
-    description: "No-show behavior data (40% reduction with integrated booking)",
-  },
-  openTableTurnTime: {
-    name: "OpenTable Support",
-    url: "https://support.opentable.com/s/article/Online-Availability-Settings",
-    description: "Table duration settings (~90 minutes)",
-  },
-  sipNPlay: {
-    name: "Sip & Play (Brooklyn)",
-    url: "https://www.sipnplaynyc.com/",
-    description: "Pricing: $10-15/person for 3 hours ($3.33-$5.00/seat-hour)",
-  },
-  theUncommonsAbout: {
-    name: "The Uncommons (NYC)",
-    url: "https://uncommonsnyc.com/about/",
-    description: "Pricing: $15/person with 3-hour limit ($5.00/seat-hour)",
-  },
-  theUncommonsFAQ: {
-    name: "The Uncommons FAQ",
-    url: "https://uncommonsnyc.com/faq/",
-    description: "Inventory checking: ~30 minutes for complex games",
-  },
-  boardPlayCafe: {
-    name: "Board Play Café",
-    url: "https://boardplaycafe.com/reservations/",
-    description: "Standard 3-hour reservations",
-  },
-  draughtsLondon: {
-    name: "Draughts London",
-    url: "https://www.draughtslondon.com/faqs/",
-    description: "Pricing: £7.50-£9.50 for 3 hours (£2.50-£3.17/seat-hour)",
-  },
-  kamCompetitiveSocialising: {
-    name: "KAM Competitive Socialising Report",
-    url: "https://kaminsight.com/wp-content/uploads/sites/2044/2024/05/KAM-Competitive-Socialising-Report-May-2024.pdf",
-    description: "58% of visits involve eating; 2 in 5 go for drinks after",
-  },
-  nowbookit: {
-    name: "Nowbookit",
-    url: "https://www.nowbookit.com/hospitality/restaurant-booking-statistics/",
-    description: "No-show rates can reach ~20% without management",
-  },
-  bistrochat: {
-    name: "Bistrochat/ResDiary",
-    url: "https://www.bistrochat.com/foodforthought/en/posts/usa-restaurant-reservation-systems-market-data.html",
-    description: "No-show rates ~8% in 2023 (vs 5% in 2022)",
-  },
-  imarcGroup: {
-    name: "IMARC Group",
-    url: "https://www.imarcgroup.com/board-game-cafe-business-plan-project-report",
-    description: "Board game café business model requiring knowledgeable staff",
-  },
-};
 
 // FAQ data for schema and display
 const faqData = [
@@ -617,8 +547,8 @@ export default function CalculatorPage() {
             </summary>
             <div className="px-5 pb-5 text-ink-secondary leading-relaxed border-t border-stroke/50 pt-4 space-y-4">
               <p>
-                <strong>Teaching cost</strong> is calculated as direct staff labor only: (teaches per night) × (duration in hours) × (your hourly rate) × (Fridays per month). We do not apply a fabricated "opportunity cost" figure. For context, The Uncommons notes that{" "}
-                <a href="https://uncommonsnyc.com/faq/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">"some games can take 30 minutes to check through"</a>.
+                <strong>Teaching cost</strong> is calculated as direct staff labor only: (teaches per night) × (duration in hours) × (your hourly rate) × (Fridays per month). We do not apply a fabricated &ldquo;opportunity cost&rdquo; figure. For context, The Uncommons notes that{" "}
+                <a href="https://uncommonsnyc.com/faq/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">&ldquo;some games can take 30 minutes to check through&rdquo;</a>.
               </p>
               <p>
                 <strong>Ghost table cost</strong> assumes tables could have been filled by walk-ins during busy periods. Board game cafés typically operate ~3-hour sessions vs ~90 minutes in casual dining (
@@ -721,7 +651,7 @@ export default function CalculatorPage() {
               <ul className="space-y-2 text-sm">
                 <li>
                   <a href="https://uncommonsnyc.com/faq/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">The Uncommons FAQ</a>{" "}
-                  — "Some games can take 30 minutes to check through"
+                  — &ldquo;Some games can take 30 minutes to check through&rdquo;
                 </li>
                 <li>
                   <a href="https://www.imarcgroup.com/board-game-cafe-business-plan-project-report" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">IMARC Group</a>{" "}
