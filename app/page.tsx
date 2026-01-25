@@ -63,6 +63,9 @@ export default function LandingPage() {
             <Link className="hover:text-ink-primary transition-colors" href="/blog">
               Blog
             </Link>
+            <Link className="hover:text-ink-primary transition-colors" href="/calculator">
+              Calculator
+            </Link>
             <Link className="hover:text-accent transition-colors font-semibold text-accent" href="#early-access">
               Early Access
             </Link>
@@ -570,7 +573,7 @@ export default function LandingPage() {
             Talk to a host
           </Link>
         </div>
-        <div className="mt-10 flex justify-center gap-6 text-sm text-ink-secondary">
+        <div className="mt-10 flex flex-wrap justify-center gap-6 text-sm text-ink-secondary">
           <Link className="hover:text-ink-primary transition-colors" href="/docs">
             Docs
           </Link>
@@ -579,6 +582,9 @@ export default function LandingPage() {
           </Link>
           <Link className="hover:text-ink-primary transition-colors" href="/blog">
             Blog
+          </Link>
+          <Link className="hover:text-ink-primary transition-colors" href="/calculator">
+            Calculator
           </Link>
           <Link className="hover:text-ink-primary transition-colors" href="/about">
             About

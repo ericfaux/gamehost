@@ -144,6 +144,9 @@ export default function ForOwnersPage() {
               <Link className="hover:text-ink-primary transition-colors" href="/for-managers">
                 For Managers
               </Link>
+              <Link className="hover:text-ink-primary transition-colors" href="/calculator">
+                Calculator
+              </Link>
               <Link
                 className="hover:text-accent transition-colors font-semibold text-accent"
                 href="/#early-access"
@@ -615,12 +618,15 @@ export default function ForOwnersPage() {
             <p className="text-sm text-ink-secondary">
               &copy; {new Date().getFullYear()} GameLedger. All rights reserved.
             </p>
-            <div className="flex gap-6 text-sm text-ink-secondary">
+            <div className="flex flex-wrap gap-6 text-sm text-ink-secondary">
               <Link className="hover:text-ink-primary transition-colors" href="/">
                 Home
               </Link>
               <Link className="hover:text-ink-primary transition-colors" href="/blog">
                 Blog
+              </Link>
+              <Link className="hover:text-ink-primary transition-colors" href="/calculator">
+                Calculator
               </Link>
               <Link className="hover:text-ink-primary transition-colors" href="/pricing">
                 Pricing
