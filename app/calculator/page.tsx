@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import Script from "next/script";
@@ -14,17 +13,22 @@ const faqData = [
   {
     question: "How is the revenue loss calculated?",
     answer:
-      "The calculator estimates revenue loss from two main sources: ghost tables (no-shows that could have been filled by walk-ins) and teaching time (staff time spent on long game explanations plus the opportunity cost of that time). Ghost table loss is calculated as no-show tables × average spend × 4 Fridays per month. Teaching loss includes both the direct staff cost and an $18.50 opportunity cost per teach based on industry surveys.",
+      "The calculator estimates revenue loss from two main sources: ghost tables (no-shows that could have been filled by walk-ins) and teaching time (direct staff labor cost when explaining games). Ghost table loss is calculated as no-show tables × average spend × Fridays per month. Teaching loss is calculated as teaches × duration × hourly rate. Actual results vary by venue, location, and implementation.",
   },
   {
     question: "What assumptions does the calculator use?",
     answer:
-      "The $18.50 opportunity cost per teach is based on a survey of 47 board game café operators and represents the average revenue impact of a 15-20 minute game teach (lost drink orders, delayed table turns, etc.). Ghost table cost assumes the table could have been filled by walk-ins during busy periods. These are conservative estimates—actual losses may be higher during peak hours.",
+      "Teaching cost uses your actual staff hourly rate and estimated teach duration—no fabricated 'opportunity cost' figures. Ghost table cost assumes tables could have been filled during busy periods. Industry data shows board game cafés typically operate ~3-hour sessions (vs ~90 min in casual dining) with admission yields of $3-5 per seat-hour. Sources: Sip & Play, The Uncommons, SevenRooms, OpenTable.",
   },
   {
-    question: "How much can GameLedger recover?",
+    question: "What are typical no-show rates?",
     answer:
-      "Based on data from our partner cafes, GameLedger typically helps recover up to 80% of ghost table losses through better no-show management and inventory-aware reservations. Teaching time is reduced by 60-80% through the Scan to Play game wizard, which gives guests instant access to rules, videos, and recommendations. The actual recovery depends on your specific operations and how fully you implement the system.",
+      "Industry benchmarks show no-show rates vary significantly: ~3-4% with integrated reservation systems and automated reminders (SevenRooms global benchmark), but 8-20% without proper management (OpenTable, Nowbookit, Bistrochat data). The improvement from better systems can range from 50% to 80%+ depending on your baseline.",
+  },
+  {
+    question: "How much can integrated reservations improve no-shows?",
+    answer:
+      "SevenRooms reports a global benchmark of ~3.5% no-shows with integrated systems. OpenTable data shows diners booking through integrated platforms are 40% less likely to no-show than via search engines. Conservative improvement: (8% baseline → 4%) = 50% reduction. Optimistic improvement: (20% baseline → 3.5%) = 82.5% reduction. Your results depend on your current processes.",
   },
 ];
 
@@ -85,35 +89,52 @@ export default function CalculatorPage() {
   // Methodology accordion state
   const [methodologyOpen, setMethodologyOpen] = useState(false);
 
-  // Calculations
+  // Calculations using verified industry benchmarks
   const calculations = useMemo(() => {
     const FRIDAYS_PER_MONTH = 4;
-    const OPPORTUNITY_COST_PER_TEACH = 18.5;
-    const RECOVERY_RATE = 0.8;
 
-    // Ghost Table Loss = (no-show tables × average spend per table × 4 Fridays)
+    // No-show improvement rates based on industry data:
+    // Conservative: (8% baseline → 4% improved) / 8% = 50% improvement (Bistrochat, SevenRooms)
+    // Optimistic: (20% baseline → 3.5% improved) / 20% = 82.5% improvement (Nowbookit, SevenRooms)
+    const CONSERVATIVE_NO_SHOW_IMPROVEMENT = 0.5;
+    const OPTIMISTIC_NO_SHOW_IMPROVEMENT = 0.825;
+
+    // Ghost Table Loss = (no-show tables × average spend per table × Fridays per month)
     const ghostTableLoss = noShowTables * avgSpend * FRIDAYS_PER_MONTH;
 
-    // Teaching Loss = (teaches per night × (teach duration / 60) × staff hourly rate × 4) + (teaches per night × $18.50 opportunity cost × 4)
-    const teachingStaffCost =
+    // Teaching Loss = direct labor cost only (no fabricated "opportunity cost")
+    // Formula: teaches per night × (teach duration / 60) × staff hourly rate × Fridays
+    // Note: The Uncommons reports complex games can take ~30 minutes to check through
+    const teachingLoss =
       teachesPerNight * (teachDuration / 60) * staffRate * FRIDAYS_PER_MONTH;
-    const teachingOpportunityCost =
-      teachesPerNight * OPPORTUNITY_COST_PER_TEACH * FRIDAYS_PER_MONTH;
-    const teachingLoss = teachingStaffCost + teachingOpportunityCost;
 
-    // Monthly and Annual
+    // Monthly and Annual totals
     const monthlyLoss = ghostTableLoss + teachingLoss;
     const annualLoss = monthlyLoss * 12;
 
-    // Recovery potential
-    const annualRecovery = annualLoss * RECOVERY_RATE;
+    // Recovery estimates using industry-benchmarked no-show improvements
+    // Ghost tables: use no-show improvement range
+    // Teaching time: self-service tools can significantly reduce staff teach time
+    const annualGhostTableLoss = ghostTableLoss * 12;
+    const annualTeachingLoss = teachingLoss * 12;
+
+    // Conservative recovery: 50% of ghost table losses + 50% of teaching time
+    const conservativeRecovery =
+      (annualGhostTableLoss * CONSERVATIVE_NO_SHOW_IMPROVEMENT) +
+      (annualTeachingLoss * 0.5);
+
+    // Optimistic recovery: 82.5% of ghost table losses + 75% of teaching time
+    const optimisticRecovery =
+      (annualGhostTableLoss * OPTIMISTIC_NO_SHOW_IMPROVEMENT) +
+      (annualTeachingLoss * 0.75);
 
     return {
       ghostTableLoss,
       teachingLoss,
       monthlyLoss,
       annualLoss,
-      annualRecovery,
+      conservativeRecovery,
+      optimisticRecovery,
     };
   }, [noShowTables, avgSpend, teachesPerNight, teachDuration, staffRate]);
 
@@ -446,17 +467,26 @@ export default function CalculatorPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Users className="h-5 w-5 text-success" />
                     <p className="text-sm uppercase tracking-[0.25em] text-success font-semibold">
-                      With GameLedger
+                      Potential Recovery
                     </p>
                   </div>
                   <p className="text-lg font-serif text-ink-secondary">
-                    Recover up to 80% annually
+                    Estimated annual recovery range
                   </p>
-                  <p className="text-4xl font-serif text-success mt-2">
-                    {formatCurrency(calculations.annualRecovery)}
+                  <p className="text-3xl font-serif text-success mt-2">
+                    {formatCurrency(calculations.conservativeRecovery)} – {formatCurrency(calculations.optimisticRecovery)}
                   </p>
                   <p className="text-sm text-ink-secondary mt-3">
-                    Through better no-show management and reduced teaching time
+                    Based on industry benchmarks: no-show rates can improve 50-82%
+                    with integrated reservation systems{" "}
+                    <a
+                      href="https://sevenrooms.com/blog/restaurant-reservation-process-leaky-bucket/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent underline hover:no-underline"
+                    >
+                      (SevenRooms)
+                    </a>
                   </p>
                 </div>
               </div>
@@ -517,25 +547,137 @@ export default function CalculatorPage() {
             </summary>
             <div className="px-5 pb-5 text-ink-secondary leading-relaxed border-t border-stroke/50 pt-4 space-y-4">
               <p>
-                <strong>$18.50 opportunity cost per teach</strong> is based on a survey of 47 board
-                game café operators. This represents the average revenue impact of a 15-20 minute
-                game teach, including lost drink orders, delayed table turns, and reduced guest
-                satisfaction.
+                <strong>Teaching cost</strong> is calculated as direct staff labor only: (teaches per night) × (duration in hours) × (your hourly rate) × (Fridays per month). We do not apply a fabricated &ldquo;opportunity cost&rdquo; figure. For context, The Uncommons notes that{" "}
+                <a href="https://uncommonsnyc.com/faq/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">&ldquo;some games can take 30 minutes to check through&rdquo;</a>.
               </p>
               <p>
-                <strong>Ghost table cost</strong> assumes the table could have been filled by
-                walk-ins during busy periods. This is conservative—during peak hours, the actual
-                lost revenue may be higher due to turned-away customers.
+                <strong>Ghost table cost</strong> assumes tables could have been filled by walk-ins during busy periods. Board game cafés typically operate ~3-hour sessions vs ~90 minutes in casual dining (
+                <a href="https://www.sipnplaynyc.com/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Sip & Play</a>,{" "}
+                <a href="https://uncommonsnyc.com/about/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">The Uncommons</a>,{" "}
+                <a href="https://sevenrooms.com/blog/restaurant-revenue-management-strategies-to-maximize-every-shift/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">SevenRooms</a>).
               </p>
               <p>
-                <strong>80% recovery rate</strong> is based on data from GameLedger partner cafes
-                using inventory-aware reservations (reducing no-shows) and the Scan to Play game
-                wizard (reducing teaching time by 60-80%).
+                <strong>No-show improvement range</strong> is based on published industry benchmarks:
               </p>
-              <p className="text-sm italic">
-                Actual results vary by venue, location, and implementation. This calculator provides
-                estimates for illustration purposes.
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                <li>
+                  <a href="https://sevenrooms.com/blog/restaurant-reservation-process-leaky-bucket/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">SevenRooms</a>: Global benchmark of ~3.5% no-shows with integrated systems (~11% cancellations)
+                </li>
+                <li>
+                  <a href="https://www.opentable.com/restaurant-solutions/resources/no-show-diners-numbers/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">OpenTable</a>: Diners booking via integrated platforms are 40% less likely to no-show
+                </li>
+                <li>
+                  <a href="https://www.nowbookit.com/hospitality/restaurant-booking-statistics/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Nowbookit</a>: No-shows can reach ~20% without active management
+                </li>
+                <li>
+                  <a href="https://www.bistrochat.com/foodforthought/en/posts/usa-restaurant-reservation-systems-market-data.html" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Bistrochat/ResDiary</a>: No-shows ~8% in 2023
+                </li>
+              </ul>
+              <p>
+                <strong>Recovery range calculation:</strong> Conservative assumes improvement from 8% → 4% (50% reduction). Optimistic assumes improvement from 20% → 3.5% (82.5% reduction).
               </p>
+              <p className="text-sm italic border-t border-stroke/30 pt-3 mt-3">
+                <strong>Disclaimer:</strong> Actual results vary by venue, location, and implementation. F&B revenue split data is not publicly available at industry level. This calculator provides estimates based on published benchmarks for illustration purposes only.
+              </p>
+            </div>
+          </details>
+        </section>
+
+        {/* Sources Section */}
+        <section className="max-w-3xl mx-auto px-6 pb-12">
+          <details className="group border border-stroke rounded-2xl bg-card open:shadow-card transition-all duration-300">
+            <summary className="flex cursor-pointer items-center justify-between p-5 font-medium text-ink-primary list-none">
+              <span className="font-serif text-lg">Industry Sources &amp; Citations</span>
+              <ChevronDown className="h-5 w-5 text-ink-secondary transition-transform duration-300 group-open:rotate-180" />
+            </summary>
+            <div className="px-5 pb-5 text-ink-secondary leading-relaxed border-t border-stroke/50 pt-4">
+              <p className="text-sm mb-4">
+                All benchmarks in this calculator are sourced from published industry data. Click any link to view the original source.
+              </p>
+
+              <h4 className="font-semibold text-ink-primary mt-4 mb-2">Session Duration &amp; Turn Time</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <a href="https://www.sipnplaynyc.com/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Sip & Play (Brooklyn)</a>{" "}
+                  — $10-15/person for 3 hours gameplay
+                </li>
+                <li>
+                  <a href="https://uncommonsnyc.com/about/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">The Uncommons (NYC)</a>{" "}
+                  — $15/person with 3-hour limit during peak
+                </li>
+                <li>
+                  <a href="https://boardplaycafe.com/reservations/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Board Play Café</a>{" "}
+                  — Standard 3-hour reservations
+                </li>
+                <li>
+                  <a href="https://www.draughtslondon.com/faqs/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Draughts London</a>{" "}
+                  — £7.50-£9.50 for up to 3 hours gaming
+                </li>
+                <li>
+                  <a href="https://sevenrooms.com/blog/restaurant-revenue-management-strategies-to-maximize-every-shift/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">SevenRooms (Turn Time)</a>{" "}
+                  — Casual dining ~90-minute turn benchmark
+                </li>
+                <li>
+                  <a href="https://support.opentable.com/s/article/Online-Availability-Settings" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">OpenTable Support</a>{" "}
+                  — 90-minute table duration default
+                </li>
+              </ul>
+
+              <h4 className="font-semibold text-ink-primary mt-6 mb-2">No-Show Rate Benchmarks</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <a href="https://sevenrooms.com/blog/restaurant-reservation-process-leaky-bucket/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">SevenRooms (No-Show Data)</a>{" "}
+                  — ~3.5% no-shows with integrated systems
+                </li>
+                <li>
+                  <a href="https://www.opentable.com/restaurant-solutions/resources/no-show-diners-numbers/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">OpenTable (No-Show Report)</a>{" "}
+                  — 40% reduction via integrated booking; 28% of Americans have no-showed
+                </li>
+                <li>
+                  <a href="https://www.nowbookit.com/hospitality/restaurant-booking-statistics/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Nowbookit</a>{" "}
+                  — No-shows can reach ~20% without management
+                </li>
+                <li>
+                  <a href="https://www.bistrochat.com/foodforthought/en/posts/usa-restaurant-reservation-systems-market-data.html" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Bistrochat/ResDiary</a>{" "}
+                  — No-shows ~8% in 2023 (up from 5% in 2022)
+                </li>
+                <li>
+                  <a href="https://krghospitality.com/2024/08/06/sevenrooms-drops-extensive-2024-report/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">KRG Hospitality</a>{" "}
+                  — Reservation cancellation/no-show research
+                </li>
+              </ul>
+
+              <h4 className="font-semibold text-ink-primary mt-6 mb-2">Staff Time &amp; Operations</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <a href="https://uncommonsnyc.com/faq/" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">The Uncommons FAQ</a>{" "}
+                  — &ldquo;Some games can take 30 minutes to check through&rdquo;
+                </li>
+                <li>
+                  <a href="https://www.imarcgroup.com/board-game-cafe-business-plan-project-report" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">IMARC Group</a>{" "}
+                  — Board game café business models require knowledgeable staff
+                </li>
+              </ul>
+
+              <h4 className="font-semibold text-ink-primary mt-6 mb-2">F&amp;B Attach Behavior</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <a href="https://kaminsight.com/wp-content/uploads/sites/2044/2024/05/KAM-Competitive-Socialising-Report-May-2024.pdf" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">KAM Competitive Socialising Report (May 2024)</a>{" "}
+                  — 58% of visits involve eating; 2 in 5 go for drinks after
+                </li>
+                <li>
+                  <a href="https://publeaders.com.au/wp-content/uploads/sites/7/2025/07/NIQ-On-Premise-Pub-Leaders-Summit-Draft-2025_-Final.pdf" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">NielsenIQ/CGA Pub Leaders Summit</a>{" "}
+                  — Average drinks per occasion: 2.9-3.2
+                </li>
+              </ul>
+
+              <h4 className="font-semibold text-ink-primary mt-6 mb-2">Market Research</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <a href="https://www.credenceresearch.com/report/board-game-cafes-market" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:no-underline">Credence Research</a>{" "}
+                  — Board game café market: F&B integration as core growth driver
+                </li>
+              </ul>
             </div>
           </details>
         </section>
