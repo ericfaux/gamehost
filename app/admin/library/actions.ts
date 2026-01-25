@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getVenueByOwnerId } from '@/lib/data/venues';
 import { getSupabaseAdmin } from '@/lib/supabaseServer';
 import { normalizeTitle } from '@/lib/utils/strings';
-import { getBggHotGames, searchBggGames, getBggGameDetails, rankSearchResults, getBggBestInstructionalVideo } from '@/lib/bgg';
+import { getBggHotGames, searchBggGames, getBggGameDetails, rankSearchResults, getBggBestInstructionalVideo, BggRateLimitError } from '@/lib/bgg';
 import type { GameComplexity, GameStatus, GameCondition } from '@/lib/db/types';
 
 // Valid enum values for validation
@@ -105,7 +105,9 @@ interface ImportOptions {
 interface ImportResult {
   imported: number;
   updated: number;
+  skipped: number;
   errors: string[];
+  rateLimitHit?: boolean;
 }
 
 interface AddGameResult {
@@ -115,11 +117,29 @@ interface AddGameResult {
 
 const VALID_COMPLEXITIES: GameComplexity[] = ['simple', 'medium', 'complex'];
 
-// Rate limiting delay for BGG API calls (500ms between requests)
-const BGG_DELAY_MS = 500;
+// Rate limiting delay for BGG API calls (2000ms between requests to avoid 429 errors)
+const BGG_DELAY_MS = 2000;
+
+// Required fields that must have values for a game to be inserted
+const REQUIRED_GAME_FIELDS = ['min_players', 'max_players', 'min_time_minutes', 'max_time_minutes'] as const;
 
 async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Validates that all required fields have values.
+ * Returns an array of missing field names, or empty array if all present.
+ */
+function getMissingRequiredFields(gameData: Record<string, unknown>): string[] {
+  const missing: string[] = [];
+  for (const field of REQUIRED_GAME_FIELDS) {
+    const value = gameData[field];
+    if (value === null || value === undefined || value === 0) {
+      missing.push(field);
+    }
+  }
+  return missing;
 }
 
 /**
@@ -158,99 +178,96 @@ function needsBggEnrichment(gameData: Record<string, unknown>): boolean {
  * Enriches game data with information from BoardGameGeek.
  * Only fills in fields that are missing (null/undefined/empty).
  * User-provided data always takes precedence.
+ *
+ * @throws BggRateLimitError if BGG rate limit is exceeded
  */
 async function enrichGameFromBgg(
   title: string,
   existingData: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  try {
-    // Search BGG by title
-    const searchResults = await searchBggGames(title);
-    if (searchResults.length === 0) {
-      return existingData;
-    }
-
-    // Rank results by fuzzy match score and pick the best match
-    const rankedResults = rankSearchResults(title, searchResults);
-    const bestMatch = rankedResults[0];
-
-    // Reject if score is too low to avoid wrong matches
-    const MIN_SCORE_THRESHOLD = 0.3;
-    if ((bestMatch.matchScore ?? 0) < MIN_SCORE_THRESHOLD) {
-      return existingData;
-    }
-
-    // Fetch full details from BGG
-    const details = await getBggGameDetails(bestMatch.id);
-    if (!details) {
-      return existingData;
-    }
-
-    // Create enriched data object, only filling missing fields
-    const enriched = { ...existingData };
-
-    // BGG ID
-    if (!enriched.bgg_id) {
-      enriched.bgg_id = bestMatch.id;
-    }
-
-    // Cover image
-    if (!enriched.cover_image_url && details.cover_image_url) {
-      enriched.cover_image_url = details.cover_image_url;
-    }
-
-    // BGG Rank
-    if (enriched.bgg_rank === null && details.bgg_rank !== null) {
-      enriched.bgg_rank = details.bgg_rank;
-    }
-
-    // BGG Rating
-    if (enriched.bgg_rating === null && details.bgg_rating !== null) {
-      enriched.bgg_rating = details.bgg_rating;
-    }
-
-    // Description/Pitch
-    if (!enriched.pitch && details.pitch) {
-      enriched.pitch = details.pitch;
-    }
-
-    // Vibes/Categories
-    const currentVibes = enriched.vibes as string[] | undefined;
-    if ((!currentVibes || currentVibes.length === 0) && details.vibes?.length) {
-      enriched.vibes = details.vibes;
-    }
-
-    // Instructional video
-    if (!enriched.instructional_video_url && details.instructional_video_url) {
-      enriched.instructional_video_url = details.instructional_video_url;
-    }
-
-    // Player counts (only if not provided)
-    if (enriched.min_players === null && details.min_players) {
-      enriched.min_players = details.min_players;
-    }
-    if (enriched.max_players === null && details.max_players) {
-      enriched.max_players = details.max_players;
-    }
-
-    // Playtime (only if not provided)
-    if (enriched.min_time_minutes === null && details.min_time_minutes) {
-      enriched.min_time_minutes = details.min_time_minutes;
-    }
-    if (enriched.max_time_minutes === null && details.max_time_minutes) {
-      enriched.max_time_minutes = details.max_time_minutes;
-    }
-
-    // Complexity (only if using default)
-    if (enriched.complexity === 'medium' && details.complexity) {
-      enriched.complexity = details.complexity;
-    }
-
-    return enriched;
-  } catch (error) {
-    console.error(`Failed to enrich game "${title}" from BGG:`, error);
+  // Search BGG by title (may throw BggRateLimitError)
+  const searchResults = await searchBggGames(title);
+  if (searchResults.length === 0) {
     return existingData;
   }
+
+  // Rank results by fuzzy match score and pick the best match
+  const rankedResults = rankSearchResults(title, searchResults);
+  const bestMatch = rankedResults[0];
+
+  // Reject if score is too low to avoid wrong matches
+  const MIN_SCORE_THRESHOLD = 0.3;
+  if ((bestMatch.matchScore ?? 0) < MIN_SCORE_THRESHOLD) {
+    return existingData;
+  }
+
+  // Fetch full details from BGG (may throw BggRateLimitError)
+  const details = await getBggGameDetails(bestMatch.id);
+  if (!details) {
+    return existingData;
+  }
+
+  // Create enriched data object, only filling missing fields
+  const enriched = { ...existingData };
+
+  // BGG ID
+  if (!enriched.bgg_id) {
+    enriched.bgg_id = bestMatch.id;
+  }
+
+  // Cover image
+  if (!enriched.cover_image_url && details.cover_image_url) {
+    enriched.cover_image_url = details.cover_image_url;
+  }
+
+  // BGG Rank
+  if (enriched.bgg_rank === null && details.bgg_rank !== null) {
+    enriched.bgg_rank = details.bgg_rank;
+  }
+
+  // BGG Rating
+  if (enriched.bgg_rating === null && details.bgg_rating !== null) {
+    enriched.bgg_rating = details.bgg_rating;
+  }
+
+  // Description/Pitch
+  if (!enriched.pitch && details.pitch) {
+    enriched.pitch = details.pitch;
+  }
+
+  // Vibes/Categories
+  const currentVibes = enriched.vibes as string[] | undefined;
+  if ((!currentVibes || currentVibes.length === 0) && details.vibes?.length) {
+    enriched.vibes = details.vibes;
+  }
+
+  // Instructional video
+  if (!enriched.instructional_video_url && details.instructional_video_url) {
+    enriched.instructional_video_url = details.instructional_video_url;
+  }
+
+  // Player counts (only if not provided)
+  if (enriched.min_players === null && details.min_players) {
+    enriched.min_players = details.min_players;
+  }
+  if (enriched.max_players === null && details.max_players) {
+    enriched.max_players = details.max_players;
+  }
+
+  // Playtime (only if not provided)
+  if (enriched.min_time_minutes === null && details.min_time_minutes) {
+    enriched.min_time_minutes = details.min_time_minutes;
+  }
+  if (enriched.max_time_minutes === null && details.max_time_minutes) {
+    enriched.max_time_minutes = details.max_time_minutes;
+  }
+
+  // Complexity (only if using default)
+  if (enriched.complexity === 'medium' && details.complexity) {
+    enriched.complexity = details.complexity;
+  }
+
+  return enriched;
 }
 
 export async function importGames(
@@ -258,7 +275,7 @@ export async function importGames(
   options?: ImportOptions
 ): Promise<ImportResult> {
   const autofillFromBgg = options?.autofillFromBgg ?? false;
-  const result: ImportResult = { imported: 0, updated: 0, errors: [] };
+  const result: ImportResult = { imported: 0, updated: 0, skipped: 0, errors: [], rateLimitHit: false };
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -420,12 +437,31 @@ export async function importGames(
 
       // Auto-populate from BGG if enabled and game has missing fields
       if (autofillFromBgg && needsBggEnrichment(gameData)) {
-        gameData = await enrichGameFromBgg(title, gameData);
+        try {
+          gameData = await enrichGameFromBgg(title, gameData);
+        } catch (error) {
+          if (error instanceof BggRateLimitError) {
+            result.rateLimitHit = true;
+            result.errors.push(`Row ${i + 2} "${title}": BGG rate limit exceeded, skipping BGG enrichment for remaining games`);
+            // Stop trying BGG enrichment for remaining games
+            // but continue processing games without BGG data
+          } else {
+            console.error(`Failed to enrich game "${title}" from BGG:`, error);
+          }
+        }
 
         // Rate limiting - wait between BGG API calls
-        if (i < games.length - 1) {
+        if (i < games.length - 1 && !result.rateLimitHit) {
           await delay(BGG_DELAY_MS);
         }
+      }
+
+      // Validate required fields before adding to insert list
+      const missingFields = getMissingRequiredFields(gameData);
+      if (missingFields.length > 0) {
+        result.skipped++;
+        result.errors.push(`Row ${i + 2} "${title}": Missing required fields (${missingFields.join(', ')}) - skipped`);
+        continue;
       }
 
       newGames.push(gameData);

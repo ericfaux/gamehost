@@ -191,12 +191,26 @@ export function ImportGamesButton() {
           setShowBggDialog(false);
           setPendingFile(null);
 
+          // Build result message
+          const parts: string[] = [];
+          parts.push(`Imported: ${result.imported} new games`);
+          if (result.updated > 0) {
+            parts.push(`Updated: ${result.updated} existing games`);
+          }
+          if (result.skipped > 0) {
+            parts.push(`Skipped: ${result.skipped} games (missing required data)`);
+          }
+
+          if (result.rateLimitHit) {
+            parts.push('\nNote: BGG rate limit was hit during import. Some games may not have been enriched with BGG data.');
+          }
+
           if (result.errors && result.errors.length > 0) {
-            const errorSummary = result.errors.slice(0, 3).join('\n');
-            const moreErrors = result.errors.length > 3 ? `\n...and ${result.errors.length - 3} more errors` : '';
-            alert(`Import completed with some issues:\n\nImported: ${result.imported} games\nUpdated: ${result.updated} games\nErrors: ${result.errors.length}\n\n${errorSummary}${moreErrors}`);
+            const errorSummary = result.errors.slice(0, 5).join('\n');
+            const moreErrors = result.errors.length > 5 ? `\n...and ${result.errors.length - 5} more issues` : '';
+            alert(`Import completed with some issues:\n\n${parts.join('\n')}\n\nDetails:\n${errorSummary}${moreErrors}`);
           } else {
-            alert(`Successfully imported ${result.imported} new games and updated ${result.updated} existing games!`);
+            alert(`Import completed successfully!\n\n${parts.join('\n')}`);
           }
 
           router.refresh();
@@ -272,8 +286,22 @@ export function ImportGamesButton() {
               </div>
             </div>
 
+            {gameCount > 50 && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                  Large import detected ({gameCount} games)
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                  With BGG auto-fill enabled, this import may take approximately{' '}
+                  <strong>{Math.ceil(gameCount * 2 / 60)} minutes</strong> to avoid rate limiting.
+                  Games that cannot be found on BGG will be skipped.
+                </p>
+              </div>
+            )}
+
             <p className="text-xs text-[color:var(--color-ink-tertiary)]">
               Note: Any data you provided in the CSV will be kept. BGG only fills in missing fields.
+              Games missing required data (player count, playtime) that cannot be found on BGG will be skipped.
             </p>
           </div>
 

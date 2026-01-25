@@ -61,6 +61,80 @@ const parser = new XMLParser({
   attributeNamePrefix: '@_',
 });
 
+/**
+ * Custom error class for BGG API rate limiting
+ */
+export class BggRateLimitError extends Error {
+  constructor(message = 'BGG API rate limit exceeded') {
+    super(message);
+    this.name = 'BggRateLimitError';
+  }
+}
+
+/**
+ * Retry configuration for BGG API calls
+ */
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 2000, // Start with 2 seconds
+  maxDelayMs: 16000, // Cap at 16 seconds
+};
+
+/**
+ * Delays execution with exponential backoff
+ */
+async function exponentialBackoff(attempt: number): Promise<void> {
+  const delay = Math.min(
+    RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt),
+    RETRY_CONFIG.maxDelayMs
+  );
+  await new Promise((resolve) => setTimeout(resolve, delay));
+}
+
+/**
+ * Wrapper for fetch with retry logic for rate limiting
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  context: string
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      if (response.status === 429) {
+        console.warn(`BGG rate limit hit for ${context}, attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1}`);
+        if (attempt < RETRY_CONFIG.maxRetries) {
+          await exponentialBackoff(attempt);
+          continue;
+        }
+        throw new BggRateLimitError(`BGG API rate limit exceeded after ${RETRY_CONFIG.maxRetries + 1} attempts`);
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // If it's already a rate limit error, throw it
+      if (error instanceof BggRateLimitError) {
+        throw error;
+      }
+
+      // For network errors, retry
+      if (attempt < RETRY_CONFIG.maxRetries) {
+        console.warn(`BGG request failed for ${context}, attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1}:`, error);
+        await exponentialBackoff(attempt);
+        continue;
+      }
+    }
+  }
+
+  throw lastError || new Error(`BGG request failed for ${context}`);
+}
+
 function normalizeArray<T>(value: T | T[] | undefined | null): T[] {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
@@ -150,58 +224,48 @@ function mapWeightToComplexity(weight: number): GameComplexity {
 export async function searchBggGames(query: string): Promise<BggSearchResult[]> {
   if (!query.trim()) return [];
 
-  try {
-    const response = await fetch(
-      `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(query)}`,
-      {
-        headers: getBggHeaders(),
-        cache: 'no-store',
-      }
-    );
+  const response = await fetchWithRetry(
+    `https://boardgamegeek.com/xmlapi2/search?type=boardgame&query=${encodeURIComponent(query)}`,
+    {
+      headers: getBggHeaders(),
+      cache: 'no-store',
+    },
+    `search: "${query}"`
+  );
 
-    if (response.status === 401) {
-      console.error('BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.');
-    }
+  if (response.status === 401) {
+    console.error('BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.');
+  }
 
-    if (!response.ok) {
-      console.error('BGG search request failed', response.status, response.statusText);
-      return [];
-    }
-
-    const xml = await response.text();
-    const parsed = parser.parse(xml);
-    const items = normalizeArray(parsed?.items?.item);
-
-    if (items.length === 0) {
-      console.warn('BGG search returned no items. Raw response:', truncate(xml, 200));
-      return [];
-    }
-
-    return items
-      .map((item) => {
-        if (typeof item !== 'object' || item === null) return null;
-        const data = item as Record<string, unknown>;
-        const id = data['@_id'];
-        const titleSource = data.name as Record<string, unknown> | undefined;
-        const title = titleSource?.['@_value'];
-        const yearValue = (data.yearpublished as Record<string, unknown> | undefined)?.['@_value'];
-
-        return {
-          id: typeof id === 'string' || typeof id === 'number' ? String(id) : '',
-          title: typeof title === 'string' ? title : '',
-          year: typeof yearValue === 'string' || typeof yearValue === 'number' ? String(yearValue) : '',
-        } satisfies BggSearchResult;
-      })
-      .filter((result): result is BggSearchResult => Boolean(result && result.id));
-  } catch (error) {
-    if ((error as { status?: number }).status === 401) {
-      console.error(
-        'BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.'
-      );
-    }
-    console.error('Failed to search BGG games', error);
+  if (!response.ok) {
+    console.error('BGG search request failed', response.status, response.statusText);
     return [];
   }
+
+  const xml = await response.text();
+  const parsed = parser.parse(xml);
+  const items = normalizeArray(parsed?.items?.item);
+
+  if (items.length === 0) {
+    return [];
+  }
+
+  return items
+    .map((item) => {
+      if (typeof item !== 'object' || item === null) return null;
+      const data = item as Record<string, unknown>;
+      const id = data['@_id'];
+      const titleSource = data.name as Record<string, unknown> | undefined;
+      const title = titleSource?.['@_value'];
+      const yearValue = (data.yearpublished as Record<string, unknown> | undefined)?.['@_value'];
+
+      return {
+        id: typeof id === 'string' || typeof id === 'number' ? String(id) : '',
+        title: typeof title === 'string' ? title : '',
+        year: typeof yearValue === 'string' || typeof yearValue === 'number' ? String(yearValue) : '',
+      } satisfies BggSearchResult;
+    })
+    .filter((result): result is BggSearchResult => Boolean(result && result.id));
 }
 
 /**
@@ -233,22 +297,22 @@ export function rankSearchResults(
 export async function getBggGameDetails(bggId: string): Promise<BggGameDetails | null> {
   if (!bggId.trim()) return null;
 
-  try {
-    // Include videos=1 to fetch instructional video in the same request
-    const response = await fetch(
-      `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(bggId)}&stats=1&videos=1`,
-      {
-        headers: getBggHeaders(),
-        cache: 'force-cache',
-        next: { revalidate: 3600 },
-      }
-    );
+  // Include videos=1 to fetch instructional video in the same request
+  const response = await fetchWithRetry(
+    `https://boardgamegeek.com/xmlapi2/thing?id=${encodeURIComponent(bggId)}&stats=1&videos=1`,
+    {
+      headers: getBggHeaders(),
+      cache: 'force-cache',
+      next: { revalidate: 3600 },
+    } as RequestInit,
+    `details: ${bggId}`
+  );
 
-    if (response.status === 401) {
-      console.error('BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.');
-    }
+  if (response.status === 401) {
+    console.error('BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.');
+  }
 
-    if (!response.ok) return null;
+  if (!response.ok) return null;
 
     const xml = await response.text();
     const parsed = parser.parse(xml);
@@ -354,29 +418,20 @@ export async function getBggGameDetails(bggId: string): Promise<BggGameDetails |
       }
     }
 
-    return {
-      title,
-      min_players: minPlayers,
-      max_players: maxPlayers,
-      min_time_minutes: minPlaytime,
-      max_time_minutes: maxPlaytime,
-      cover_image_url: coverImageUrl,
-      bgg_rank: bggRank,
-      bgg_rating: bggRating,
-      pitch: cleanedDescription,
-      vibes,
-      complexity,
-      instructional_video_url: instructionalVideoUrl,
-    };
-  } catch (error) {
-    if ((error as { status?: number }).status === 401) {
-      console.error(
-        'BGG API Error: 401 Unauthorized. Please verify BGG_API_TOKEN is correct in Vercel Settings.'
-      );
-    }
-    console.error('Failed to fetch BGG game details', error);
-    return null;
-  }
+  return {
+    title,
+    min_players: minPlayers,
+    max_players: maxPlayers,
+    min_time_minutes: minPlaytime,
+    max_time_minutes: maxPlaytime,
+    cover_image_url: coverImageUrl,
+    bgg_rank: bggRank,
+    bgg_rating: bggRating,
+    pitch: cleanedDescription,
+    vibes,
+    complexity,
+    instructional_video_url: instructionalVideoUrl,
+  };
 }
 
 /**
