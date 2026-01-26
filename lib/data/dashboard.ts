@@ -167,6 +167,10 @@ interface SessionWithRelations extends Session {
   venue_tables?: { label: string; capacity: number | null } | null;
 }
 
+interface EndedSessionWithRelations extends SessionWithRelations {
+  ended_at: string;
+}
+
 /** Transform raw Supabase session response to clean type */
 function transformSessionRelations(raw: RawSessionWithRelations): SessionWithRelations {
   return {
@@ -182,6 +186,7 @@ interface RawNegativeFeedbackRow {
   game_id: string | null;
   feedback_rating: number | null;
   feedback_venue_rating: number | null;
+  feedback_comment?: string | null;
   feedback_venue_comment: string | null;
   feedback_submitted_at: string;
   games: { title: string }[] | null;
@@ -194,10 +199,32 @@ interface NegativeFeedbackRow {
   game_id: string | null;
   feedback_rating: number | null;
   feedback_venue_rating: number | null;
+  feedback_comment?: string | null;
   feedback_venue_comment: string | null;
   feedback_submitted_at: string;
   games: { title: string } | null;
   venue_tables: { label: string } | null;
+}
+
+/**
+ * Normalize a raw Supabase negative feedback row (relations arrays -> single objects)
+ */
+function transformNegativeFeedbackRow(raw: RawNegativeFeedbackRow): NegativeFeedbackRow {
+  return {
+    id: raw.id,
+    game_id: raw.game_id,
+    feedback_rating: raw.feedback_rating,
+    feedback_venue_rating: raw.feedback_venue_rating,
+    feedback_comment: raw.feedback_comment ?? null,
+    feedback_venue_comment: raw.feedback_venue_comment,
+    feedback_submitted_at: raw.feedback_submitted_at,
+    games: raw.games?.[0] ?? null,
+    venue_tables: raw.venue_tables?.[0] ?? null,
+  };
+}
+
+function isEndedSession(session: SessionWithRelations): session is EndedSessionWithRelations {
+  return session.ended_at !== null;
 }
 
 // =============================================================================
@@ -582,7 +609,11 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
       .not('ended_at', 'is', null)
       .order('ended_at', { ascending: false })
       .limit(5)
-      .then(({ data }) => data ?? []),
+      .then(({ data }) =>
+        (data ?? []).map((row) =>
+          transformSessionRelations(row as RawSessionWithRelations)
+        )
+      ),
 
     // Recent feedback (last 5)
     supabase
@@ -594,7 +625,11 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
       .not('feedback_submitted_at', 'is', null)
       .order('feedback_submitted_at', { ascending: false })
       .limit(5)
-      .then(({ data }) => data ?? []),
+      .then(({ data }) =>
+        (data ?? []).map((row) =>
+          transformNegativeFeedbackRow(row as RawNegativeFeedbackRow)
+        )
+      ),
 
     // Negative feedback in last 24h
     supabase
@@ -607,14 +642,9 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
       .gte('feedback_submitted_at', twentyFourHoursAgo)
       .or('feedback_rating.lt.3,feedback_venue_rating.lt.3')
       .order('feedback_submitted_at', { ascending: false })
-      .then(({ data }) => {
-        // Transform raw Supabase response (arrays) to clean type (single objects)
-        return ((data ?? []) as RawNegativeFeedbackRow[]).map((row) => ({
-          ...row,
-          games: row.games?.[0] ?? null,
-          venue_tables: row.venue_tables?.[0] ?? null,
-        })) as NegativeFeedbackRow[];
-      }),
+      .then(({ data }) =>
+        (data ?? []).map((row) => transformNegativeFeedbackRow(row as RawNegativeFeedbackRow))
+      ),
 
     // Top 5 games this week (for severity boosting)
     supabase
@@ -687,34 +717,28 @@ export async function getOpsHud(venueId: string): Promise<OpsHudData> {
   // ---------------------------------------------------------------------------
   // Activity
   // ---------------------------------------------------------------------------
-  const recentEnded: RecentEndedSession[] = recentEndedData.map((row) => {
-    const startedAt = new Date(row.started_at).getTime();
-    const endedAt = new Date(row.ended_at).getTime();
-    const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
+  const recentEnded: RecentEndedSession[] = recentEndedData
+    .filter(isEndedSession)
+    .map((row) => {
+      const startedAt = new Date(row.started_at).getTime();
+      const endedAt = new Date(row.ended_at).getTime();
+      const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
 
-    // Supabase relations return as arrays - access first element
-    const venueTables = row.venue_tables as { label: string }[] | null;
-    const games = row.games as { title: string }[] | null;
-
-    return {
-      id: row.id,
-      tableLabel: venueTables?.[0]?.label ?? 'Unknown',
-      gameTitle: games?.[0]?.title ?? null,
-      endedAt: row.ended_at,
-      durationMinutes,
-      feedbackRating: row.feedback_rating,
-    };
-  });
+      return {
+        id: row.id,
+        tableLabel: row.venue_tables?.label ?? 'Unknown',
+        gameTitle: row.games?.title ?? null,
+        endedAt: row.ended_at,
+        durationMinutes,
+        feedbackRating: row.feedback_rating,
+      };
+    });
 
   const recentFeedback: RecentFeedback[] = recentFeedbackData.map((row) => {
-    // Supabase relations return as arrays - access first element
-    const venueTables = row.venue_tables as { label: string }[] | null;
-    const games = row.games as { title: string }[] | null;
-
     return {
       id: row.id,
-      tableLabel: venueTables?.[0]?.label ?? 'Unknown',
-      gameTitle: games?.[0]?.title ?? null,
+      tableLabel: row.venue_tables?.label ?? 'Unknown',
+      gameTitle: row.games?.title ?? null,
       gameRating: row.feedback_rating,
       venueRating: row.feedback_venue_rating,
       comment: row.feedback_comment || row.feedback_venue_comment || null,
@@ -879,13 +903,9 @@ export async function getAlerts(venueId: string): Promise<Alert[]> {
       .gte('feedback_submitted_at', twentyFourHoursAgo)
       .or('feedback_rating.lt.3,feedback_venue_rating.lt.3')
       .order('feedback_submitted_at', { ascending: false })
-      .then(({ data }) => {
-        return ((data ?? []) as RawNegativeFeedbackRow[]).map((row) => ({
-          ...row,
-          games: row.games?.[0] ?? null,
-          venue_tables: row.venue_tables?.[0] ?? null,
-        })) as NegativeFeedbackRow[];
-      }),
+      .then(({ data }) =>
+        (data ?? []).map((row) => transformNegativeFeedbackRow(row as RawNegativeFeedbackRow))
+      ),
 
     // Top 5 games this week (for severity boosting)
     supabase
@@ -985,7 +1005,11 @@ export async function getRecentActivity(venueId: string): Promise<{
       .not('ended_at', 'is', null)
       .order('ended_at', { ascending: false })
       .limit(5)
-      .then(({ data }) => data ?? []),
+      .then(({ data }) =>
+        (data ?? []).map((row) =>
+          transformSessionRelations(row as RawSessionWithRelations)
+        )
+      ),
 
     // Recent feedback (last 5)
     supabase
@@ -997,37 +1021,37 @@ export async function getRecentActivity(venueId: string): Promise<{
       .not('feedback_submitted_at', 'is', null)
       .order('feedback_submitted_at', { ascending: false })
       .limit(5)
-      .then(({ data }) => data ?? []),
+      .then(({ data }) =>
+        (data ?? []).map((row) =>
+          transformNegativeFeedbackRow(row as RawNegativeFeedbackRow)
+        )
+      ),
   ]);
 
   // Transform ended sessions
-  const ended: RecentEndedSession[] = recentEndedData.map((row) => {
-    const startedAt = new Date(row.started_at).getTime();
-    const endedAt = new Date(row.ended_at).getTime();
-    const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
+  const ended: RecentEndedSession[] = recentEndedData
+    .filter(isEndedSession)
+    .map((row) => {
+      const startedAt = new Date(row.started_at).getTime();
+      const endedAt = new Date(row.ended_at).getTime();
+      const durationMinutes = Math.round((endedAt - startedAt) / (1000 * 60));
 
-    const venueTables = row.venue_tables as { label: string }[] | null;
-    const games = row.games as { title: string }[] | null;
-
-    return {
-      id: row.id,
-      tableLabel: venueTables?.[0]?.label ?? 'Unknown',
-      gameTitle: games?.[0]?.title ?? null,
-      endedAt: row.ended_at,
-      durationMinutes,
-      feedbackRating: row.feedback_rating,
-    };
-  });
+      return {
+        id: row.id,
+        tableLabel: row.venue_tables?.label ?? 'Unknown',
+        gameTitle: row.games?.title ?? null,
+        endedAt: row.ended_at,
+        durationMinutes,
+        feedbackRating: row.feedback_rating,
+      };
+    });
 
   // Transform feedback
   const feedback: RecentFeedback[] = recentFeedbackData.map((row) => {
-    const venueTables = row.venue_tables as { label: string }[] | null;
-    const games = row.games as { title: string }[] | null;
-
     return {
       id: row.id,
-      tableLabel: venueTables?.[0]?.label ?? 'Unknown',
-      gameTitle: games?.[0]?.title ?? null,
+      tableLabel: row.venue_tables?.label ?? 'Unknown',
+      gameTitle: row.games?.title ?? null,
       gameRating: row.feedback_rating,
       venueRating: row.feedback_venue_rating,
       comment: row.feedback_comment || row.feedback_venue_comment || null,
