@@ -55,7 +55,7 @@ export default async function BookingPage({ params }: PageProps) {
       <header className="bg-white border-b border-[color:var(--color-structure)]">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
-            {/* Venue Logo or GameHost fallback */}
+            {/* Venue Logo or GameLedger fallback */}
             <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
               {venue.logo_url ? (
                 <img
@@ -66,7 +66,7 @@ export default async function BookingPage({ params }: PageProps) {
               ) : (
                 <img
                   src="/logo.png"
-                  alt="GameHost logo"
+                  alt="GameLedger logo"
                   className="w-full h-full object-contain"
                 />
               )}
@@ -95,7 +95,7 @@ export default async function BookingPage({ params }: PageProps) {
 
       {/* Footer */}
       <footer className="max-w-lg mx-auto px-4 py-8 text-center text-xs text-stone-400">
-        <p>Powered by GameHost</p>
+        <p>Powered by GameLedger</p>
       </footer>
     </div>
   );

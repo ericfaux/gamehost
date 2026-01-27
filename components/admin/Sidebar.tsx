@@ -197,7 +197,7 @@ export function Sidebar({ venueId }: SidebarProps) {
       <div className="p-5 flex items-center gap-3 border-b border-[color:var(--color-structure)]">
         <Image
           src="/logo.png"
-          alt="GameHost logo"
+          alt="GameLedger logo"
           width={44}
           height={44}
           className="rounded-2xl shadow-lg"
@@ -206,7 +206,7 @@ export function Sidebar({ venueId }: SidebarProps) {
           <p className="text-xs tracking-rulebook uppercase text-[color:var(--color-ink-secondary)]">
             Admin Console
           </p>
-          <p className="font-semibold text-[color:var(--color-ink-primary)]">GameHost</p>
+          <p className="font-semibold text-[color:var(--color-ink-primary)]">GameLedger</p>
         </div>
       </div>
 

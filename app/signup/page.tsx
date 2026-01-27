@@ -41,7 +41,7 @@ export default function SignUpPage() {
           <Link href="/" className="inline-block">
             <Image
               src="/gamehost-logo.svg"
-              alt="GameHost"
+              alt="GameLedger"
               width={180}
               height={48}
               className="mx-auto"

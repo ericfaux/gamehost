@@ -59,7 +59,7 @@ function AppShellInner({
                 </div>
                 <div>
                   <p className="text-xs tracking-rulebook uppercase text-ink-secondary">Service HUD</p>
-                  <p className="font-semibold text-[color:var(--color-ink-primary)]">GameHost</p>
+                  <p className="font-semibold text-[color:var(--color-ink-primary)]">GameLedger</p>
                 </div>
               </div>
               <Button
