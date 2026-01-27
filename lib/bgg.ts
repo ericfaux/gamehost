@@ -75,9 +75,9 @@ export class BggRateLimitError extends Error {
  * Retry configuration for BGG API calls
  */
 const RETRY_CONFIG = {
-  maxRetries: 3,
-  baseDelayMs: 2000, // Start with 2 seconds
-  maxDelayMs: 16000, // Cap at 16 seconds
+  maxRetries: 5,
+  baseDelayMs: 3000, // Start with 3 seconds
+  maxDelayMs: 30000, // Cap at 30 seconds
 };
 
 /**

@@ -108,6 +108,15 @@ interface ImportResult {
   skipped: number;
   errors: string[];
   rateLimitHit?: boolean;
+  /** IDs of newly imported games that need BGG enrichment */
+  needsEnrichmentIds?: string[];
+}
+
+interface EnrichBatchResult {
+  enriched: number;
+  skipped: number;
+  rateLimitHit: boolean;
+  errors: string[];
 }
 
 interface AddGameResult {
@@ -117,8 +126,8 @@ interface AddGameResult {
 
 const VALID_COMPLEXITIES: GameComplexity[] = ['simple', 'medium', 'complex'];
 
-// Rate limiting delay for BGG API calls (2000ms between requests to avoid 429 errors)
-const BGG_DELAY_MS = 2000;
+// Rate limiting delay for BGG API calls (3000ms between requests to avoid 429 errors)
+const BGG_DELAY_MS = 3000;
 
 // Required fields that must have values for a game to be inserted
 const REQUIRED_GAME_FIELDS = ['min_players', 'max_players', 'min_time_minutes', 'max_time_minutes'] as const;
@@ -411,7 +420,7 @@ export async function importGames(
       }
 
       // Parse all fields from CSV
-      let gameData: Record<string, unknown> = {
+      const gameData: Record<string, unknown> = {
         venue_id: venue.id,
         title,
         min_players: parseNumber(game.MinPlayers || game.minPlayers || game.min_players),
@@ -435,36 +444,28 @@ export async function importGames(
         instructional_video_url: (game.InstructionalVideoUrl || game.instructionalVideoUrl || game.instructional_video_url || game.VideoUrl || game.videoUrl || '')?.toString().trim() || null,
       };
 
-      // Auto-populate from BGG if enabled and game has missing fields
-      if (autofillFromBgg && needsBggEnrichment(gameData)) {
-        try {
-          gameData = await enrichGameFromBgg(title, gameData);
-        } catch (error) {
-          if (error instanceof BggRateLimitError) {
-            result.rateLimitHit = true;
-            result.errors.push(`Row ${i + 2} "${title}": BGG rate limit exceeded, skipping BGG enrichment for remaining games`);
-            // Stop trying BGG enrichment for remaining games
-            // but continue processing games without BGG data
-          } else {
-            console.error(`Failed to enrich game "${title}" from BGG:`, error);
-          }
-        }
+      // Track whether this game needs BGG enrichment (done in batches after insert)
+      const wantsBggEnrichment = autofillFromBgg && needsBggEnrichment(gameData);
 
-        // Rate limiting - wait between BGG API calls
-        if (i < games.length - 1 && !result.rateLimitHit) {
-          await delay(BGG_DELAY_MS);
+      // If not using BGG, validate required fields now.
+      // If using BGG, we insert with defaults and enrich later.
+      if (!wantsBggEnrichment) {
+        const missingFields = getMissingRequiredFields(gameData);
+        if (missingFields.length > 0) {
+          result.skipped++;
+          result.errors.push(`Row ${i + 2} "${title}": Missing required fields (${missingFields.join(', ')}) - skipped`);
+          continue;
         }
+      } else {
+        // Set temporary defaults for required fields so the row can be inserted.
+        // These will be overwritten by BGG enrichment.
+        if (gameData.min_players === null) gameData.min_players = 1;
+        if (gameData.max_players === null) gameData.max_players = 4;
+        if (gameData.min_time_minutes === null) gameData.min_time_minutes = 30;
+        if (gameData.max_time_minutes === null) gameData.max_time_minutes = 60;
       }
 
-      // Validate required fields before adding to insert list
-      const missingFields = getMissingRequiredFields(gameData);
-      if (missingFields.length > 0) {
-        result.skipped++;
-        result.errors.push(`Row ${i + 2} "${title}": Missing required fields (${missingFields.join(', ')}) - skipped`);
-        continue;
-      }
-
-      newGames.push(gameData);
+      newGames.push({ ...gameData, _needsBggEnrichment: wantsBggEnrichment });
 
       // Add to map to handle duplicates within the same CSV
       existingGameMap.set(normalizedTitle, {
@@ -479,15 +480,26 @@ export async function importGames(
 
   // Perform batch insert for new games
   if (newGames.length > 0) {
-    const { error: insertError } = await getSupabaseAdmin()
+    // Separate the enrichment flag before inserting
+    const enrichmentFlags = newGames.map(g => g._needsBggEnrichment === true);
+    const gamesToInsert = newGames.map(({ _needsBggEnrichment, ...rest }) => rest);
+
+    const { data: insertedGames, error: insertError } = await getSupabaseAdmin()
       .from('games')
-      .insert(newGames);
+      .insert(gamesToInsert)
+      .select('id');
 
     if (insertError) {
       console.error('Failed to insert games:', insertError);
       result.errors.push(`Database error: ${insertError.message}`);
     } else {
-      result.imported = newGames.length;
+      result.imported = gamesToInsert.length;
+      // Collect IDs of games that need BGG enrichment
+      if (insertedGames) {
+        result.needsEnrichmentIds = insertedGames
+          .filter((_, idx) => enrichmentFlags[idx])
+          .map(g => g.id);
+      }
     }
   }
 
@@ -507,6 +519,93 @@ export async function importGames(
 
   revalidatePath('/admin/library');
 
+  return result;
+}
+
+/**
+ * Enriches a batch of games from BGG API.
+ * Designed to be called repeatedly by the client with small batches
+ * to avoid Vercel function timeouts and BGG rate limits.
+ */
+export async function enrichGamesBatch(gameIds: string[]): Promise<EnrichBatchResult> {
+  const result: EnrichBatchResult = { enriched: 0, skipped: 0, rateLimitHit: false, errors: [] };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error('You must be logged in');
+  }
+
+  const venue = await getVenueByOwnerId(user.id);
+  if (!venue) {
+    throw new Error('No venue found for your account');
+  }
+
+  // Fetch the games to enrich
+  const { data: games, error: fetchError } = await getSupabaseAdmin()
+    .from('games')
+    .select('id, title, cover_image_url, bgg_rank, bgg_rating, pitch, vibes, instructional_video_url, bgg_id, min_players, max_players, min_time_minutes, max_time_minutes, complexity')
+    .eq('venue_id', venue.id)
+    .in('id', gameIds);
+
+  if (fetchError || !games) {
+    result.errors.push('Failed to fetch games for enrichment');
+    return result;
+  }
+
+  for (let i = 0; i < games.length; i++) {
+    const game = games[i];
+
+    if (result.rateLimitHit) {
+      result.skipped++;
+      continue;
+    }
+
+    try {
+      const existingData: Record<string, unknown> = { ...game };
+      delete existingData.id;
+
+      const enriched = await enrichGameFromBgg(game.title, existingData);
+
+      // Build update object with only changed fields
+      const updates: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(enriched)) {
+        if (key !== 'id' && value !== game[key as keyof typeof game]) {
+          updates[key] = value;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const { error: updateError } = await getSupabaseAdmin()
+          .from('games')
+          .update(updates)
+          .eq('id', game.id);
+
+        if (updateError) {
+          result.errors.push(`Failed to update "${game.title}": ${updateError.message}`);
+        } else {
+          result.enriched++;
+        }
+      } else {
+        result.skipped++;
+      }
+    } catch (error) {
+      if (error instanceof BggRateLimitError) {
+        result.rateLimitHit = true;
+        result.skipped++;
+        result.errors.push(`Rate limit hit while enriching "${game.title}"`);
+      } else {
+        result.errors.push(`Failed to enrich "${game.title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    // Delay between BGG API calls
+    if (i < games.length - 1 && !result.rateLimitHit) {
+      await delay(BGG_DELAY_MS);
+    }
+  }
+
+  revalidatePath('/admin/library');
   return result;
 }
 
