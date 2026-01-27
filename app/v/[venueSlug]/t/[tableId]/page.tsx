@@ -446,7 +446,7 @@ export default async function TableLandingPage({ params }: PageProps) {
 
         {/* Subtle footer */}
         <p className="text-xs text-[color:var(--color-structure-strong)]">
-          Powered by GameHost
+          Powered by GameLedger
         </p>
       </div>
     </main>
