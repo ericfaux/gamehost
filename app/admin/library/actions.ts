@@ -420,7 +420,7 @@ export async function importGames(
       }
 
       // Parse all fields from CSV
-      let gameData: Record<string, unknown> = {
+      const gameData: Record<string, unknown> = {
         venue_id: venue.id,
         title,
         min_players: parseNumber(game.MinPlayers || game.minPlayers || game.min_players),
