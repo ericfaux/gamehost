@@ -299,7 +299,7 @@ export default function LandingPage() {
           <p className="text-sm uppercase tracking-[0.3em] text-ink-secondary">Why It Matters</p>
           <Image
             src="/meeple-group.svg"
-            alt="Board game café metrics: 15% revenue lift, 12 minutes saved per table, 18% higher return bookings"
+            alt="Board game café metrics: 20% no-show revenue at risk, 30 minutes lost per teach, 76% of guests read reviews before visiting"
             width={120}
             height={72}
             className="opacity-75"
@@ -308,9 +308,9 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-[0.9fr_1.1fr] gap-12 items-start">
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: "F&B Revenue Lift", value: "15%", pillar: "Revenue", icon: Coins, color: "accent" },
-              { label: "Minutes Saved per Table", value: "12m", pillar: "Time", icon: Hourglass, color: "teal" },
-              { label: "Return Booking Rate", value: "+18%", pillar: "Brand", icon: Crown, color: "success" }
+              { label: "No-Show Revenue at Risk", value: "20%", pillar: "Revenue", icon: Coins, color: "accent" },
+              { label: "Minutes Lost per Teach", value: "30m", pillar: "Time", icon: Hourglass, color: "teal" },
+              { label: "Read Reviews Before Visiting", value: "76%", pillar: "Brand", icon: Crown, color: "success" }
             ].map(
               (stat) => (
                 <div
