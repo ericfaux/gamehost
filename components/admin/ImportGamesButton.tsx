@@ -287,11 +287,11 @@ export function ImportGamesButton() {
             </div>
 
             {gameCount > 50 && (
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+              <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-300 dark:border-orange-800 rounded-lg p-3">
+                <p className="text-sm text-orange-900 dark:text-orange-200 font-medium">
                   Large import detected ({gameCount} games)
                 </p>
-                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                <p className="text-xs text-orange-800 dark:text-orange-300 mt-1">
                   With BGG auto-fill enabled, this import may take approximately{' '}
                   <strong>{Math.ceil(gameCount * 2 / 60)} minutes</strong> to avoid rate limiting.
                   Games that cannot be found on BGG will be skipped.
