@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useRef, useState, useTransition } from 'react';
+import { useRef, useState, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
 import { FileUp, Download, Loader2, Sparkles } from '@/components/icons/lucide-react';
@@ -14,7 +14,24 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { importGames } from '@/app/admin/library/actions';
+import { importGames, enrichGamesBatch } from '@/app/admin/library/actions';
+
+/** Number of games to enrich per server action call */
+const ENRICHMENT_BATCH_SIZE = 5;
+/** Delay between batches in ms (on top of per-game delay on the server) */
+const BATCH_PAUSE_MS = 2000;
+/** Delay after hitting a rate limit before retrying the batch */
+const RATE_LIMIT_RETRY_MS = 30000;
+/** Max retries per batch on rate limit */
+const MAX_BATCH_RETRIES = 3;
+
+interface EnrichmentProgress {
+  total: number;
+  completed: number;
+  enriched: number;
+  skipped: number;
+  errors: string[];
+}
 
 export function ImportGamesButton() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -22,6 +39,8 @@ export function ImportGamesButton() {
   const [showBggDialog, setShowBggDialog] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [gameCount, setGameCount] = useState(0);
+  const [enrichmentProgress, setEnrichmentProgress] = useState<EnrichmentProgress | null>(null);
+  const [isEnriching, setIsEnriching] = useState(false);
   const router = useRouter();
 
   function handleButtonClick() {
@@ -175,6 +194,73 @@ export function ImportGamesButton() {
     event.target.value = '';
   }
 
+  const runBatchEnrichment = useCallback(async (gameIds: string[]) => {
+    setIsEnriching(true);
+    const progress: EnrichmentProgress = {
+      total: gameIds.length,
+      completed: 0,
+      enriched: 0,
+      skipped: 0,
+      errors: [],
+    };
+    setEnrichmentProgress({ ...progress });
+
+    // Split into batches
+    const batches: string[][] = [];
+    for (let i = 0; i < gameIds.length; i += ENRICHMENT_BATCH_SIZE) {
+      batches.push(gameIds.slice(i, i + ENRICHMENT_BATCH_SIZE));
+    }
+
+    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+      const batch = batches[batchIdx];
+      let retries = 0;
+      let success = false;
+
+      while (!success && retries <= MAX_BATCH_RETRIES) {
+        try {
+          const result = await enrichGamesBatch(batch);
+          progress.enriched += result.enriched;
+          progress.skipped += result.skipped;
+          progress.completed += batch.length;
+          progress.errors.push(...result.errors);
+
+          if (result.rateLimitHit && retries < MAX_BATCH_RETRIES) {
+            // Rate limit hit - wait longer and retry remaining items in this batch
+            retries++;
+            progress.completed -= result.skipped; // those weren't actually processed
+            progress.skipped -= result.skipped;
+            setEnrichmentProgress({ ...progress });
+            await new Promise(r => setTimeout(r, RATE_LIMIT_RETRY_MS));
+            continue;
+          }
+
+          success = true;
+          setEnrichmentProgress({ ...progress });
+        } catch {
+          retries++;
+          if (retries > MAX_BATCH_RETRIES) {
+            progress.skipped += batch.length;
+            progress.completed += batch.length;
+            progress.errors.push(`Batch failed after ${MAX_BATCH_RETRIES} retries`);
+            setEnrichmentProgress({ ...progress });
+            success = true; // move on
+          } else {
+            await new Promise(r => setTimeout(r, RATE_LIMIT_RETRY_MS));
+          }
+        }
+      }
+
+      // Pause between batches
+      if (batchIdx < batches.length - 1) {
+        await new Promise(r => setTimeout(r, BATCH_PAUSE_MS));
+      }
+    }
+
+    setIsEnriching(false);
+    router.refresh();
+    return progress;
+  }, [router]);
+
   function processImport(autofillFromBgg: boolean) {
     if (!pendingFile) return;
 
@@ -201,10 +287,6 @@ export function ImportGamesButton() {
             parts.push(`Skipped: ${result.skipped} games (missing required data)`);
           }
 
-          if (result.rateLimitHit) {
-            parts.push('\nNote: BGG rate limit was hit during import. Some games may not have been enriched with BGG data.');
-          }
-
           if (result.errors && result.errors.length > 0) {
             const errorSummary = result.errors.slice(0, 5).join('\n');
             const moreErrors = result.errors.length > 5 ? `\n...and ${result.errors.length - 5} more issues` : '';
@@ -214,6 +296,23 @@ export function ImportGamesButton() {
           }
 
           router.refresh();
+
+          // Start batch enrichment if there are games to enrich
+          const enrichIds = result.needsEnrichmentIds ?? [];
+          if (enrichIds.length > 0) {
+            const enrichProgress = await runBatchEnrichment(enrichIds);
+            const enrichParts: string[] = [];
+            enrichParts.push(`Enriched: ${enrichProgress.enriched} games with BGG data`);
+            if (enrichProgress.skipped > 0) {
+              enrichParts.push(`Skipped: ${enrichProgress.skipped} games`);
+            }
+            if (enrichProgress.errors.length > 0) {
+              const errorSummary = enrichProgress.errors.slice(0, 5).join('\n');
+              alert(`BGG enrichment completed with some issues:\n\n${enrichParts.join('\n')}\n\nDetails:\n${errorSummary}`);
+            } else {
+              alert(`BGG enrichment completed!\n\n${enrichParts.join('\n')}`);
+            }
+          }
         });
       },
       error: (error) => {
@@ -225,11 +324,16 @@ export function ImportGamesButton() {
   }
 
   function handleDialogClose() {
-    if (!isPending) {
+    if (!isPending && !isEnriching) {
       setShowBggDialog(false);
       setPendingFile(null);
+      setEnrichmentProgress(null);
     }
   }
+
+  const enrichPercent = enrichmentProgress
+    ? Math.round((enrichmentProgress.completed / enrichmentProgress.total) * 100)
+    : 0;
 
   return (
     <div className="flex items-center gap-2">
@@ -246,8 +350,8 @@ export function ImportGamesButton() {
         className="hidden"
       />
 
-      <Button variant="secondary" onClick={handleButtonClick} disabled={isPending}>
-        {isPending ? (
+      <Button variant="secondary" onClick={handleButtonClick} disabled={isPending || isEnriching}>
+        {isPending || isEnriching ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <FileUp className="h-4 w-4" />
@@ -258,7 +362,7 @@ export function ImportGamesButton() {
       {/* BGG Auto-fill Confirmation Dialog */}
       <Dialog open={showBggDialog} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-md">
-          <DialogClose onClick={handleDialogClose} disabled={isPending} />
+          <DialogClose onClick={handleDialogClose} disabled={isPending || isEnriching} />
           <DialogHeader>
             <DialogTitle>Import {gameCount} Games</DialogTitle>
           </DialogHeader>
@@ -292,16 +396,17 @@ export function ImportGamesButton() {
                   Large import detected ({gameCount} games)
                 </p>
                 <p className="text-xs text-orange-800 dark:text-orange-300 mt-1">
-                  With BGG auto-fill enabled, this import may take approximately{' '}
-                  <strong>{Math.ceil(gameCount * 2 / 60)} minutes</strong> to avoid rate limiting.
-                  Games that cannot be found on BGG will be skipped.
+                  Games will be imported immediately, then BGG data will be fetched in the background.
+                  This may take approximately{' '}
+                  <strong>{Math.ceil(gameCount * 3 / 60)} minutes</strong>.
+                  You can keep this page open while it runs.
                 </p>
               </div>
             )}
 
             <p className="text-xs text-[color:var(--color-ink-tertiary)]">
               Note: Any data you provided in the CSV will be kept. BGG only fills in missing fields.
-              Games missing required data (player count, playtime) that cannot be found on BGG will be skipped.
+              Games are inserted first with placeholder data, then enriched from BGG in batches.
             </p>
           </div>
 
@@ -309,7 +414,7 @@ export function ImportGamesButton() {
             <Button
               variant="ghost"
               onClick={() => processImport(false)}
-              disabled={isPending}
+              disabled={isPending || isEnriching}
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -319,7 +424,7 @@ export function ImportGamesButton() {
             <Button
               variant="primary"
               onClick={() => processImport(true)}
-              disabled={isPending}
+              disabled={isPending || isEnriching}
             >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -329,6 +434,53 @@ export function ImportGamesButton() {
               Auto-fill from BGG
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* BGG Enrichment Progress Dialog */}
+      <Dialog open={isEnriching && enrichmentProgress !== null} onOpenChange={() => {}}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fetching BGG Data</DialogTitle>
+          </DialogHeader>
+
+          <div className="px-6 py-4 space-y-4">
+            <p className="text-sm text-[color:var(--color-ink-secondary)]">
+              Enriching games with BoardGameGeek data in batches. Please keep this page open.
+            </p>
+
+            {enrichmentProgress && (
+              <>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[color:var(--color-ink-secondary)]">Progress</span>
+                    <span className="font-medium text-[color:var(--color-ink-primary)]">
+                      {enrichmentProgress.completed} / {enrichmentProgress.total} games ({enrichPercent}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                    <div
+                      className="bg-amber-500 h-2.5 rounded-full transition-all duration-500"
+                      style={{ width: `${enrichPercent}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 text-xs text-[color:var(--color-ink-secondary)]">
+                  <span>Enriched: {enrichmentProgress.enriched}</span>
+                  <span>Skipped: {enrichmentProgress.skipped}</span>
+                  {enrichmentProgress.errors.length > 0 && (
+                    <span>Errors: {enrichmentProgress.errors.length}</span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-[color:var(--color-ink-tertiary)]">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Processing batch {Math.min(Math.ceil(enrichmentProgress.completed / ENRICHMENT_BATCH_SIZE) + 1, Math.ceil(enrichmentProgress.total / ENRICHMENT_BATCH_SIZE))} of {Math.ceil(enrichmentProgress.total / ENRICHMENT_BATCH_SIZE)}...
+                </div>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
