@@ -308,9 +308,9 @@ export default function LandingPage() {
         <div className="grid md:grid-cols-[0.9fr_1.1fr] gap-12 items-start">
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: "No-Show Revenue at Risk", value: "20%", pillar: "Revenue", icon: Coins, color: "accent" },
-              { label: "Minutes Lost per Teach", value: "30m", pillar: "Time", icon: Hourglass, color: "teal" },
-              { label: "Read Reviews Before Visiting", value: "76%", pillar: "Brand", icon: Crown, color: "success" }
+              { label: "No-Show Revenue at Risk", pillar: "Revenue", icon: Coins, color: "accent" },
+              { label: "Minutes Lost per Teach", pillar: "Time", icon: Hourglass, color: "teal" },
+              { label: "Read Reviews Before Visiting", pillar: "Brand", icon: Crown, color: "success" }
             ].map(
               (stat) => (
                 <div
@@ -323,7 +323,6 @@ export default function LandingPage() {
                     <span className={`text-[10px] uppercase tracking-[0.2em] font-semibold ${stat.color === "accent" ? "text-accent" : stat.color === "teal" ? "text-brandTeal" : "text-success"}`}>{stat.pillar}</span>
                   </div>
                   <p className="text-xs uppercase tracking-[0.2em] text-ink-secondary">{stat.label}</p>
-                  <p className="mt-3 text-3xl font-serif text-ink-primary">{stat.value}</p>
                 </div>
               ),
             )}
