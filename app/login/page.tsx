@@ -35,10 +35,10 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
             <Image
-              src="/gamehost-logo.svg"
+              src="/logo.png"
               alt="GameLedger"
-              width={180}
-              height={48}
+              width={100}
+              height={100}
               className="mx-auto"
               priority
             />
