@@ -2,7 +2,7 @@
 
 import type { FeedbackStats } from '@/lib/db/types';
 import { Card, CardContent } from '@/components/ui/card';
-import { Star, MessageSquare, ThumbsUp, Meh, ThumbsDown, BarChart3 } from '@/components/icons';
+import { Star, MessageSquare, ThumbsUp, Meh, ThumbsDown, BarChart3, Gamepad2, Heart } from '@/components/icons';
 
 interface FeedbackSummaryHeaderProps {
   stats: FeedbackStats;
@@ -119,7 +119,7 @@ export function FeedbackSummaryHeader({ stats, isLoading }: FeedbackSummaryHeade
 
           {/* Average Game Rating */}
           <div className="flex items-center gap-2">
-            <Star className="h-4 w-4 text-amber-500" />
+            <Gamepad2 className="h-4 w-4 text-blue-600" />
             <span className="text-2xl font-bold text-ink-primary">
               {stats.avgGameRating !== null ? stats.avgGameRating.toFixed(1) : '—'}
             </span>
@@ -130,7 +130,7 @@ export function FeedbackSummaryHeader({ stats, isLoading }: FeedbackSummaryHeade
 
           {/* Average Venue Rating */}
           <div className="flex items-center gap-2">
-            <Star className="h-4 w-4 text-amber-500" />
+            <Heart className="h-4 w-4 text-pink-600" />
             <span className="text-2xl font-bold text-ink-primary">
               {stats.avgVenueRating !== null ? stats.avgVenueRating.toFixed(1) : '—'}
             </span>

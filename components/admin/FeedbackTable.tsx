@@ -2,7 +2,7 @@
 
 import type { FeedbackHistoryRow } from '@/lib/db/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Loader2, ChevronDown, Search } from '@/components/icons';
+import { MessageSquare, Loader2, ChevronDown, Search, Gamepad2, Heart } from '@/components/icons';
 import { FeedbackRow } from './FeedbackRow';
 
 interface FeedbackTableProps {
@@ -104,16 +104,22 @@ export function FeedbackTable({ rows, isLoading, hasMore, onLoadMore, hasFilters
             <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Table</span>
           </div>
           <div className="flex-1 min-w-0">
-            <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Game</span>
+            <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Game Title</span>
           </div>
           <div className="w-[80px] shrink-0">
-            <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Game</span>
+            <div className="flex items-center gap-1">
+              <Gamepad2 className="h-3 w-3 text-blue-600" />
+              <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Game</span>
+            </div>
           </div>
           <div className="w-[80px] shrink-0">
-            <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Venue</span>
+            <div className="flex items-center gap-1">
+              <Heart className="h-3 w-3 text-pink-600" />
+              <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Venue</span>
+            </div>
           </div>
           <div className="w-[200px] shrink-0">
-            <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Comment</span>
+            <span className="text-xs font-medium uppercase tracking-rulebook text-ink-secondary">Comments</span>
           </div>
         </div>
 

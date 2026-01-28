@@ -13,6 +13,8 @@ import {
   X,
   Calendar,
   Loader2,
+  Gamepad2,
+  Heart,
 } from '@/components/icons';
 
 // =============================================================================
@@ -40,10 +42,10 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: '90d', label: '90D' },
 ];
 
-const RATING_TYPES: { value: RatingType; label: string }[] = [
+const RATING_TYPES: { value: RatingType; label: string; icon?: React.ElementType }[] = [
   { value: 'all', label: 'All' },
-  { value: 'game', label: 'Game only' },
-  { value: 'venue', label: 'Venue only' },
+  { value: 'game', label: 'Game', icon: Gamepad2 },
+  { value: 'venue', label: 'Venue', icon: Heart },
 ];
 
 const SOURCES: { value: FeedbackSource | 'all'; label: string }[] = [
@@ -315,22 +317,26 @@ export function FeedbackFiltersCard({
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-ink-secondary mr-1">Rating:</span>
               <div className="flex items-center rounded-lg border border-structure bg-elevated p-1">
-                {RATING_TYPES.map((type) => (
-                  <button
-                    key={type.value}
-                    type="button"
-                    onClick={() => handleRatingTypeChange(type.value)}
-                    disabled={isLoading}
-                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
-                      (filters.ratingType ?? 'all') === type.value
-                        ? 'bg-surface shadow-card text-ink-primary'
-                        : 'text-ink-secondary hover:text-ink-primary'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    aria-pressed={(filters.ratingType ?? 'all') === type.value}
-                  >
-                    {type.label}
-                  </button>
-                ))}
+                {RATING_TYPES.map((type) => {
+                  const Icon = type.icon;
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      onClick={() => handleRatingTypeChange(type.value)}
+                      disabled={isLoading}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                        (filters.ratingType ?? 'all') === type.value
+                          ? 'bg-surface shadow-card text-ink-primary'
+                          : 'text-ink-secondary hover:text-ink-primary'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      aria-pressed={(filters.ratingType ?? 'all') === type.value}
+                    >
+                      {Icon && <Icon className={`h-3.5 w-3.5 ${type.value === 'game' ? 'text-blue-600' : type.value === 'venue' ? 'text-pink-600' : ''}`} />}
+                      {type.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
