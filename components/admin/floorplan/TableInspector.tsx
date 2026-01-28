@@ -90,8 +90,8 @@ export function TableInspector({
             Status
           </label>
           {confirmDeactivate ? (
-            <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs">
-              <p className="text-amber-800 dark:text-amber-200 mb-2">
+            <div className="p-2 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-lg text-xs">
+              <p className="text-rose-800 dark:text-rose-200 mb-2">
                 This table has {confirmDeactivate.bookingCount} upcoming booking{confirmDeactivate.bookingCount === 1 ? '' : 's'}.
                 Deactivating will not cancel them.
               </p>
@@ -107,7 +107,7 @@ export function TableInspector({
                   type="button"
                   onClick={handleConfirmDeactivate}
                   disabled={isToggling}
-                  className="flex-1 px-2 py-1 text-xs font-medium rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                  className="flex-1 px-2 py-1 text-xs font-medium rounded bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50"
                 >
                   {isToggling ? 'Deactivating...' : 'Deactivate'}
                 </button>

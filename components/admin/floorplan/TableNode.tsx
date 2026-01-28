@@ -54,11 +54,11 @@ function getStatusStyles(status: TableStatus) {
       };
     case 'browsing':
       return {
-        bg: 'bg-gradient-to-br from-amber-50 to-yellow-100 dark:from-amber-950/50 dark:to-yellow-900/40',
-        border: 'border-amber-400/80 dark:border-amber-500/60',
-        text: 'text-amber-800 dark:text-amber-300',
-        accent: 'bg-amber-500/90 dark:bg-amber-600/90',
-        pill: 'bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 border-amber-300/50 dark:border-amber-600/50',
+        bg: 'bg-gradient-to-br from-blue-50 to-cyan-100 dark:from-blue-950/50 dark:to-cyan-900/40',
+        border: 'border-blue-400/80 dark:border-blue-500/60',
+        text: 'text-blue-800 dark:text-blue-300',
+        accent: 'bg-blue-500/90 dark:bg-blue-600/90',
+        pill: 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 border-blue-300/50 dark:border-blue-600/50',
       };
     default:
       return {

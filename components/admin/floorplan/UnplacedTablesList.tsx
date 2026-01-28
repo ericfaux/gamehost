@@ -19,7 +19,7 @@ interface UnplacedTablesListProps {
 function getStatusDot(session: TableSessionInfo | undefined): string {
   if (!session) return 'bg-[color:var(--color-accent)]';
   if (session.status === 'playing') return 'bg-green-500';
-  if (session.status === 'browsing') return 'bg-yellow-500';
+  if (session.status === 'browsing') return 'bg-blue-500';
   return 'bg-[color:var(--color-accent)]';
 }
 
