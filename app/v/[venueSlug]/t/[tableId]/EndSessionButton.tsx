@@ -46,7 +46,8 @@ export function EndSessionButton({ venueSlug, tableId, sessionId, hasGame }: End
         venueRating: feedback.venueRating,
         complexity: feedback.complexity,
         replay: feedback.replay,
-        comment: feedback.comment,
+        gameComment: feedback.gameComment,
+        venueComment: feedback.venueComment,
         skipped: false,
       });
 

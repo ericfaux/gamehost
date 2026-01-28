@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { FeedbackHistoryRow } from '@/lib/db/types';
-import { ChevronDown, ThumbsUp, Meh, ThumbsDown } from '@/components/icons';
+import { ChevronDown, ThumbsUp, Meh, ThumbsDown, Gamepad2, Heart } from '@/components/icons';
 import { TokenChip } from '@/components/AppShell';
 import { formatDistanceToNow, format, differenceInMinutes } from 'date-fns';
 
@@ -10,7 +10,7 @@ interface FeedbackRowProps {
   row: FeedbackHistoryRow;
 }
 
-function RatingBadge({ rating }: { rating: number | null }) {
+function RatingBadge({ rating, type }: { rating: number | null; type?: 'game' | 'venue' }) {
   if (rating === null) {
     return <span className="text-sm text-ink-secondary">—</span>;
   }
@@ -22,9 +22,12 @@ function RatingBadge({ rating }: { rating: number | null }) {
   }[rating] || { icon: Meh, color: 'text-ink-secondary', bg: 'bg-muted' };
 
   const Icon = config.icon;
+  const typeIcon = type === 'game' ? Gamepad2 : type === 'venue' ? Heart : null;
+  const TypeIcon = typeIcon;
 
   return (
     <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${config.bg}`}>
+      {TypeIcon && <TypeIcon className={`h-3 w-3 ${type === 'game' ? 'text-blue-600' : 'text-pink-600'}`} />}
       <Icon className={`h-3 w-3 ${config.color}`} />
       <span className={`text-xs font-medium ${config.color}`}>{rating}</span>
     </div>
@@ -89,12 +92,12 @@ export function FeedbackRow({ row }: FeedbackRowProps) {
 
         {/* Game Rating */}
         <div className="w-[80px] shrink-0">
-          <RatingBadge rating={row.gameRating} />
+          <RatingBadge rating={row.gameRating} type="game" />
         </div>
 
         {/* Venue Rating */}
         <div className="w-[80px] shrink-0">
-          <RatingBadge rating={row.venueRating} />
+          <RatingBadge rating={row.venueRating} type="venue" />
         </div>
 
         {/* Comment Preview + Chevron */}
@@ -158,21 +161,30 @@ export function FeedbackRow({ row }: FeedbackRowProps) {
               </div>
             </div>
 
-            {/* Full Comment */}
-            {row.comment && (
-              <div className="mt-4">
-                <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Game Comment</p>
-                <p className="text-sm text-ink-primary whitespace-pre-wrap">{row.comment}</p>
-              </div>
-            )}
+            {/* Feedback Sections */}
+            <div className="mt-4 space-y-4">
+              {/* Game Comment Section */}
+              {row.comment && (
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Gamepad2 className="h-4 w-4 text-blue-600" />
+                    <p className="text-xs uppercase tracking-rulebook text-blue-700 font-medium">Game Feedback</p>
+                  </div>
+                  <p className="text-sm text-ink-primary whitespace-pre-wrap">{row.comment}</p>
+                </div>
+              )}
 
-            {/* Venue Comment */}
-            {row.venueComment && (
-              <div className="mt-4">
-                <p className="text-xs uppercase tracking-rulebook text-ink-secondary mb-1">Venue Comment</p>
-                <p className="text-sm text-ink-primary whitespace-pre-wrap">{row.venueComment}</p>
-              </div>
-            )}
+              {/* Venue Comment Section */}
+              {row.venueComment && (
+                <div className="p-3 rounded-lg bg-pink-50 border border-pink-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Heart className="h-4 w-4 text-pink-600" />
+                    <p className="text-xs uppercase tracking-rulebook text-pink-700 font-medium">Venue Feedback</p>
+                  </div>
+                  <p className="text-sm text-ink-primary whitespace-pre-wrap">{row.venueComment}</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

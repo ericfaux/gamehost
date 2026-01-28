@@ -162,7 +162,8 @@ export interface FeedbackSubmissionInput {
   venueRating?: number | null; // 1 = 👎, 3 = 😐, 5 = 👍
   complexity?: FeedbackComplexity | null;
   replay?: FeedbackReplay | null;
-  comment?: string | null;
+  gameComment?: string | null; // Comment specifically about the game
+  venueComment?: string | null; // Comment specifically about the venue
   // Skip flag
   skipped: boolean;
 }
@@ -200,7 +201,8 @@ export async function submitFeedbackAndEndSessionAction(
       venueRating,
       complexity,
       replay,
-      comment,
+      gameComment,
+      venueComment,
       skipped,
     } = input;
 
@@ -214,7 +216,8 @@ export async function submitFeedbackAndEndSessionAction(
       venueRating,
       complexity,
       replay,
-      comment,
+      gameComment,
+      venueComment,
       skipped,
       source: 'end_sheet',
     });

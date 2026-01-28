@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react';
-import { ThumbsUp, ThumbsDown, Meh, X, ChevronDown, ChevronUp, Loader2 } from '@/components/icons';
+import { ThumbsUp, ThumbsDown, Meh, X, ChevronDown, ChevronUp, Loader2, Gamepad2, Heart } from '@/components/icons';
 import type { FeedbackComplexity, FeedbackReplay } from '@/lib/db/types';
 
 // Sentiment value mapping: 👎 = 1, 😐 = 3, 👍 = 5
@@ -30,7 +30,8 @@ export interface FeedbackData {
   venueRating: SentimentValue;
   complexity: FeedbackComplexity | null;
   replay: FeedbackReplay | null;
-  comment: string | null;
+  gameComment: string | null;
+  venueComment: string | null;
 }
 
 function SentimentButton({
@@ -105,7 +106,8 @@ export function FeedbackSheet({
   const [showDetails, setShowDetails] = useState(false);
   const [complexity, setComplexity] = useState<FeedbackComplexity | null>(null);
   const [replay, setReplay] = useState<FeedbackReplay | null>(null);
-  const [comment, setComment] = useState('');
+  const [gameComment, setGameComment] = useState('');
+  const [venueComment, setVenueComment] = useState('');
 
   // Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,7 +123,8 @@ export function FeedbackSheet({
         venueRating,
         complexity: hasGame ? complexity : null,
         replay: hasGame ? replay : null,
-        comment: comment.trim() || null,
+        gameComment: hasGame ? (gameComment.trim() || null) : null,
+        venueComment: venueComment.trim() || null,
       });
     } finally {
       setIsSubmitting(false);
@@ -179,10 +182,13 @@ export function FeedbackSheet({
         <div className="px-4 py-4 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Game Rating - only shown if there's a game */}
           {hasGame && (
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-[color:var(--color-ink-primary)]">
-                How was the game?
-              </label>
+            <div className="space-y-3 p-4 rounded-xl bg-blue-50 border border-blue-100">
+              <div className="flex items-center gap-2">
+                <Gamepad2 className="h-5 w-5 text-blue-600" />
+                <label className="text-sm font-medium text-[color:var(--color-ink-primary)]">
+                  About the Game
+                </label>
+              </div>
               <div className="grid grid-cols-3 gap-3">
                 <SentimentButton
                   value={1}
@@ -212,11 +218,17 @@ export function FeedbackSheet({
             </div>
           )}
 
+          {/* Divider */}
+          {hasGame && <div className="border-t border-[color:var(--color-structure)]" />}
+
           {/* Venue Rating */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-[color:var(--color-ink-primary)]">
-              How was your experience here?
-            </label>
+          <div className="space-y-3 p-4 rounded-xl bg-pink-50 border border-pink-100">
+            <div className="flex items-center gap-2">
+              <Heart className="h-5 w-5 text-pink-600" />
+              <label className="text-sm font-medium text-[color:var(--color-ink-primary)]">
+                About Your Visit
+              </label>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <SentimentButton
                 value={1}
@@ -325,15 +337,32 @@ export function FeedbackSheet({
             </div>
           )}
 
-          {/* Comment - always available */}
+          {/* Game Comment - only if game exists */}
+          {hasGame && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[color:var(--color-ink-primary)]">
+                Add details about the game <span className="font-normal text-[color:var(--color-ink-secondary)]">(optional)</span>
+              </label>
+              <textarea
+                value={gameComment}
+                onChange={(e) => setGameComment(e.target.value)}
+                placeholder="What could have been better? What did you love?"
+                rows={2}
+                maxLength={500}
+                className="w-full px-3 py-2 text-sm border border-[color:var(--color-structure)] rounded-xl bg-[color:var(--color-elevated)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/50 resize-none"
+              />
+            </div>
+          )}
+
+          {/* Venue Comment - always available */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-[color:var(--color-ink-primary)]">
-              Anything you want to say? <span className="font-normal text-[color:var(--color-ink-secondary)]">(optional)</span>
+              Add details about your visit <span className="font-normal text-[color:var(--color-ink-secondary)]">(optional)</span>
             </label>
             <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Share your thoughts..."
+              value={venueComment}
+              onChange={(e) => setVenueComment(e.target.value)}
+              placeholder="How was the staff? The atmosphere? The facilities?"
               rows={2}
               maxLength={500}
               className="w-full px-3 py-2 text-sm border border-[color:var(--color-structure)] rounded-xl bg-[color:var(--color-elevated)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]/50 resize-none"

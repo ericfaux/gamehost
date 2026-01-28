@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Clock, Star, MessageSquare } from '@/components/icons';
+import { Clock, Star, MessageSquare, Gamepad2, Heart } from '@/components/icons';
 import type { RecentEndedSession, RecentFeedback } from '@/lib/data/dashboard';
 
 export interface ActivityFeedProps {
@@ -46,6 +46,25 @@ function StarRating({ rating }: { rating: number }) {
         />
       ))}
     </span>
+  );
+}
+
+function FeedbackRatings({ gameRating, venueRating }: { gameRating?: number | null; venueRating?: number | null }) {
+  return (
+    <div className="flex items-center gap-3">
+      {gameRating !== null && gameRating !== undefined && (
+        <div className="flex items-center gap-1">
+          <Gamepad2 className="w-3.5 h-3.5 text-blue-600" />
+          <span className="text-xs font-medium text-ink-primary">{gameRating}</span>
+        </div>
+      )}
+      {venueRating !== null && venueRating !== undefined && (
+        <div className="flex items-center gap-1">
+          <Heart className="w-3.5 h-3.5 text-pink-600" />
+          <span className="text-xs font-medium text-ink-primary">{venueRating}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -139,7 +158,6 @@ export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps)
           ) : (
             recentFeedback.map((feedback) => {
               const negative = isNegativeFeedback(feedback);
-              const displayRating = feedback.gameRating ?? feedback.venueRating ?? 0;
 
               return (
                 <article
@@ -148,14 +166,14 @@ export function ActivityFeed({ recentEnded, recentFeedback }: ActivityFeedProps)
                     'flex flex-col gap-1.5 py-2.5 px-2 -mx-2 rounded-lg transition-colors duration-150',
                     negative ? 'bg-[color:var(--color-warn)]/10' : 'hover:bg-[color:var(--color-muted)]/30',
                   )}
-                  aria-label={`${feedback.tableLabel}: ${displayRating} star${displayRating !== 1 ? 's' : ''}, ${formatTimeAgo(feedback.submittedAt)}${feedback.comment ? `, "${feedback.comment}"` : ''}`}
+                  aria-label={`${feedback.tableLabel}${feedback.gameRating ? ` game rating ${feedback.gameRating}` : ''}${feedback.venueRating ? ` venue rating ${feedback.venueRating}` : ''}, ${formatTimeAgo(feedback.submittedAt)}${feedback.comment ? `, "${feedback.comment}"` : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-[color:var(--color-ink-secondary)] bg-[color:var(--color-muted)] px-1.5 py-0.5 rounded">
                         {feedback.tableLabel}
                       </span>
-                      <StarRating rating={displayRating} />
+                      <FeedbackRatings gameRating={feedback.gameRating} venueRating={feedback.venueRating} />
                     </div>
                     <time
                       dateTime={feedback.submittedAt}

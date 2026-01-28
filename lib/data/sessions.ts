@@ -535,7 +535,8 @@ export interface SubmitFeedbackParams {
   venueRating?: number | null; // 1-5, mapped from sentiment
   complexity?: FeedbackComplexity | null;
   replay?: FeedbackReplay | null;
-  comment?: string | null;
+  gameComment?: string | null; // Comment specifically about the game
+  venueComment?: string | null; // Comment specifically about the venue
   // Skip flag
   skipped: boolean;
   // Source of feedback
@@ -558,7 +559,8 @@ export async function submitFeedbackAndEndSession(params: SubmitFeedbackParams):
     venueRating,
     complexity,
     replay,
-    comment,
+    gameComment,
+    venueComment,
     skipped,
     source = 'end_sheet',
   } = params;
@@ -605,18 +607,15 @@ export async function submitFeedbackAndEndSession(params: SubmitFeedbackParams):
       if (gameRating !== undefined) updatePayload.feedback_rating = gameRating;
       if (complexity !== undefined) updatePayload.feedback_complexity = complexity;
       if (replay !== undefined) updatePayload.feedback_replay = replay;
-      // Store comment in game comment field if game exists
-      if (comment !== undefined) updatePayload.feedback_comment = comment;
+      // Store game comment if provided
+      if (gameComment !== undefined) updatePayload.feedback_comment = gameComment;
     }
 
     // Venue feedback
     if (venueRating !== undefined) updatePayload.feedback_venue_rating = venueRating;
 
-    // Store comment in venue comment ONLY if venue rating is negative (1)
-    // This captures "experience complaints" without duplicating every comment
-    if (venueRating === 1 && comment) {
-      updatePayload.feedback_venue_comment = comment;
-    }
+    // Store venue comment if provided (regardless of rating)
+    if (venueComment !== undefined) updatePayload.feedback_venue_comment = venueComment;
   }
 
   const { data: session, error: updateError } = await supabase
