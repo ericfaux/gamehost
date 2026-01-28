@@ -122,7 +122,7 @@ export function AnalyticsActionsDialog({
             Cancel
           </Button>
           <Button
-            variant={isPromote ? 'default' : 'destructive'}
+            variant={isPromote ? 'primary' : 'destructive'}
             onClick={handleConfirm}
             disabled={isPending}
           >
