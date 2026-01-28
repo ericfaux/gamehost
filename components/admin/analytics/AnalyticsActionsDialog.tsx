@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle, Star } from '@/components/icons';
-import { useAppShell } from '@/components/AppShell';
+import { useToast } from '@/components/AppShell';
 
 interface AnalyticsActionsDialogProps {
   open: boolean;
@@ -32,7 +32,7 @@ export function AnalyticsActionsDialog({
   onComplete,
 }: AnalyticsActionsDialogProps) {
   const [isPending, startTransition] = useTransition();
-  const { toast } = useAppShell();
+  const { push: pushToast } = useToast();
 
   const handleConfirm = async () => {
     if (!gameId) return;
@@ -49,25 +49,25 @@ export function AnalyticsActionsDialog({
         }
 
         if (result.success) {
-          const message =
+          const title =
             action === 'promote'
               ? `"${gameTitle}" added as Staff Pick`
               : `"${gameTitle}" has been retired`;
 
-          toast({
-            message,
+          pushToast({
+            title,
             tone: 'success',
           });
           onComplete();
         } else {
-          toast({
-            message: result.error || 'Failed to update game',
+          pushToast({
+            title: result.error || 'Failed to update game',
             tone: 'danger',
           });
         }
       } catch {
-        toast({
-          message: 'An unexpected error occurred',
+        pushToast({
+          title: 'An unexpected error occurred',
           tone: 'danger',
         });
       }
