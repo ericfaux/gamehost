@@ -15,7 +15,7 @@ interface StepSearchProps {
 }
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20];
-const QUICK_SELECT_SIZES = [2, 3, 4, 5, 6];
+const QUICK_SELECT_SIZES = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 export function StepSearch({ data, settings, onUpdate, onNext }: StepSearchProps) {
   const [errors, setErrors] = useState<{ date?: string; partySize?: string }>({});
