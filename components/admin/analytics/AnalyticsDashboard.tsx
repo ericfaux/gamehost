@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { Activity, Percent, Clock, Heart } from '@/components/icons';
+import { AnalyticsActionsDialog } from './AnalyticsActionsDialog';
 import type { AnalyticsSummary } from '@/lib/data/analytics';
 
 // ============================================================================
@@ -165,15 +167,33 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
     hiddenGems,
   } = data;
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogAction, setDialogAction] = useState<'promote' | 'retire' | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [selectedGameTitle, setSelectedGameTitle] = useState<string | null>(null);
+
   const maxPlayCount =
     topGames.length > 0 ? Math.max(...topGames.map((g) => g.playCount)) : 0;
 
   const handleRetire = (gameId: string, title: string) => {
-    console.log(`Retire action triggered for game: ${title} (${gameId})`);
+    setSelectedGameId(gameId);
+    setSelectedGameTitle(title);
+    setDialogAction('retire');
+    setDialogOpen(true);
   };
 
   const handlePromote = (gameId: string, title: string) => {
-    console.log(`Promote action triggered for game: ${title} (${gameId})`);
+    setSelectedGameId(gameId);
+    setSelectedGameTitle(title);
+    setDialogAction('promote');
+    setDialogOpen(true);
+  };
+
+  const handleDialogComplete = () => {
+    setDialogOpen(false);
+    setDialogAction(null);
+    setSelectedGameId(null);
+    setSelectedGameTitle(null);
   };
 
   return (
@@ -326,6 +346,16 @@ export function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
           </div>
         )}
       </div>
+
+      {/* Analytics Actions Dialog */}
+      <AnalyticsActionsDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        action={dialogAction}
+        gameId={selectedGameId}
+        gameTitle={selectedGameTitle}
+        onComplete={handleDialogComplete}
+      />
     </div>
   );
 }
