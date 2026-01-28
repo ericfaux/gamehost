@@ -5,7 +5,10 @@ import Image from "next/image";
 import { useState } from "react";
 import { Coins, Hourglass, Crown } from "@/components/icons/lucide-react";
 import { EarlyAccessForm } from "@/components/public/EarlyAccessForm";
+import { RequestAccessDialog } from "@/components/public/RequestAccessDialog";
 import { LandingFAQ } from "@/components/public/LandingFAQ";
+
+type RequestType = "demo" | "pilot" | "host_inquiry";
 
 const simulatorSteps = [
   {
@@ -24,10 +27,22 @@ const simulatorSteps = [
 
 export default function LandingPage() {
   const [turnStage, setTurnStage] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedRequestType, setSelectedRequestType] = useState<RequestType | null>(null);
   const currentStep = simulatorSteps[turnStage];
 
   const advanceTurn = () => {
     setTurnStage((prev) => (prev + 1) % simulatorSteps.length);
+  };
+
+  const handleOpenDialog = (type: RequestType) => {
+    setSelectedRequestType(type);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setSelectedRequestType(null);
   };
 
   return (
@@ -82,18 +97,18 @@ export default function LandingPage() {
               Maximize revenue per table with the first OS built for board game cafés. From <strong>smart bookings</strong> to <strong>instant game discovery</strong> and <strong>automated inventory tracking</strong>, GameLedger turns operational chaos into a seamless guest experience.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
-              <Link
-                href="/demo"
+              <button
+                onClick={() => handleOpenDialog("demo")}
                 className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-ink-primary text-card font-semibold shadow-floating transition-transform duration-300 hover:-translate-y-0.5 border border-ink-primary"
               >
                 Book a 15-minute demo
-              </Link>
-              <Link
-                href="/pilot"
+              </button>
+              <button
+                onClick={() => handleOpenDialog("pilot")}
                 className="inline-flex items-center justify-center px-6 py-3 rounded-full bg-accent text-card font-semibold shadow-floating border border-ink-primary/5 transition-all duration-300 hover:-translate-y-0.5"
               >
                 Start a pilot weekend
-              </Link>
+              </button>
             </div>
             <p className="text-sm text-ink-secondary max-w-2xl leading-relaxed">
               When guests pick games in 2 minutes instead of 20, they order more rounds. When staff aren&apos;t explaining rules, they&apos;re delivering hospitality. GameLedger is built to drive higher F&B spend and more return bookings.
@@ -559,18 +574,18 @@ export default function LandingPage() {
           We&apos;ll bring the playmat, the tokens, and a pilot checklist so your first weekend is effortless. Book a demo or request a pilot and we&apos;ll help you connect bookings to the QR experience.
         </p>
         <div className="flex flex-col sm:flex-row justify-center gap-4">
-          <Link
-            href="/pilot"
+          <button
+            onClick={() => handleOpenDialog("pilot")}
             className="px-6 py-3 rounded-full bg-accent text-card font-semibold shadow-floating border border-ink-primary/5 transition-transform duration-300 hover:-translate-y-0.5"
           >
             Request a pilot
-          </Link>
-          <Link
-            href="/contact"
+          </button>
+          <button
+            onClick={() => handleOpenDialog("host_inquiry")}
             className="px-6 py-3 rounded-full bg-accent text-card font-semibold shadow-floating border border-ink-primary/5 transition-transform duration-300 hover:-translate-y-0.5"
           >
             Talk to a host
-          </Link>
+          </button>
         </div>
         <div className="mt-10 flex flex-wrap justify-center gap-6 text-sm text-ink-secondary">
           <Link className="hover:text-ink-primary transition-colors" href="/docs">
@@ -590,6 +605,14 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+
+      {selectedRequestType && (
+        <RequestAccessDialog
+          open={dialogOpen}
+          onClose={handleCloseDialog}
+          requestType={selectedRequestType}
+        />
+      )}
     </main>
   );
 }
