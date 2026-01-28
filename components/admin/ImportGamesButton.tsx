@@ -391,14 +391,14 @@ export function ImportGamesButton() {
             </div>
 
             {gameCount > 50 && (
-              <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-300 dark:border-orange-800 rounded-lg p-3">
-                <p className="text-sm text-orange-900 dark:text-orange-200 font-medium">
+              <div className="bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg p-3">
+                <p className="text-sm text-gray-900 dark:text-gray-100 font-medium">
                   Large import detected ({gameCount} games)
                 </p>
-                <p className="text-xs text-orange-800 dark:text-orange-300 mt-1">
+                <p className="text-xs text-gray-900 dark:text-gray-100 mt-1">
                   Games will be imported immediately, then BGG data will be fetched in the background.
                   This may take approximately{' '}
-                  <strong>{Math.ceil(gameCount * 3 / 60)} minutes</strong>.
+                  <strong>{Math.ceil(gameCount * 3 / 60)} minutes</strong>, and could take up to 45 minutes for large uploads.
                   You can keep this page open while it runs.
                 </p>
               </div>
