@@ -670,8 +670,8 @@ export function SessionsClient({
                     {isBrowsing ? (
                       // Browsing state - no game selected yet
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Search className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-                        <p className="font-semibold text-yellow-700 dark:text-yellow-400">
+                        <Search className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                        <p className="font-semibold text-blue-700 dark:text-blue-400">
                           Browsing...
                         </p>
                         {stale && (

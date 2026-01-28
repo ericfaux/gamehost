@@ -728,10 +728,10 @@ export function TablesManager({
                             {/* Deactivation confirmation inline */}
                             {confirmDeactivate?.tableId === table.id && (
                               <div
-                                className="col-span-full px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800"
+                                className="col-span-full px-4 py-2 bg-rose-50 dark:bg-rose-900/20 border-t border-rose-200 dark:border-rose-800"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <p className="text-xs text-amber-800 dark:text-amber-200 mb-2">
+                                <p className="text-xs text-rose-800 dark:text-rose-200 mb-2">
                                   This table has {confirmDeactivate.bookingCount} upcoming booking{confirmDeactivate.bookingCount === 1 ? '' : 's'}.
                                   Deactivating will not cancel them.
                                 </p>
@@ -747,7 +747,7 @@ export function TablesManager({
                                     type="button"
                                     onClick={() => handleToggleTableActive(table, true)}
                                     disabled={togglingTableId === table.id}
-                                    className="px-2 py-1 text-xs font-medium rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50"
+                                    className="px-2 py-1 text-xs font-medium rounded bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-50"
                                   >
                                     {togglingTableId === table.id ? 'Deactivating...' : 'Deactivate anyway'}
                                   </button>
