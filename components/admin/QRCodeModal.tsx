@@ -13,6 +13,7 @@ interface QRCodeModalProps {
   tableLabel: string;
   venueName: string;
   venueSlug: string;
+  venueLogo?: string | null;
 }
 
 export function QRCodeModal({
@@ -22,6 +23,7 @@ export function QRCodeModal({
   tableLabel,
   venueName,
   venueSlug,
+  venueLogo,
 }: QRCodeModalProps) {
   const qrRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +43,11 @@ export function QRCodeModal({
 
     const svgElement = qrRef.current?.querySelector("svg");
     const svgString = svgElement?.outerHTML ?? "";
+
+    // Build logo HTML if available
+    const logoHtml = venueLogo
+      ? `<div class="logo-container"><img src="${venueLogo}" alt="Logo" class="logo-image" /></div>`
+      : "";
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -68,6 +75,18 @@ export function QRCodeModal({
               align-items: center;
               gap: 1.5rem;
               text-align: center;
+            }
+            .logo-container {
+              max-width: 200px;
+              max-height: 100px;
+              margin: 0 auto;
+            }
+            .logo-image {
+              width: 100%;
+              height: auto;
+              object-fit: contain;
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
             }
             .qr-code svg {
               width: 400px;
@@ -99,6 +118,7 @@ export function QRCodeModal({
         </head>
         <body>
           <div class="qr-container">
+            ${logoHtml}
             <div class="venue-name">${venueName}</div>
             <div class="table-label">${tableLabel}</div>
             <div class="qr-code">${svgString}</div>
@@ -106,17 +126,35 @@ export function QRCodeModal({
           </div>
           <script>
             window.onload = function() {
-              setTimeout(function() {
-                window.print();
-                window.close();
-              }, 250);
+              // Wait for images to load before printing
+              const img = document.querySelector('.logo-image');
+              if (img && !img.complete) {
+                img.onload = function() {
+                  setTimeout(function() {
+                    window.print();
+                    window.close();
+                  }, 250);
+                };
+                img.onerror = function() {
+                  console.error('Logo image failed to load');
+                  setTimeout(function() {
+                    window.print();
+                    window.close();
+                  }, 250);
+                };
+              } else {
+                setTimeout(function() {
+                  window.print();
+                  window.close();
+                }, 250);
+              }
             };
           </script>
         </body>
       </html>
     `);
     printWindow.document.close();
-  }, [tableLabel, venueName]);
+  }, [tableLabel, venueName, venueLogo]);
 
   // Handle SVG download
   const handleDownloadSVG = useCallback(() => {

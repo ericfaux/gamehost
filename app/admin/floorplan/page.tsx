@@ -190,6 +190,7 @@ export default async function FloorPlanPage() {
           venueId={venue.id}
           venueName={venue.name}
           venueSlug={venue.slug}
+          venueLogo={venue.logo_url}
           initialZones={typedZones}
           initialTables={tables}
           initialTablesWithLayout={typedTablesWithLayout}

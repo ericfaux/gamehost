@@ -53,6 +53,7 @@ interface FloorPlanPageClientProps {
   venueId: string;
   venueName: string;
   venueSlug: string;
+  venueLogo: string | null;
   initialZones: VenueZone[];
   initialTables: VenueTable[];
   initialTablesWithLayout: VenueTableWithLayout[];
@@ -68,6 +69,7 @@ export function FloorPlanPageClient({
   venueId,
   venueName,
   venueSlug,
+  venueLogo,
   initialZones,
   initialTables,
   initialTablesWithLayout,
@@ -689,6 +691,7 @@ export function FloorPlanPageClient({
               venueId={venueId}
               venueName={venueName}
               venueSlug={venueSlug}
+              venueLogo={venueLogo}
               tablesWithLayout={initialTablesWithLayout}
               zones={initialZones}
               selectedTableId={selectedTableId}
@@ -881,6 +884,7 @@ export function FloorPlanPageClient({
             venueId={venueId}
             venueName={venueName}
             venueSlug={venueSlug}
+            venueLogo={venueLogo}
             tablesWithLayout={layoutState}
             zones={zones}
             selectedTableId={selectedTableId}

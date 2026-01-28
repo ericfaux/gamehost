@@ -19,6 +19,7 @@ interface TablesManagerProps {
   venueId: string;
   venueName: string;
   venueSlug: string;
+  venueLogo?: string | null;
   /** Optional: Tables with layout info for zone/position display */
   tablesWithLayout?: VenueTableWithLayout[];
   /** Optional: Zones for looking up zone names */
@@ -38,6 +39,7 @@ export function TablesManager({
   venueId,
   venueName,
   venueSlug,
+  venueLogo,
   tablesWithLayout,
   zones = [],
   selectedTableId,
@@ -884,6 +886,7 @@ export function TablesManager({
         tableLabel={qrTable?.label ?? ""}
         venueName={venueName}
         venueSlug={venueSlug}
+        venueLogo={venueLogo}
       />
     </>
   );
