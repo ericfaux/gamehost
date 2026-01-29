@@ -10,7 +10,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { getVenueAndTableBySlugAndTableId, getGameById } from '@/lib/data';
+import { getVenueAndTableBySlugAndTableId, getGameById, getActiveSession } from '@/lib/data';
 import { parseSetupSteps, parseRulesBullets } from '@/lib/games/formatters';
 import { ComplexityBadge, TagChip, GuestHeader } from '@/components/table-app';
 import { StartSessionButton } from './StartSessionButton';
@@ -33,10 +33,11 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
   const { venueSlug, tableId, gameId } = await params;
   const queryParams = await searchParams;
 
-  // Fetch venue, table, and game in parallel
-  const [venueTableResult, game] = await Promise.all([
+  // Fetch venue, table, game, and active session in parallel
+  const [venueTableResult, game, activeSession] = await Promise.all([
     getVenueAndTableBySlugAndTableId(venueSlug, tableId),
     getGameById(gameId),
+    getActiveSession(tableId),
   ]);
 
   // Handle missing data
@@ -79,6 +80,9 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
   }
 
   const { venue, table } = venueTableResult;
+
+  // Check if this game is already checked out in the active session
+  const isGameCheckedOut = activeSession?.game_id === gameId;
 
   // Parse setup steps and rules
   const setupSteps = parseSetupSteps(game.setup_steps);
@@ -290,6 +294,7 @@ export default async function GameDetailPage({ params, searchParams }: PageProps
             tableLabel={table.label}
             wizardParams={wizardParams}
             shelfLocation={game.shelf_location}
+            isGameCheckedOut={isGameCheckedOut}
           />
         </div>
       </div>

@@ -21,6 +21,8 @@ interface StartSessionButtonProps {
   wizardParams?: unknown;
   /** Shelf location for finding the game */
   shelfLocation?: string | null;
+  /** Whether this game is already checked out in the current session */
+  isGameCheckedOut?: boolean;
 }
 
 type ButtonState = 'idle' | 'loading' | 'success' | 'error';
@@ -33,6 +35,7 @@ export function StartSessionButton({
   tableLabel,
   wizardParams,
   shelfLocation,
+  isGameCheckedOut,
 }: StartSessionButtonProps) {
   const [state, setState] = useState<ButtonState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -96,6 +99,20 @@ export function StartSessionButton({
           <span className="font-medium">{tableLabel}</span>. Have fun!
           <br />
           Redirecting you to your table...
+        </p>
+      </div>
+    );
+  }
+
+  // Already checked out state
+  if (isGameCheckedOut) {
+    return (
+      <div className="space-y-3">
+        <div className="w-full px-6 py-4 bg-[#e8f0e9] border border-[color:var(--color-success)]/20 text-[color:var(--color-success)] rounded-xl text-center font-semibold">
+          You checked out this game
+        </div>
+        <p className="text-xs text-[color:var(--color-ink-tertiary)] text-center">
+          Head back to your table to start playing!
         </p>
       </div>
     );

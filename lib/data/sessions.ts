@@ -245,6 +245,49 @@ export async function updateSessionGame(sessionId: string, gameId: string): Prom
 }
 
 /**
+ * Clears the game from an active session, returning it to browsing state.
+ * Sets game_id to null while keeping the session active.
+ *
+ * @param sessionId - The session ID to update
+ * @returns The updated session
+ * @throws Error if session not found or already ended
+ */
+export async function clearGameFromSession(sessionId: string): Promise<Session> {
+  const supabase = getSupabaseAdmin();
+
+  // Verify session exists and is active (not ended)
+  const { data: existingSession, error: sessionError } = await supabase
+    .from('sessions')
+    .select('id, ended_at')
+    .eq('id', sessionId)
+    .single();
+
+  if (sessionError || !existingSession) {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
+
+  if (existingSession.ended_at) {
+    throw new Error(`Session has already ended: ${sessionId}`);
+  }
+
+  // Update the session to clear the game
+  const { data: session, error: updateError } = await supabase
+    .from('sessions')
+    .update({
+      game_id: null,
+    })
+    .eq('id', sessionId)
+    .select(SESSION_COLUMNS)
+    .single();
+
+  if (updateError) {
+    throw new Error(`Failed to clear game from session: ${updateError.message}`);
+  }
+
+  return session as Session;
+}
+
+/**
  * Gets the active session ID for a table, if one exists.
  * An active session is one where ended_at is NULL.
  *

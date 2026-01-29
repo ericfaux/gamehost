@@ -22,6 +22,7 @@ import {
 } from '@/lib/data';
 import { StartSessionButton } from './StartSessionButton';
 import { EndSessionButton } from './EndSessionButton';
+import { FindADifferentGameButton } from './FindADifferentGameButton';
 import { QuickPickCard } from '@/components/table-app';
 
 interface PageProps {
@@ -261,25 +262,10 @@ export default async function TableLandingPage({ params }: PageProps) {
 
             {/* Switch game option */}
             <div className="space-y-3">
-              <Link
-                href={`/v/${venueSlug}/t/${tableId}/wizard`}
-                className="inline-flex items-center justify-center w-full px-6 py-4 text-lg font-semibold text-[color:var(--color-surface)] bg-[color:var(--color-ink-primary)] hover:opacity-90 active:opacity-80 rounded-xl shadow-[var(--shadow-token)] transition-all hover:-translate-y-0.5 focus-ring"
-              >
-                Find a different game
-                <svg
-                  className="w-5 h-5 ml-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7l5 5m0 0l-5 5m5-5H6"
-                  />
-                </svg>
-              </Link>
+              <FindADifferentGameButton
+                venueSlug={venueSlug}
+                tableId={tableId}
+              />
 
               <EndSessionButton
                 venueSlug={venueSlug}
