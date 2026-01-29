@@ -446,9 +446,9 @@ function generateFeedbackAlerts(
 ): Alert[] {
   const alerts: Alert[] = [];
 
-  // Aggregate negative game feedback
+  // Aggregate negative game feedback (1-5 scale: <= 2 is negative)
   const negativeGameFeedback = negativeFeedback.filter(
-    (f) => f.feedback_rating !== null && f.feedback_rating < 3
+    (f) => f.feedback_rating !== null && f.feedback_rating <= 2
   );
 
   if (negativeGameFeedback.length > 0) {
@@ -480,9 +480,9 @@ function generateFeedbackAlerts(
     });
   }
 
-  // Aggregate negative venue feedback
+  // Aggregate negative venue feedback (1-5 scale: <= 2 is negative)
   const negativeVenueFeedback = negativeFeedback.filter(
-    (f) => f.feedback_venue_rating !== null && f.feedback_venue_rating < 3
+    (f) => f.feedback_venue_rating !== null && f.feedback_venue_rating <= 2
   );
 
   if (negativeVenueFeedback.length > 0) {

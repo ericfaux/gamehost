@@ -362,10 +362,10 @@ export async function getFeedbackStats(
       gameRatingSum += gameRating;
       gameRatingCount++;
 
-      // Sentiment buckets based on game rating
-      if (gameRating === 5) positiveCount++;
+      // Sentiment buckets based on game rating (1-5 scale)
+      if (gameRating >= 4) positiveCount++;
       else if (gameRating === 3) neutralCount++;
-      else if (gameRating === 1) negativeCount++;
+      else if (gameRating <= 2) negativeCount++;
     }
 
     // Venue rating stats
@@ -373,6 +373,11 @@ export async function getFeedbackStats(
     if (venueRating !== null) {
       venueRatingSum += venueRating;
       venueRatingCount++;
+
+      // Sentiment buckets based on venue rating (1-5 scale)
+      if (venueRating >= 4) positiveCount++;
+      else if (venueRating === 3) neutralCount++;
+      else if (venueRating <= 2) negativeCount++;
     }
 
     // Comment counts
