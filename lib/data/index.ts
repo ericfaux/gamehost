@@ -48,6 +48,7 @@ export {
 export {
   createSession,
   updateSessionGame,
+  clearGameFromSession,
   getActiveSessionId,
   getActiveSession,
   getSessionById,

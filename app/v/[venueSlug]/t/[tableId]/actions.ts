@@ -13,6 +13,8 @@ import {
   sanitizeActiveSessionsForTable,
   endAllActiveSessionsForTable,
   submitFeedbackAndEndSession,
+  getActiveSession,
+  clearGameFromSession,
   type FeedbackComplexity,
   type FeedbackReplay,
 } from '@/lib/data';
@@ -26,6 +28,11 @@ export interface StartCheckInResult {
 }
 
 export interface EndSessionResult {
+  success: boolean;
+  error?: string;
+}
+
+export interface ClearGameResult {
   success: boolean;
   error?: string;
 }
@@ -141,6 +148,48 @@ export async function endSession(
 
     const message =
       error instanceof Error ? error.message : 'Failed to end session. Please try again.';
+
+    return {
+      success: false,
+      error: message,
+    };
+  }
+}
+
+/**
+ * Server action to clear the game from the active session.
+ * Returns the session to browsing state without ending it.
+ * Used when guest clicks "Find a Different Game" to return to the options screen.
+ */
+export async function clearGameFromSessionAction(
+  venueSlug: string,
+  tableId: string
+): Promise<ClearGameResult> {
+  try {
+    // Get the active session for this table
+    const activeSession = await getActiveSession(tableId);
+
+    if (!activeSession) {
+      return {
+        success: false,
+        error: 'No active session found',
+      };
+    }
+
+    // Clear the game from the session
+    await clearGameFromSession(activeSession.id);
+
+    // Revalidate the page to reflect the new state
+    revalidatePath(`/v/${venueSlug}/t/${tableId}`);
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error('Error clearing game from session:', error);
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to clear game. Please try again.';
 
     return {
       success: false,
