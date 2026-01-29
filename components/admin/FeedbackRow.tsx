@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { FeedbackHistoryRow } from '@/lib/db/types';
-import { ChevronDown, ThumbsUp, Meh, ThumbsDown, Gamepad2, Heart } from '@/components/icons';
+import { ChevronDown, Star, Gamepad2, Heart } from '@/components/icons';
 import { TokenChip } from '@/components/AppShell';
 import { formatDistanceToNow, format, differenceInMinutes } from 'date-fns';
 
@@ -15,21 +15,24 @@ function RatingBadge({ rating, type }: { rating: number | null; type?: 'game' | 
     return <span className="text-sm text-ink-secondary">—</span>;
   }
 
-  const config = {
-    5: { icon: ThumbsUp, color: 'text-[color:var(--color-success)]', bg: 'bg-green-50' },
-    3: { icon: Meh, color: 'text-[color:var(--color-warn)]', bg: 'bg-amber-50' },
-    1: { icon: ThumbsDown, color: 'text-[color:var(--color-danger)]', bg: 'bg-red-50' },
-  }[rating] || { icon: Meh, color: 'text-ink-secondary', bg: 'bg-muted' };
+  // 5-star rating config (1=Poor to 5=Excellent)
+  const config: Record<number, { color: string; bg: string; label: string }> = {
+    5: { color: 'text-green-600', bg: 'bg-green-50', label: 'Excellent' },
+    4: { color: 'text-lime-600', bg: 'bg-lime-50', label: 'Good' },
+    3: { color: 'text-yellow-600', bg: 'bg-yellow-50', label: 'Average' },
+    2: { color: 'text-orange-600', bg: 'bg-orange-50', label: 'Fair' },
+    1: { color: 'text-red-600', bg: 'bg-red-50', label: 'Poor' },
+  };
 
-  const Icon = config.icon;
+  const ratingConfig = config[rating] || { color: 'text-ink-secondary', bg: 'bg-muted', label: '—' };
   const typeIcon = type === 'game' ? Gamepad2 : type === 'venue' ? Heart : null;
   const TypeIcon = typeIcon;
 
   return (
-    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${config.bg}`}>
+    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${ratingConfig.bg}`}>
       {TypeIcon && <TypeIcon className={`h-3 w-3 ${type === 'game' ? 'text-blue-600' : 'text-pink-600'}`} />}
-      <Icon className={`h-3 w-3 ${config.color}`} />
-      <span className={`text-xs font-medium ${config.color}`}>{rating}</span>
+      <Star className={`h-3 w-3 ${ratingConfig.color}`} />
+      <span className={`text-xs font-medium ${ratingConfig.color}`}>{rating}</span>
     </div>
   );
 }

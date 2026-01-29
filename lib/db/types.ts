@@ -140,7 +140,7 @@ export interface Session {
   feedback_comment: string | null;
   feedback_submitted_at: string | null; // When feedback was submitted (not session end)
   // Venue feedback fields
-  feedback_venue_rating: number | null;
+  feedback_venue_rating: number | null; // 1-5 star rating (1=Poor, 2=Fair, 3=Average, 4=Good, 5=Excellent)
   feedback_venue_comment: string | null;
   // Feedback metadata
   feedback_skipped: boolean;
@@ -303,12 +303,12 @@ export interface FeedbackHistoryRow {
   tableId: string | null;
   tableLabel: string | null;
   // Game feedback
-  gameRating: number | null;               // 1, 3, or 5
+  gameRating: number | null;               // 1-5 star rating
   complexity: FeedbackComplexity | null;
   replay: FeedbackReplay | null;
   comment: string | null;
   // Venue feedback
-  venueRating: number | null;              // 1, 3, or 5
+  venueRating: number | null;              // 1-5 star rating (1=Poor, 2=Fair, 3=Average, 4=Good, 5=Excellent)
   venueComment: string | null;
   // Meta
   source: FeedbackSource;
@@ -319,9 +319,9 @@ export interface FeedbackStats {
   totalResponses: number;
   avgGameRating: number | null;
   avgVenueRating: number | null;
-  positiveCount: number;      // rating = 5
+  positiveCount: number;      // rating >= 4
   neutralCount: number;       // rating = 3
-  negativeCount: number;      // rating = 1
+  negativeCount: number;      // rating <= 2
   commentCount: number;
   venueCommentCount: number;
 }

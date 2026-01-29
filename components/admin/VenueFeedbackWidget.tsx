@@ -11,19 +11,26 @@ interface VenueFeedbackWidgetProps {
 }
 
 /**
- * Get color class and quality description based on rating thresholds
+ * Get color class and quality description based on 5-star rating thresholds
+ * Scale: 1=Poor, 2=Fair, 3=Average, 4=Good, 5=Excellent
  */
 function getRatingInfo(rating: number | null): { colorClass: string; qualityText: string } {
   if (rating === null) {
     return { colorClass: 'text-[color:var(--color-ink-secondary)]', qualityText: 'no ratings yet' };
   }
-  if (rating >= 4.0) {
+  if (rating >= 4.5) {
     return { colorClass: 'text-green-600', qualityText: 'excellent' };
   }
-  if (rating >= 3.0) {
-    return { colorClass: 'text-yellow-600', qualityText: 'needs attention' };
+  if (rating >= 4.0) {
+    return { colorClass: 'text-lime-600', qualityText: 'very good' };
   }
-  return { colorClass: 'text-red-600', qualityText: 'needs improvement' };
+  if (rating >= 3.0) {
+    return { colorClass: 'text-yellow-600', qualityText: 'average' };
+  }
+  if (rating >= 2.0) {
+    return { colorClass: 'text-orange-600', qualityText: 'poor' };
+  }
+  return { colorClass: 'text-red-600', qualityText: 'very poor' };
 }
 
 function formatRelativeTime(dateStr: string): string {

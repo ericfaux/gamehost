@@ -4,18 +4,18 @@
  * FeedbackSheet - Quick feedback modal shown at checkout.
  *
  * A low-friction feedback UI with:
- * - 3-option sentiment controls for game and venue ratings
+ * - 5-star rating controls for game and venue ratings
  * - Optional detail section (complexity, play again, comment)
  * - Skip button for one-tap dismissal
  * - Fast submission target: <= 15 seconds
  */
 
 import { useState } from 'react';
-import { ThumbsUp, ThumbsDown, Meh, X, ChevronDown, ChevronUp, Loader2, Gamepad2, Heart } from '@/components/icons';
+import { Star, X, ChevronDown, ChevronUp, Loader2, Gamepad2, Heart } from '@/components/icons';
 import type { FeedbackComplexity, FeedbackReplay } from '@/lib/db/types';
 
-// Sentiment value mapping: 👎 = 1, 😐 = 3, 👍 = 5
-type SentimentValue = 1 | 3 | 5 | null;
+// 5-star rating scale: 1=Poor, 2=Fair, 3=Average, 4=Good, 5=Excellent
+type StarRating = 1 | 2 | 3 | 4 | 5 | null;
 
 interface FeedbackSheetProps {
   isOpen: boolean;
@@ -26,43 +26,87 @@ interface FeedbackSheetProps {
 }
 
 export interface FeedbackData {
-  gameRating: SentimentValue;
-  venueRating: SentimentValue;
+  gameRating: StarRating;
+  venueRating: StarRating;
   complexity: FeedbackComplexity | null;
   replay: FeedbackReplay | null;
   gameComment: string | null;
   venueComment: string | null;
 }
 
-function SentimentButton({
-  selected,
-  onClick,
-  icon: Icon,
+// 5-star interactive rating component
+function StarRatingPicker({
+  value,
+  onChange,
   label,
-  color,
 }: {
-  value?: SentimentValue;
-  selected: boolean;
-  onClick: () => void;
-  icon: typeof ThumbsUp;
+  value: StarRating;
+  onChange: (rating: StarRating) => void;
   label: string;
-  color: string;
 }) {
+  const [hoveredRating, setHoveredRating] = useState<number | null>(null);
+
+  const getStarColor = (starNum: number, filled: boolean) => {
+    const isHovered = hoveredRating !== null && starNum <= hoveredRating;
+    const isFilled = value !== null && starNum <= value;
+    const isHoveredFilled = isHovered && starNum <= hoveredRating;
+
+    if (isHoveredFilled) {
+      if (hoveredRating >= 4) return 'text-amber-400';
+      if (hoveredRating === 3) return 'text-yellow-400';
+      return 'text-red-400';
+    }
+
+    if (isFilled) {
+      if (value >= 4) return 'text-amber-500';
+      if (value === 3) return 'text-yellow-500';
+      return 'text-red-500';
+    }
+
+    return 'text-[color:var(--color-structure)]';
+  };
+
+  const getRatingLabel = (rating: number | null) => {
+    if (rating === null) return label;
+    const labels: Record<number, string> = {
+      1: 'Poor',
+      2: 'Fair',
+      3: 'Average',
+      4: 'Good',
+      5: 'Excellent',
+    };
+    return labels[rating] || label;
+  };
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all ${
-        selected
-          ? `${color} border-current bg-current/10`
-          : 'border-[color:var(--color-structure)] text-[color:var(--color-ink-secondary)] hover:border-[color:var(--color-ink-secondary)]'
-      }`}
-      aria-pressed={selected}
-      aria-label={label}
-    >
-      <Icon className="h-7 w-7" />
-      <span className="text-xs font-medium">{label}</span>
-    </button>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-[color:var(--color-ink-primary)]">
+          {label}
+        </label>
+        {(value !== null || hoveredRating !== null) && (
+          <span className="text-xs font-medium text-[color:var(--color-accent)]">
+            {getRatingLabel(hoveredRating || value)}
+          </span>
+        )}
+      </div>
+      <div className="flex gap-2 p-4 rounded-xl bg-[color:var(--color-elevated)] border border-[color:var(--color-structure)] hover:border-[color:var(--color-ink-secondary)] transition-colors">
+        {[1, 2, 3, 4, 5].map((starNum) => (
+          <button
+            key={starNum}
+            type="button"
+            onClick={() => onChange(value === starNum ? null : (starNum as StarRating))}
+            onMouseEnter={() => setHoveredRating(starNum)}
+            onMouseLeave={() => setHoveredRating(null)}
+            className="flex-1 transition-transform hover:scale-110 active:scale-95"
+            aria-label={`Rate ${starNum} star${starNum !== 1 ? 's' : ''}`}
+            aria-pressed={value === starNum}
+          >
+            <Star className={`h-8 w-8 ${getStarColor(starNum, value !== null && starNum <= value)} transition-colors`} />
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -98,9 +142,9 @@ export function FeedbackSheet({
   onSkip,
   hasGame,
 }: FeedbackSheetProps) {
-  // State for ratings
-  const [gameRating, setGameRating] = useState<SentimentValue>(null);
-  const [venueRating, setVenueRating] = useState<SentimentValue>(null);
+  // State for ratings (5-star scale)
+  const [gameRating, setGameRating] = useState<StarRating>(null);
+  const [venueRating, setVenueRating] = useState<StarRating>(null);
 
   // State for optional details
   const [showDetails, setShowDetails] = useState(false);
@@ -189,32 +233,11 @@ export function FeedbackSheet({
                   About the Game
                 </label>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <SentimentButton
-                  value={1}
-                  selected={gameRating === 1}
-                  onClick={() => setGameRating(gameRating === 1 ? null : 1)}
-                  icon={ThumbsDown}
-                  label="Not great"
-                  color="text-[color:var(--color-danger)]"
-                />
-                <SentimentButton
-                  value={3}
-                  selected={gameRating === 3}
-                  onClick={() => setGameRating(gameRating === 3 ? null : 3)}
-                  icon={Meh}
-                  label="It's okay"
-                  color="text-[color:var(--color-warning)]"
-                />
-                <SentimentButton
-                  value={5}
-                  selected={gameRating === 5}
-                  onClick={() => setGameRating(gameRating === 5 ? null : 5)}
-                  icon={ThumbsUp}
-                  label="Loved it!"
-                  color="text-[color:var(--color-success)]"
-                />
-              </div>
+              <StarRatingPicker
+                value={gameRating}
+                onChange={setGameRating}
+                label="How did you enjoy this game?"
+              />
             </div>
           )}
 
@@ -229,32 +252,11 @@ export function FeedbackSheet({
                 About Your Visit
               </label>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <SentimentButton
-                value={1}
-                selected={venueRating === 1}
-                onClick={() => setVenueRating(venueRating === 1 ? null : 1)}
-                icon={ThumbsDown}
-                label="Not great"
-                color="text-[color:var(--color-danger)]"
-              />
-              <SentimentButton
-                value={3}
-                selected={venueRating === 3}
-                onClick={() => setVenueRating(venueRating === 3 ? null : 3)}
-                icon={Meh}
-                label="It's okay"
-                color="text-[color:var(--color-warning)]"
-              />
-              <SentimentButton
-                value={5}
-                selected={venueRating === 5}
-                onClick={() => setVenueRating(venueRating === 5 ? null : 5)}
-                icon={ThumbsUp}
-                label="Great!"
-                color="text-[color:var(--color-success)]"
-              />
-            </div>
+            <StarRatingPicker
+              value={venueRating}
+              onChange={setVenueRating}
+              label="How was your overall experience?"
+            />
           </div>
 
           {/* Add detail toggle - only show if game exists */}
